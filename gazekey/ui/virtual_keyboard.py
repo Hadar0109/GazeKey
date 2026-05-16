@@ -6,9 +6,16 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QApplication, QSizePolicy,
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont
 from gazekey.ui.camera_preview_window import CameraPreviewWindow
+from gazekey.ui.calibration_overlay import CalibrationOverlay
+from gazekey.calibration import (
+    TrackingBridge,
+    CalibrationStore,
+    average_iris_pixels,
+    compute_calibration_targets,
+)
 
 
 class VirtualKeyboard(QWidget):
@@ -22,9 +29,18 @@ class VirtualKeyboard(QWidget):
         self.letter_keys = {}  # Store references to letter buttons for shift toggle
         self.is_expanded = True  # Track zoom state
         self.current_layout = 'letters'  # Track current layout: 'letters' or 'symbols'
-        self.tracking_manager = None  # Will be initialized when calibrate is clicked
-        self.camera_preview_window = None  # Separate camera preview window
+        self.tracking_manager = None
+        self.camera_preview_window = None
+        self._tracking_bridge = TrackingBridge()
+        self._tracking_bridge.eye_data_received.connect(self._on_eye_data_main_thread)
+        self._calibration_store = CalibrationStore()
+        self._gaze_mapper = None  # AffineGazeMapper when calibrated
+        self._calibration_overlay: CalibrationOverlay | None = None
+        self._is_calibrating = False
+        self._locked_frame_size = None
+        self._gaze_log_counter = 0
         self.init_ui()
+        self._init_calibration_on_startup()
         
     def init_ui(self):
         """Initialize the user interface"""
@@ -448,168 +464,189 @@ class VirtualKeyboard(QWidget):
         print(f"Key pressed: {key}")
     
     def on_calibrate_clicked(self):
-        """Handle calibrate button click - start eye tracking"""
+        """Rerun full 5-point calibration from scratch."""
+        self._gaze_mapper = None
+        self._calibration_store.clear()
+        if not self._ensure_tracking_started():
+            return
+        self._start_calibration()
+
+    def _init_calibration_on_startup(self) -> None:
+        stored = self._calibration_store.load()
+        if stored is not None:
+            self._gaze_mapper = stored.mapper
+            self._ensure_tracking_started()
+        else:
+            QTimer.singleShot(0, self._start_first_run_calibration)
+
+    def _start_first_run_calibration(self) -> None:
+        if not self._ensure_tracking_started():
+            return
+        self._start_calibration()
+
+    def _ensure_tracking_started(self) -> bool:
         if not self.tracking_manager:
-            # Initialize tracking system
             from gazekey.tracking.tracking_manager import TrackingManager
             self.tracking_manager = TrackingManager(camera_id=0)
-        
-        # Start or stop tracking
-        if not self.tracking_manager.is_tracking:
-            # Start tracking
-            success = self.tracking_manager.start_tracking(callback=self.on_eye_data_received)
-            if success:
-                # Update button to STOP
-                self.calibrate_btn.setText("👁 STOP")
-                self.calibrate_btn.setStyleSheet("""
-                    QPushButton {
-                        background-color: #E63946;
-                        color: white;
-                        border: none;
-                        border-radius: 8px;
-                        padding: 8px;
-                    }
-                    QPushButton:hover {
-                        background-color: #F64956;
-                    }
-                    QPushButton:pressed {
-                        background-color: #D62936;
-                    }
-                """)
-                
-                # Update status label
-                self.camera_status_label.setText("📷 Camera: Connected ✓")
-                self.camera_status_label.setStyleSheet("""
-                    QLabel {
-                        color: #10B981;
-                        padding: 5px;
-                        font-weight: bold;
-                    }
-                """)
-                
-                # Show camera preview window
-                if not self.camera_preview_window:
-                    self.camera_preview_window = CameraPreviewWindow()
-                self.camera_preview_window.show()
-                
-                print("Eye tracking started successfully")
-                print("Look at the camera - you should see iris positions in console and preview window")
-            else:
-                # Failed to start
-                self.camera_status_label.setText("📷 Camera: ERROR ✗")
-                self.camera_status_label.setStyleSheet("""
-                    QLabel {
-                        color: #E63946;
-                        padding: 5px;
-                        font-weight: bold;
-                    }
-                """)
-                print("Failed to start eye tracking - check camera permissions or if another app is using the camera")
-        else:
-            # Stop tracking
-            self.tracking_manager.stop_tracking()
-            
-            # Hide camera preview window
-            if self.camera_preview_window:
-                self.camera_preview_window.clear_preview()
-                self.camera_preview_window.hide()
-            
-            # Update button back to CALIBRATE
-            self.calibrate_btn.setText("👁 CALIBRATE")
-            self.calibrate_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #FF6B35;
-                    color: white;
-                    border: none;
-                    border-radius: 8px;
-                    padding: 8px;
-                }
-                QPushButton:hover {
-                    background-color: #FF8555;
-                }
-                QPushButton:pressed {
-                    background-color: #E55A25;
-                }
-            """)
-            
-            # Update status label
-            self.camera_status_label.setText("📷 Camera: Off")
+
+        if self.tracking_manager.is_tracking:
+            return True
+
+        success = self.tracking_manager.start_tracking(
+            callback=self._tracking_bridge.forward
+        )
+        if success:
+            self.camera_status_label.setText("📷 Camera: Connected ✓")
             self.camera_status_label.setStyleSheet("""
                 QLabel {
-                    color: #999999;
+                    color: #10B981;
                     padding: 5px;
+                    font-weight: bold;
                 }
             """)
-            
-            # Print statistics
-            stats = self.tracking_manager.get_statistics()
-            print(f"Tracking stopped. Stats: {stats}")
-    
-    def on_eye_data_received(self, eye_data):
-        """
-        Callback when eye data is received from tracking system
-        
-        Args:
-            eye_data: EyeData object with detected eye information
-        """
-        # Update camera preview window with latest frame
-        if self.tracking_manager and self.camera_preview_window:
+            print("Eye tracking started")
+        else:
+            self.camera_status_label.setText("📷 Camera: ERROR ✗")
+            self.camera_status_label.setStyleSheet("""
+                QLabel {
+                    color: #E63946;
+                    padding: 5px;
+                    font-weight: bold;
+                }
+            """)
+            print(
+                "Failed to start eye tracking - check camera permissions "
+                "or if another app is using the camera"
+            )
+        return success
+
+    def _get_frame_size(self) -> tuple[int, int]:
+        """Return (width, height) for iris pixel conversion."""
+        if self._locked_frame_size is not None:
+            return self._locked_frame_size
+        if self.tracking_manager:
             frame = self.tracking_manager.get_latest_frame()
             if frame is not None:
-                self.camera_preview_window.update_frame(frame)
-        
-        # Update status label with face detection info and statistics
+                h, w = frame.shape[:2]
+                return w, h
+        return 640, 480
+
+    def _lock_frame_size_for_calibration(self) -> tuple[int, int]:
+        """Freeze camera dimensions for consistent iris pixel scaling."""
+        w, h = self._get_frame_size()
+        self._locked_frame_size = (w, h)
+        return w, h
+
+    def _start_calibration(self) -> None:
+        if not self._ensure_tracking_started():
+            return
+
+        frame_w, frame_h = self._lock_frame_size_for_calibration()
+        screen = self._primary_screen_geometry()
+        local_targets = compute_calibration_targets(
+            0, 0, screen.width(), screen.height()
+        )
+        global_targets = [
+            (screen.x() + tx, screen.y() + ty) for tx, ty in local_targets
+        ]
+
+        if self._calibration_overlay is not None:
+            self._calibration_overlay.close()
+            self._calibration_overlay = None
+
+        self._is_calibrating = True
+
+        self._calibration_overlay = CalibrationOverlay(
+            dot_targets=local_targets,
+            screen_targets=global_targets,
+            frame_w=frame_w,
+            frame_h=frame_h,
+            on_finished=self._on_calibration_finished,
+        )
+        self._calibration_overlay.show()
+        self._calibration_overlay.raise_()
+        self._calibration_overlay.activateWindow()
+
+    def _on_calibration_finished(self, result) -> None:
+        self._is_calibrating = False
+        self._calibration_overlay = None
+        self._locked_frame_size = None
+
+        if result.success and result.mapper is not None:
+            self._gaze_mapper = result.mapper
+            self._calibration_store.save(
+                result.mapper,
+                result.screen_targets,
+                result.iris_means,
+            )
+            self.camera_status_label.setText("📷 Calibration saved ✓")
+            self.camera_status_label.setStyleSheet("""
+                QLabel {
+                    color: #10B981;
+                    padding: 5px;
+                    font-weight: bold;
+                }
+            """)
+            print(result.message)
+            print(
+                "Gaze tracking is active. Screen position logs print every 30 frames "
+                "(about once per second)."
+            )
+        else:
+            print(f"Calibration failed: {result.message}")
+
+    def _on_eye_data_main_thread(self, eye_data):
+        """Main-thread handler for eye data (via TrackingBridge signal)."""
+        if self.tracking_manager and self.camera_preview_window:
+            if self.camera_preview_window.isVisible():
+                frame = self.tracking_manager.get_latest_frame()
+                if frame is not None:
+                    self.camera_preview_window.update_frame(frame)
+
         if self.tracking_manager:
             stats = self.tracking_manager.get_statistics()
-            detection_rate = stats['detection_rate']
-            
+            detection_rate = stats["detection_rate"]
+
             if eye_data.face_detected:
                 if eye_data.left_iris_center and eye_data.right_iris_center:
-                    # Both eyes and irises detected
-                    self.camera_status_label.setText(
-                        f"📷 Connected ✓ | 👁 Eyes Tracked | Detection: {detection_rate}"
-                    )
-                    self.camera_status_label.setStyleSheet("""
-                        QLabel {
-                            color: #10B981;
-                            padding: 5px;
-                            font-weight: bold;
-                        }
-                    """)
+                    status = f"📷 Connected ✓ | 👁 Eyes | {detection_rate}"
+                    color = "#10B981"
                 else:
-                    # Face detected but iris not clear
-                    self.camera_status_label.setText(
-                        f"📷 Connected ✓ | 👤 Face Only | Detection: {detection_rate}"
-                    )
-                    self.camera_status_label.setStyleSheet("""
-                        QLabel {
-                            color: #FBBF24;
-                            padding: 5px;
-                            font-weight: bold;
-                        }
-                    """)
+                    status = f"📷 Connected ✓ | 👤 Face Only | {detection_rate}"
+                    color = "#FBBF24"
             else:
-                # No face detected
-                self.camera_status_label.setText(
-                    f"📷 Connected ✓ | 👁 No Face | Detection: {detection_rate}"
+                status = f"📷 Connected ✓ | No Face | {detection_rate}"
+                color = "#F59E0B"
+
+            if self._gaze_mapper is not None and not self._is_calibrating:
+                status = f"📷 Gaze active | {detection_rate}"
+
+            self.camera_status_label.setText(status)
+            self.camera_status_label.setStyleSheet(f"""
+                QLabel {{
+                    color: {color};
+                    padding: 5px;
+                    font-weight: bold;
+                }}
+            """)
+
+        frame_w, frame_h = self._get_frame_size()
+        gaze = average_iris_pixels(eye_data, frame_w, frame_h)
+        if gaze is None:
+            return
+
+        if self._is_calibrating and self._calibration_overlay is not None:
+            self._calibration_overlay.add_sample(gaze[0], gaze[1])
+            return
+
+        if self._gaze_mapper is not None:
+            sx, sy = self._gaze_mapper.map_point(gaze[0], gaze[1])
+            self._gaze_log_counter += 1
+            if self._gaze_log_counter % 30 == 0:
+                print(
+                    f"Gaze screen: ({sx:.1f}, {sy:.1f}) | "
+                    f"iris: ({gaze[0]:.1f}, {gaze[1]:.1f})"
                 )
-                self.camera_status_label.setStyleSheet("""
-                    QLabel {
-                        color: #F59E0B;
-                        padding: 5px;
-                    }
-                """)
-        
-        # Print iris positions every 30 frames to avoid console spam
-        if self.tracking_manager and self.tracking_manager.frame_count % 30 == 0:
-            if eye_data.left_iris_center and eye_data.right_iris_center:
-                print(f"[Frame {self.tracking_manager.frame_count}] Eyes tracked - "
-                      f"Left: ({eye_data.left_iris_center[0]:.2f}, {eye_data.left_iris_center[1]:.2f}) | "
-                      f"Right: ({eye_data.right_iris_center[0]:.2f}, {eye_data.right_iris_center[1]:.2f})")
-        
-        # FUTURE: This is where calibration will use the eye data
-        # - During calibration: collect gaze points at known screen positions
-        # - After calibration: map gaze to screen coordinates for key selection
     
     def on_close_clicked(self):
         """Handle close button click - properly exit the application"""

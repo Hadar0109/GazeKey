@@ -15,20 +15,31 @@ import time
 @dataclass
 class EyeData:
     """
-    Structured data representing detected eye information
-    
-    Attributes:
-        face_detected: Whether a face was found in the frame
-        left_iris_center: (x, y) normalized coordinates of left iris center
-        right_iris_center: (x, y) normalized coordinates of right iris center
-        left_eye_landmarks: List of normalized (x, y) coordinates for left eye region
-        right_eye_landmarks: List of normalized (x, y) coordinates for right eye region
+    Structured data representing detected eye information (subject-centric).
+
+    MediaPipe iris indices: 468 = subject's left eye, 473 = subject's right eye.
     """
     face_detected: bool
-    left_iris_center: Optional[Tuple[float, float]] = None
-    right_iris_center: Optional[Tuple[float, float]] = None
-    left_eye_landmarks: Optional[List[Tuple[float, float]]] = None
-    right_eye_landmarks: Optional[List[Tuple[float, float]]] = None
+    subject_left_iris_center: Optional[Tuple[float, float]] = None   # landmark 468
+    subject_right_iris_center: Optional[Tuple[float, float]] = None  # landmark 473
+    subject_left_eye_landmarks: Optional[List[Tuple[float, float]]] = None
+    subject_right_eye_landmarks: Optional[List[Tuple[float, float]]] = None
+
+    @property
+    def left_iris_center(self) -> Optional[Tuple[float, float]]:
+        return self.subject_left_iris_center
+
+    @property
+    def right_iris_center(self) -> Optional[Tuple[float, float]]:
+        return self.subject_right_iris_center
+
+    @property
+    def left_eye_landmarks(self) -> Optional[List[Tuple[float, float]]]:
+        return self.subject_left_eye_landmarks
+
+    @property
+    def right_eye_landmarks(self) -> Optional[List[Tuple[float, float]]]:
+        return self.subject_right_eye_landmarks
 
 
 class EyeDetector:
@@ -38,11 +49,13 @@ class EyeDetector:
     Uses MediaPipe Face Landmarker (new API) for facial landmark detection
     """
     
-    # MediaPipe landmark indices for eyes (full contours)
+    # MediaPipe landmark indices for eyes (full contours, subject-centric)
     LEFT_EYE_INDICES = [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246]
     RIGHT_EYE_INDICES = [362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384, 398]
-    LEFT_IRIS_INDICES = [468, 469, 470, 471, 472]
-    RIGHT_IRIS_INDICES = [473, 474, 475, 476, 477]
+    SUBJECT_LEFT_IRIS_INDICES = [468, 474, 475, 476, 477]
+    SUBJECT_RIGHT_IRIS_INDICES = [473, 469, 470, 471, 472]
+    SUBJECT_LEFT_IRIS_CENTER = 468
+    SUBJECT_RIGHT_IRIS_CENTER = 473
     
     def __init__(self, model_path: str = "models/face_landmarker.task"):
         """
@@ -117,42 +130,25 @@ class EyeDetector:
         Returns:
             EyeData: Extracted eye information
         """
-        # Extract left eye landmarks
-        left_eye = [(face_landmarks[i].x, face_landmarks[i].y) for i in self.LEFT_EYE_INDICES]
-        
-        # Extract right eye landmarks
-        right_eye = [(face_landmarks[i].x, face_landmarks[i].y) for i in self.RIGHT_EYE_INDICES]
-        
-        # Extract iris centers (average of iris landmarks)
-        left_iris = self._calculate_iris_center(face_landmarks, self.LEFT_IRIS_INDICES)
-        right_iris = self._calculate_iris_center(face_landmarks, self.RIGHT_IRIS_INDICES)
-        
+        subject_left_eye = [
+            (face_landmarks[i].x, face_landmarks[i].y) for i in self.LEFT_EYE_INDICES
+        ]
+        subject_right_eye = [
+            (face_landmarks[i].x, face_landmarks[i].y) for i in self.RIGHT_EYE_INDICES
+        ]
+
+        left_iris = face_landmarks[self.SUBJECT_LEFT_IRIS_CENTER]
+        right_iris = face_landmarks[self.SUBJECT_RIGHT_IRIS_CENTER]
+        subject_left_iris = (left_iris.x, left_iris.y)
+        subject_right_iris = (right_iris.x, right_iris.y)
+
         return EyeData(
             face_detected=True,
-            left_iris_center=left_iris,
-            right_iris_center=right_iris,
-            left_eye_landmarks=left_eye,
-            right_eye_landmarks=right_eye
+            subject_left_iris_center=subject_left_iris,
+            subject_right_iris_center=subject_right_iris,
+            subject_left_eye_landmarks=subject_left_eye,
+            subject_right_eye_landmarks=subject_right_eye,
         )
-    
-    def _calculate_iris_center(self, face_landmarks, iris_indices: List[int]) -> Tuple[float, float]:
-        """
-        Calculate iris center as average of iris landmark positions
-        
-        Args:
-            face_landmarks: MediaPipe landmarks list
-            iris_indices: List of landmark indices for iris
-        
-        Returns:
-            (x, y): Normalized iris center coordinates
-        """
-        iris_points = [(face_landmarks[i].x, face_landmarks[i].y) for i in iris_indices]
-        
-        # Calculate average position
-        avg_x = sum(p[0] for p in iris_points) / len(iris_points)
-        avg_y = sum(p[1] for p in iris_points) / len(iris_points)
-        
-        return (avg_x, avg_y)
     
     def close(self):
         """Cleanup MediaPipe resources"""
