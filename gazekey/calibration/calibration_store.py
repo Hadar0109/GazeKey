@@ -9,7 +9,7 @@ from typing import Any, List, Optional, Tuple
 from gazekey.calibration.affine_mapper import AffineGazeMapper
 from gazekey.calibration.gaze_mapper import GazeMapper, InterpolationGazeMapper
 
-CALIBRATION_VERSION = 3
+CALIBRATION_VERSION = 5
 DEFAULT_CALIBRATION_PATH = Path(__file__).resolve().parents[2] / "calibration_data.json"
 
 
@@ -24,17 +24,14 @@ class StoredCalibration:
 def _load_mapper(data: dict) -> Optional[GazeMapper]:
     model = data.get("model", "affine")
 
+    if model in ("quadratic", "normalized_affine", "separate_linear"):
+        print(f"Saved calibration uses legacy model '{model}'. Please recalibrate.")
+        return None
+
     if model == "interpolation" or "iris_points" in data:
         loaded = InterpolationGazeMapper.from_dict(data)
         if loaded is not None:
             return loaded
-
-    if model in ("quadratic", "normalized_affine", "separate_linear"):
-        print(
-            "Saved calibration is outdated. "
-            "Please click CALIBRATE and run calibration again."
-        )
-        return None
 
     matrix = data.get("matrix")
     if matrix and len(matrix) == 2 and len(matrix[0]) == 3:
@@ -64,8 +61,18 @@ class CalibrationStore:
             return None
 
         version = data.get("version", 1)
-        if version not in (1, 2, 3):
+        if version not in (1, 2, 3, 4, 5):
             print("Calibration file version mismatch.")
+            return None
+
+        model = data.get("model", "affine")
+        if (
+            version < CALIBRATION_VERSION
+            and (model == "interpolation" or "iris_points" in data)
+        ):
+            print(
+                "Saved calibration uses an outdated gaze model. Please recalibrate."
+            )
             return None
 
         screen_targets = [tuple(p) for p in data.get("screen_targets", [])]

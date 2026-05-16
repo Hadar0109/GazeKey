@@ -14,7 +14,11 @@ from gazekey.calibration.calibration_session import (
     compute_calibration_targets,
 )
 from gazekey.calibration.calibration_store import CalibrationStore, StoredCalibration
-from gazekey.calibration.gaze_features import average_iris_pixels, iris_span_across_points
+from gazekey.calibration.gaze_features import (
+    average_iris_pixels,
+    gaze_ratios,
+    iris_span_across_points,
+)
 from gazekey.calibration.tracking_bridge import TrackingBridge
 
 __all__ = [
@@ -28,6 +32,7 @@ __all__ = [
     "StoredCalibration",
     "TrackingBridge",
     "average_iris_pixels",
+    "gaze_ratios",
     "iris_span_across_points",
     "compute_calibration_targets",
     "COLLECT_MS",
