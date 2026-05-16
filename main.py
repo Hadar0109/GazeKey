@@ -18,7 +18,8 @@ def main():
     # Create and show virtual keyboard
     keyboard = VirtualKeyboard()
     keyboard.show()
-    
+    keyboard.on_app_started()
+
     print("GazeKey started!")
     print("- Click keys to test")
     print("- Drag the window to reposition")

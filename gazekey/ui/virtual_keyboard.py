@@ -2,11 +2,13 @@
 Virtual keyboard overlay window
 """
 
+import time
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QApplication, QSizePolicy, QLineEdit,
 )
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, QPoint
 from PySide6.QtGui import QFont
 from gazekey.ui.camera_preview_window import CameraPreviewWindow
 from gazekey.ui.calibration_overlay import CalibrationOverlay
@@ -22,6 +24,7 @@ from gazekey.typing import (
     action_from_button,
 )
 from gazekey.typing.gaze_smoother import GazeSmoother
+from gazekey.typing.gaze_ui_mapper import map_gaze_to_typing_ui
 
 
 class VirtualKeyboard(QWidget):
@@ -43,21 +46,18 @@ class VirtualKeyboard(QWidget):
         self._gaze_mapper = None  # AffineGazeMapper when calibrated
         self._calibration_overlay: CalibrationOverlay | None = None
         self._is_calibrating = False
+        self._needs_first_calibration = False
         self._locked_frame_size = None
-        self._latest_eye_data = None
         self._gaze_focused_button = None
         self._gaze_smoother = GazeSmoother(alpha=0.35)
+        self._last_tick_time = time.perf_counter()
         self.init_ui()
         self._text_buffer = TextBufferController(self.text_display)
         self._gaze_typing_controller = GazeTypingController(
-            self.keyboard_widget,
+            self.main_content_widget,
             on_focus_key=self._on_gaze_focus_key,
             on_activate_key=self._on_gaze_activate_key,
         )
-        self._gaze_typing_timer = QTimer(self)
-        self._gaze_typing_timer.setInterval(33)
-        self._gaze_typing_timer.timeout.connect(self._on_gaze_typing_tick)
-        self._gaze_typing_timer.start()
         self._init_calibration_on_startup()
         
     def init_ui(self):
@@ -124,6 +124,7 @@ class VirtualKeyboard(QWidget):
         
         # Calibrate button (prominent)
         self.calibrate_btn = QPushButton("👁 CALIBRATE")
+        self.calibrate_btn.setObjectName("gazeTarget")
         self.calibrate_btn.setMinimumSize(220, 56)
         self.calibrate_btn.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
         self.calibrate_btn.setStyleSheet("""
@@ -139,6 +140,12 @@ class VirtualKeyboard(QWidget):
             }
             QPushButton:pressed {
                 background-color: #E55A25;
+            }
+            QPushButton#gazeTarget[gazeFocused="true"] {
+                border: 2px solid #FBBF24;
+            }
+            QPushButton#gazeTarget[gazeDwelling="true"] {
+                border: 2px solid #10B981;
             }
         """)
         self.calibrate_btn.clicked.connect(self.on_calibrate_clicked)
@@ -375,9 +382,9 @@ class VirtualKeyboard(QWidget):
         """
 
     def _keyboard_row_layout(self):
-        """Create a zero-gap horizontal row for the key grid."""
+        """Horizontal row with a small gap so gaze hit boxes do not overlap."""
         row = QHBoxLayout()
-        row.setSpacing(0)
+        row.setSpacing(3)
         row.setContentsMargins(0, 0, 0, 0)
         return row
 
@@ -392,7 +399,7 @@ class VirtualKeyboard(QWidget):
         """Create the main QWERTY keyboard grid (4 rows, full-width stretch)."""
         self.letter_keys.clear()
         layout = QVBoxLayout()
-        layout.setSpacing(0)
+        layout.setSpacing(3)
         layout.setContentsMargins(0, 0, 0, 0)
 
         # Row 1: Q W E R T Y U I O P
@@ -449,7 +456,7 @@ class VirtualKeyboard(QWidget):
     def create_symbols_layout(self):
         """Create the symbols keyboard grid (same 4-row structure as letters)."""
         layout = QVBoxLayout()
-        layout.setSpacing(0)
+        layout.setSpacing(3)
         layout.setContentsMargins(0, 0, 0, 0)
 
         # Row 1: 1 2 3 4 5 6 7 8 9 0
@@ -522,15 +529,38 @@ class VirtualKeyboard(QWidget):
             return
         self._start_calibration()
 
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        if self._needs_first_calibration:
+            self._needs_first_calibration = False
+            QTimer.singleShot(0, self._start_calibration_if_needed)
+
+    def on_app_started(self) -> None:
+        """Called from main() after show(); backup for first-run calibration."""
+        if self._gaze_mapper is None and not self._is_calibrating:
+            if self._needs_first_calibration:
+                self._needs_first_calibration = False
+                QTimer.singleShot(0, self._start_calibration_if_needed)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if self._gaze_mapper is not None:
+            self._gaze_typing_controller.mark_keyboard_dirty()
+
     def _init_calibration_on_startup(self) -> None:
+        """Load saved calibration or schedule first-run calibration overlay."""
         stored = self._calibration_store.load()
         if stored is not None:
             self._gaze_mapper = stored.mapper
+            self._needs_first_calibration = False
             self._ensure_tracking_started()
-        else:
-            QTimer.singleShot(0, self._start_first_run_calibration)
+            return
+        self._needs_first_calibration = True
+        print("No valid calibration — starting calibration on launch.")
 
-    def _start_first_run_calibration(self) -> None:
+    def _start_calibration_if_needed(self) -> None:
+        if self._gaze_mapper is not None or self._is_calibrating:
+            return
         if not self._ensure_tracking_started():
             return
         self._start_calibration()
@@ -627,6 +657,8 @@ class VirtualKeyboard(QWidget):
         if result.success and result.mapper is not None:
             self._gaze_mapper = result.mapper
             self._gaze_smoother.reset()
+            self._gaze_typing_controller.mark_keyboard_dirty()
+            QTimer.singleShot(150, self._gaze_typing_controller.mark_keyboard_dirty)
             self._calibration_store.save(
                 result.mapper,
                 result.screen_targets,
@@ -647,7 +679,10 @@ class VirtualKeyboard(QWidget):
 
     def _on_eye_data_main_thread(self, eye_data):
         """Main-thread handler for eye data (via TrackingBridge signal)."""
-        self._latest_eye_data = eye_data
+        now = time.perf_counter()
+        dt = now - self._last_tick_time
+        self._last_tick_time = now
+
         if self.tracking_manager and self.camera_preview_window:
             if self.camera_preview_window.isVisible():
                 frame = self.tracking_manager.get_latest_frame()
@@ -682,10 +717,17 @@ class VirtualKeyboard(QWidget):
             """)
 
         if self._is_calibrating and self._calibration_overlay is not None:
-            frame_w, frame_h = self._get_frame_size()
             gaze = gaze_ratios(eye_data)
             if gaze is not None:
                 self._calibration_overlay.add_sample(gaze[0], gaze[1])
+            return
+
+        active = self._gaze_typing_active()
+        self._gaze_typing_controller.set_enabled(active)
+        if active:
+            self._process_gaze_typing(eye_data, dt)
+        else:
+            self._gaze_smoother.reset()
 
     def _gaze_typing_active(self) -> bool:
         return (
@@ -694,28 +736,22 @@ class VirtualKeyboard(QWidget):
             and self._gaze_mapper is not None
         )
 
-    def _on_gaze_typing_tick(self) -> None:
-        """Process gaze typing at ~30 FPS on the main thread."""
-        active = self._gaze_typing_active()
-        self._gaze_typing_controller.set_enabled(active)
-        if not active:
-            self._gaze_smoother.reset()
-            return
-
-        eye_data = self._latest_eye_data
-        if eye_data is None:
-            self._gaze_typing_controller.tick(None, None, 0.033)
-            return
-
-        frame_w, frame_h = self._get_frame_size()
+    def _process_gaze_typing(self, eye_data, dt: float) -> None:
+        """Map gaze to screen coords and advance dwell selection."""
         gaze = gaze_ratios(eye_data)
         if gaze is None:
-            self._gaze_typing_controller.tick(None, None, 0.033)
+            self._gaze_typing_controller.tick(None, None, dt)
             return
 
-        sx, sy = self._gaze_mapper.map_point(gaze[0], gaze[1])
+        sx, sy = map_gaze_to_typing_ui(
+            gaze[0],
+            gaze[1],
+            self._gaze_mapper,
+            self.keyboard_widget,
+            self.calibrate_btn,
+        )
         sx, sy = self._gaze_smoother.filter(sx, sy)
-        self._gaze_typing_controller.tick(sx, sy, 0.033)
+        self._gaze_typing_controller.tick(sx, sy, dt)
 
     def _on_gaze_focus_key(self, button, progress: float) -> None:
         if button is None:
@@ -731,6 +767,9 @@ class VirtualKeyboard(QWidget):
         self._set_key_gaze_style(button, focused, progress, dwelling=dwelling)
 
     def _on_gaze_activate_key(self, button) -> None:
+        if button is self.calibrate_btn:
+            self.on_calibrate_clicked()
+            return
         action = action_from_button(button)
         if action == "SHIFT":
             self.shift_btn.setChecked(not self.shift_btn.isChecked())
@@ -800,6 +839,7 @@ class VirtualKeyboard(QWidget):
         self.main_content_widget.show()
         self._apply_full_keyboard_geometry()
         self.is_expanded = True
+        self._gaze_typing_controller.mark_keyboard_dirty()
         print("Keyboard restored to full view")
     
     def on_symbols_clicked(self):
@@ -834,6 +874,7 @@ class VirtualKeyboard(QWidget):
         
         keyboard_layout.addLayout(new_layout)
         self.current_layout = layout_type
+        self._gaze_typing_controller.mark_keyboard_dirty()
     
     def clear_layout(self, layout):
         """Recursively clear a layout and its children"""

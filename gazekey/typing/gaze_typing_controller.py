@@ -37,8 +37,6 @@ class GazeTypingController:
         if not self._enabled:
             return
 
-        self._hit_tester.refresh()
-
         if screen_x is None or screen_y is None:
             state = self._dwell.update(None, dt)
             self._update_focus(None, state.progress)
@@ -53,6 +51,9 @@ class GazeTypingController:
         if state.should_activate and button is not None:
             self._on_activate_key(button)
 
+    def mark_keyboard_dirty(self) -> None:
+        self._hit_tester.mark_dirty()
+
     def clear_focus(self) -> None:
         self._dwell.reset()
         self._update_focus(None, 0.0)
@@ -62,9 +63,11 @@ class GazeTypingController:
         button: Optional[QPushButton],
         progress: float,
     ) -> None:
-        if button is self._focused_button and button is not None:
-            self._on_focus_key(button, progress)
+        if button is self._focused_button:
+            if button is not None:
+                self._on_focus_key(button, progress)
             return
         self._on_focus_key(self._focused_button, 0.0)
         self._focused_button = button
-        self._on_focus_key(button, progress)
+        if button is not None:
+            self._on_focus_key(button, progress)

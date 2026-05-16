@@ -51,20 +51,28 @@ def gaze_ratios(eye_data: EyeData) -> Optional[Tuple[float, float]]:
     if not eye_data.face_detected:
         return None
 
+    if eye_data.is_blinking:
+        return None
+
     left_iris = eye_data.left_iris_center
     right_iris = eye_data.right_iris_center
     left_eye = eye_data.left_eye_landmarks
     right_eye = eye_data.right_eye_landmarks
-    if left_iris is None or right_iris is None or left_eye is None or right_eye is None:
+
+    ratios: List[Tuple[float, float]] = []
+    if left_iris is not None and left_eye is not None:
+        left_ratio = _gaze_tracking_ratios_one(left_eye, left_iris)
+        if left_ratio is not None:
+            ratios.append(left_ratio)
+    if right_iris is not None and right_eye is not None:
+        right_ratio = _gaze_tracking_ratios_one(right_eye, right_iris)
+        if right_ratio is not None:
+            ratios.append(right_ratio)
+    if not ratios:
         return None
 
-    left_ratio = _gaze_tracking_ratios_one(left_eye, left_iris)
-    right_ratio = _gaze_tracking_ratios_one(right_eye, right_iris)
-    if left_ratio is None or right_ratio is None:
-        return None
-
-    h = (left_ratio[0] + right_ratio[0]) / 2.0
-    v = (left_ratio[1] + right_ratio[1]) / 2.0
+    h = sum(r[0] for r in ratios) / len(ratios)
+    v = sum(r[1] for r in ratios) / len(ratios)
     h = max(0.0, min(1.0, h))
     v = max(0.0, min(1.0, v))
     return h, v

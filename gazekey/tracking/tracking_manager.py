@@ -17,15 +17,18 @@ class TrackingManager:
     Coordinates VideoCapture and EyeDetector, runs tracking loop in background
     """
     
-    def __init__(self, camera_id: int = 0):
+    def __init__(self, camera_id: int = 0, target_fps: int = 30):
         """
         Initialize tracking manager
         
         Args:
             camera_id: Camera device ID (default 0)
+            target_fps: Target tracking loop rate (default 30)
         """
         self.video_capture = VideoCapture(camera_id)
         self.eye_detector = EyeDetector()
+        self.target_fps = target_fps
+        self._frame_interval = 1.0 / target_fps
         
         self.is_tracking = False
         self.tracking_thread: Optional[threading.Thread] = None
@@ -34,6 +37,7 @@ class TrackingManager:
         # Statistics
         self.frame_count = 0
         self.detection_count = 0
+        self._no_face_frames = 0
         
         # Timestamp tracking for MediaPipe
         self.start_time = time.time()
@@ -91,6 +95,7 @@ class TrackingManager:
         # Reset statistics
         self.frame_count = 0
         self.detection_count = 0
+        self._no_face_frames = 0
     
     def _tracking_loop(self):
         """
@@ -101,6 +106,8 @@ class TrackingManager:
         print("Tracking loop started")
         
         while self.is_tracking:
+            frame_start = time.perf_counter()
+
             # Get frame from camera
             frame = self.video_capture.get_frame()
             
@@ -122,6 +129,14 @@ class TrackingManager:
             self.frame_count += 1
             if eye_data.face_detected:
                 self.detection_count += 1
+                self._no_face_frames = 0
+            else:
+                self._no_face_frames += 1
+                if self._no_face_frames == 30:
+                    print(
+                        f"WARNING: No face detected for {self._no_face_frames} "
+                        "consecutive frames."
+                    )
             
             # Call callback if provided (always call, even if no face detected)
             if self.callback:
@@ -130,8 +145,8 @@ class TrackingManager:
                 except Exception as e:
                     print(f"Error in tracking callback: {e}")
             
-            # Brief pause to prevent CPU overload
-            time.sleep(0.001)
+            elapsed = time.perf_counter() - frame_start
+            time.sleep(max(0.0, self._frame_interval - elapsed))
         
         print("Tracking loop ended")
     

@@ -38,21 +38,20 @@ class DwellSelector:
         self._last_progress = 0.0
         self._cooldown_remaining = 0.0
         self._locked_key_id: Optional[int] = None
-        self._miss_frames = 0
+        self._miss_count = 0
 
     def update(self, target_id: Optional[int], dt: float) -> DwellState:
         self._cooldown_remaining = max(0.0, self._cooldown_remaining - dt)
 
         if target_id is None:
-            self._miss_frames += 1
-            if self._miss_frames >= self._miss_threshold:
+            self._miss_count += 1
+            if self._miss_count >= self._miss_threshold:
                 self._current_id = None
                 self._elapsed = 0.0
                 self._last_progress = 0.0
-                self._locked_key_id = None
             return DwellState(self._current_id, self._last_progress, False)
 
-        self._miss_frames = 0
+        self._miss_count = 0
 
         if self._locked_key_id is not None and target_id != self._locked_key_id:
             self._locked_key_id = None
@@ -87,4 +86,4 @@ class DwellSelector:
         self._last_progress = 0.0
         self._cooldown_remaining = 0.0
         self._locked_key_id = None
-        self._miss_frames = 0
+        self._miss_count = 0
