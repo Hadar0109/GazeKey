@@ -1,4 +1,4 @@
-"""Fullscreen 5-point calibration overlay."""
+"""Fullscreen calibration overlay."""
 
 from typing import Callable, List, Optional, Tuple
 
@@ -16,9 +16,8 @@ from PySide6.QtWidgets import (
 from gazekey.calibration.calibration_session import (
     CalibrationSession,
     CalibrationResult,
+    Phase,
     PREPARE_MS,
-    COLLECT_MS,
-    POINT_NAMES,
 )
 
 
@@ -97,10 +96,6 @@ class CalibrationOverlay(QWidget):
         self._prepare_timer = QTimer(self)
         self._prepare_timer.setSingleShot(True)
         self._prepare_timer.timeout.connect(self._start_collect)
-
-        self._collect_timer = QTimer(self)
-        self._collect_timer.setSingleShot(True)
-        self._collect_timer.timeout.connect(self._end_collect)
 
         self._success_close_timer = QTimer(self)
         self._success_close_timer.setSingleShot(True)
@@ -196,11 +191,33 @@ class CalibrationOverlay(QWidget):
                 self.dot_widget.set_target(*self._dot_targets[idx])
 
     def add_sample(self, iris_x: float, iris_y: float) -> None:
-        self._session.add_sample(iris_x, iris_y)
+        self.add_sample_dt(iris_x, iris_y, dt_ms=16.7)
+
+    def add_sample_dt(self, gaze_h: float, gaze_v: float, dt_ms: float) -> None:
+        """
+        Feed one gaze sample into calibration.
+
+        The session itself decides when a dot is "locked" and when collection
+        is complete (fixation-style lock-on + completion).
+        """
+        if self._result is not None or self._session.is_finished:
+            return
+
+        if self._session.phase != Phase.COLLECT:
+            return
+
+        result = self._session.process_sample(gaze_h, gaze_v, dt_ms=dt_ms)
+        if result is not None:
+            self._show_result(result)
+            return
+
+        # Point completed and we advanced to the next dot.
+        if self._session.phase == Phase.IDLE and not self._session.is_finished:
+            self._begin_current_point()
 
     def _begin_current_point(self) -> None:
         idx = self._session.point_index
-        if idx >= 5:
+        if idx >= self._session.point_count:
             return
 
         tx, ty = self._dot_targets[idx]
@@ -208,10 +225,11 @@ class CalibrationOverlay(QWidget):
         self.dot_widget.show()
         self.dot_widget.raise_()
 
-        name = POINT_NAMES[idx]
+        name = self._session.current_point_name()
         self.status_label.setStyleSheet("color: #CCCCCC; background: transparent;")
         self.status_label.setText(
-            f"Point {idx + 1} of 5 ({name})\nLook at the dot — keep your head still."
+            f"Point {idx + 1} of {self._session.point_count} ({name})\n"
+            "Look at the dot — keep your head still."
         )
 
         self._session.begin_prepare()
@@ -219,21 +237,12 @@ class CalibrationOverlay(QWidget):
 
     def _start_collect(self) -> None:
         self._session.begin_collect()
-        self._collect_timer.start(COLLECT_MS)
-
-    def _end_collect(self) -> None:
-        result = self._session.finish_collect()
-        if result is not None:
-            self._show_result(result)
-            return
-
-        self._begin_current_point()
+        # Collection completes when the session detects a stable fixation.
 
     def _show_result(self, result: CalibrationResult) -> None:
         self._result = result
         self.dot_widget.hide()
         self._prepare_timer.stop()
-        self._collect_timer.stop()
 
         if result.success:
             self.status_label.setStyleSheet("color: #10B981; background: transparent;")

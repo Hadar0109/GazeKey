@@ -1,4 +1,9 @@
-"""Validate that calibration samples reflect real gaze shifts toward each dot."""
+"""Validate that calibration samples reflect real gaze shifts toward each dot.
+
+Supports both:
+- 5-point: TL, TR, center, BL, BR
+- 9-point: 3x3 grid in row-major order
+"""
 
 from typing import List, Optional, Tuple
 
@@ -6,7 +11,7 @@ import numpy as np
 
 from gazekey.calibration.gaze_features import iris_span_across_points
 
-# Minimum gaze-ratio movement across all five dots (0–1 scale)
+# Minimum gaze-ratio movement across all dots (0–1 scale)
 MIN_GLOBAL_SPAN_X = 0.015
 MIN_GLOBAL_SPAN_Y = 0.015
 MIN_DIAGONAL_SPAN = 0.025
@@ -23,12 +28,26 @@ def _check_corner_ordering(gaze_means: List[Tuple[float, float]]) -> bool:
   True if left-side dots (TL, BL) differ from right-side (TR, BR) on horizontal
     and top dots (TL, TR) differ from bottom (BL, BR) on vertical — either polarity.
     """
-    gh = [p[0] for p in gaze_means]
-    gv = [p[1] for p in gaze_means]
-    left_h = (gh[0] + gh[3]) / 2.0
-    right_h = (gh[1] + gh[4]) / 2.0
-    top_v = (gv[0] + gv[1]) / 2.0
-    bottom_v = (gv[3] + gv[4]) / 2.0
+    if len(gaze_means) == 5:
+        # TL, TR, C, BL, BR
+        tl, tr, _, bl, br = gaze_means
+    elif len(gaze_means) == 9:
+        # 3x3 row-major:
+        # 0 TL, 2 TR, 6 BL, 8 BR
+        tl, tr, bl, br = gaze_means[0], gaze_means[2], gaze_means[6], gaze_means[8]
+    else:
+        # Fallback: approximate corners by extrema in ratio space.
+        xs = np.array([p[0] for p in gaze_means], dtype=np.float64)
+        ys = np.array([p[1] for p in gaze_means], dtype=np.float64)
+        tl = gaze_means[int(np.argmin(xs + ys))]
+        br = gaze_means[int(np.argmax(xs + ys))]
+        tr = gaze_means[int(np.argmax(xs - ys))]
+        bl = gaze_means[int(np.argmin(xs - ys))]
+
+    left_h = (tl[0] + bl[0]) / 2.0
+    right_h = (tr[0] + br[0]) / 2.0
+    top_v = (tl[1] + tr[1]) / 2.0
+    bottom_v = (bl[1] + br[1]) / 2.0
 
     h_sep = abs(left_h - right_h)
     v_sep = abs(top_v - bottom_v)
@@ -43,11 +62,9 @@ def _check_consecutive_shifts(
         dy = gaze_means[i][1] - gaze_means[i - 1][1]
         shift = float(np.hypot(dx, dy))
         if shift < MIN_CONSECUTIVE_SHIFT:
-            from gazekey.calibration.calibration_session import POINT_NAMES
-
             return (
-                f"Point {i + 1} ({POINT_NAMES[i]}): eyes did not move enough from the "
-                f"previous dot ({shift:.2f}). Look clearly at each white dot."
+                f"Point {i + 1}: eyes did not move enough from the previous dot "
+                f"({shift:.2f}). Look clearly at each white dot."
             )
     return None
 
@@ -61,10 +78,10 @@ def validate_calibration_gaze(
     Return an error message if calibration gaze data does not show real gaze changes.
     Return None if validation passes.
     """
-    del screen_targets, frame_w
+    del frame_w
 
-    if len(gaze_means) != 5:
-        return "Internal error: expected 5 calibration points."
+    if len(gaze_means) < 5 or len(gaze_means) != len(screen_targets):
+        return "Internal error: invalid calibration point count."
 
     span_x, span_y = iris_span_across_points(gaze_means)
     if span_x < MIN_GLOBAL_SPAN_X or span_y < MIN_GLOBAL_SPAN_Y:
@@ -75,7 +92,12 @@ def validate_calibration_gaze(
             "Look at each corner dot with your eyes only — keep your head still."
         )
 
-    tl, br = gaze_means[0], gaze_means[4]
+    if len(gaze_means) == 5:
+        tl, br = gaze_means[0], gaze_means[4]
+    elif len(gaze_means) == 9:
+        tl, br = gaze_means[0], gaze_means[8]
+    else:
+        tl, br = gaze_means[0], gaze_means[-1]
     diagonal = float(np.hypot(tl[0] - br[0], tl[1] - br[1]))
     if diagonal < MIN_DIAGONAL_SPAN:
         return (

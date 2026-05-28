@@ -12,8 +12,8 @@ This file is **architectural memory** for future agents. It captures how the sys
 ### Main goals
 - Provide a **transparent, always-on-top** keyboard overlay (PySide6/Qt).
 - Track gaze in real time on a background thread and feed UI safely.
-- Calibrate gaze-to-screen mapping robustly for typical laptop distances.
-- Support stable gaze selection via **hit testing + smoothing + dwell**.
+- (Not working well) Calibrate gaze-to-screen mapping robustly for typical laptop distances.
+- (Not working well) Support stable gaze selection via **hit testing + smoothing + dwell**.
 - (Not finished) Inject keystrokes into other apps (pynput planned; currently internal buffer only).
 
 ### Main technologies

@@ -77,7 +77,11 @@ class CalibrationStore:
 
         screen_targets = [tuple(p) for p in data.get("screen_targets", [])]
         iris_means = [tuple(p) for p in data.get("iris_means", [])]
-        if len(screen_targets) != 5 or len(iris_means) != 5:
+        if (
+            len(screen_targets) < 5
+            or len(iris_means) < 5
+            or len(screen_targets) != len(iris_means)
+        ):
             print("Invalid calibration point count.")
             return None
 

@@ -16,21 +16,22 @@ from gazekey.calibration.gaze_features import average_iris_pixels, gaze_ratios
 from gazekey.tracking.eye_detector import EyeData
 
 # Realistic gaze-ratio pattern (eye-relative, not camera pixels)
-_GAZE_TL_TR_CENTER_BL_BR = [
+_GAZE_3X3 = [
+    # row 1: TL, T, TR
     (0.38, 0.38),
+    (0.50, 0.38),
     (0.62, 0.38),
+    # row 2: L, C, R
+    (0.38, 0.50),
     (0.50, 0.50),
-    (0.40, 0.62),
-    (0.60, 0.63),
+    (0.62, 0.50),
+    # row 3: BL, B, BR
+    (0.38, 0.62),
+    (0.50, 0.62),
+    (0.62, 0.62),
 ]
 
-_GAZE_INTERP_POINTS = [
-    (0.36, 0.37),
-    (0.64, 0.37),
-    (0.50, 0.50),
-    (0.38, 0.63),
-    (0.62, 0.64),
-]
+_GAZE_INTERP_POINTS = list(_GAZE_3X3)
 
 
 def _eye_data_with_landmarks(
@@ -122,9 +123,13 @@ def test_validation_accepts_small_span():
     screen = compute_calibration_targets(0, 0, 1280, 720)
     gaze_means = [
         (0.48, 0.48),
+        (0.50, 0.48),
         (0.52, 0.48),
+        (0.48, 0.50),
         (0.50, 0.50),
+        (0.52, 0.50),
         (0.48, 0.52),
+        (0.50, 0.52),
         (0.52, 0.52),
     ]
     msg = validate_calibration_gaze(gaze_means, screen, 640.0)
@@ -135,7 +140,7 @@ def test_reject_static_gaze():
     """Same gaze ratio at all five dots should fail validation."""
     screen = compute_calibration_targets(0, 0, 1280, 720)
     static = (0.5, 0.5)
-    gaze_means = [static] * 5
+    gaze_means = [static] * 9
     msg = validate_calibration_gaze(gaze_means, screen, 640.0)
     assert msg is not None
     assert "barely moved" in msg or "did not match" in msg
@@ -143,7 +148,7 @@ def test_reject_static_gaze():
 
 def test_accept_realistic_gaze_pattern():
     screen = compute_calibration_targets(0, 0, 1280, 720)
-    gaze_means = list(_GAZE_TL_TR_CENTER_BL_BR)
+    gaze_means = list(_GAZE_3X3)
     msg = validate_calibration_gaze(gaze_means, screen, 640.0)
     assert msg is None
     result = fit_gaze_mapper(list(zip(gaze_means, screen)), 640, 480)

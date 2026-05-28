@@ -1,8 +1,18 @@
-"""5-point calibration session state machine."""
+"""5-point calibration session state machine.
 
+This module used to collect samples for a fixed wall-clock window per dot.
+That approach often produces bad fits when gaze is jittery.
+
+Now the session supports **fixation-style gating** (lock-on + completion),
+similar to how gaze-driven UIs (e.g. OptiKey) gate interactions:
+- wait for gaze to become stable (lock-on)
+- then collect stable samples (completion)
+"""
+
+from collections import deque
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import List, Optional, Tuple
+from typing import Deque, List, Optional, Tuple
 
 import numpy as np
 
@@ -13,13 +23,19 @@ from gazekey.calibration.calibration_validation import validate_calibration_gaze
 # Timing and validation thresholds
 PREPARE_MS = 2000
 COLLECT_MS = 2000
+
+# Fixation-style gating (lock-on + completion) used by the overlay.
+LOCK_ON_MS = 350
+COMPLETE_MS = 650
+POINT_TIMEOUT_MS = 8000
+
 MIN_SAMPLES = 20
 MAX_SPREAD_RATIO = 0.08
 MAX_FIT_RMS_PX = 100.0
 # After each dot (except the first), gaze ratio must shift vs previous dot mean
 MIN_SHIFT_FROM_PREVIOUS = 0.012
 
-POINT_NAMES = [
+POINT_NAMES_5 = [
     "top-left",
     "top-right",
     "center",
@@ -27,12 +43,36 @@ POINT_NAMES = [
     "bottom-right",
 ]
 
+POINT_NAMES_9 = [
+    "top-left",
+    "top",
+    "top-right",
+    "left",
+    "center",
+    "right",
+    "bottom-left",
+    "bottom",
+    "bottom-right",
+]
+
+
+def point_names_for_count(n: int) -> List[str]:
+    if n == 5:
+        return POINT_NAMES_5
+    if n == 9:
+        return POINT_NAMES_9
+    return [f"point-{i + 1}" for i in range(n)]
+
 
 class Phase(Enum):
     IDLE = auto()
     PREPARE = auto()
     COLLECT = auto()
     DONE = auto()
+
+class CollectState(Enum):
+    WAIT_LOCK = auto()
+    COLLECTING = auto()
 
 
 @dataclass
@@ -52,16 +92,12 @@ def compute_calibration_targets(
     screen_h: int,
     margin_ratio: float = 0.10,
 ) -> List[Tuple[float, float]]:
-    """Return 5 screen targets: TL, TR, center, BL, BR with safe margins."""
+    """Return 9 screen targets in a 3x3 grid with safe margins."""
     mx = screen_w * margin_ratio
     my = screen_h * margin_ratio
-    return [
-        (screen_x + mx, screen_y + my),
-        (screen_x + screen_w - mx, screen_y + my),
-        (screen_x + screen_w / 2.0, screen_y + screen_h / 2.0),
-        (screen_x + mx, screen_y + screen_h - my),
-        (screen_x + screen_w - mx, screen_y + screen_h - my),
-    ]
+    xs = [screen_x + mx, screen_x + screen_w / 2.0, screen_x + screen_w - mx]
+    ys = [screen_y + my, screen_y + screen_h / 2.0, screen_y + screen_h - my]
+    return [(x, y) for y in ys for x in xs]
 
 
 class CalibrationSession:
@@ -73,15 +109,21 @@ class CalibrationSession:
         frame_w: float = 640.0,
         frame_h: float = 480.0,
     ):
-        if len(screen_targets) != 5:
-            raise ValueError("Expected exactly 5 screen targets")
+        if len(screen_targets) < 5:
+            raise ValueError("Expected at least 5 screen targets")
         self.screen_targets = screen_targets
         self.frame_w = frame_w
         self.frame_h = frame_h
+        self.point_names = point_names_for_count(len(screen_targets))
         self._point_index = 0
         self._phase = Phase.IDLE
         self._current_samples: List[Tuple[float, float]] = []
         self._completed_iris_means: List[Tuple[float, float]] = []
+        self._collect_state = CollectState.WAIT_LOCK
+        self._elapsed_in_point_ms = 0.0
+        self._elapsed_collect_ms = 0.0
+        self._lock_window: Deque[Tuple[float, float]] = deque()
+        self._lock_window_ms = 0.0
 
     @property
     def point_index(self) -> int:
@@ -101,29 +143,112 @@ class CalibrationSession:
 
     @property
     def point_count(self) -> int:
-        return len(POINT_NAMES)
+        return len(self.screen_targets)
 
     def current_point_name(self) -> str:
-        return POINT_NAMES[self._point_index]
+        return self.point_names[self._point_index]
 
     def reset(self) -> None:
         self._point_index = 0
         self._phase = Phase.IDLE
         self._current_samples = []
         self._completed_iris_means = []
+        self._collect_state = CollectState.WAIT_LOCK
+        self._elapsed_in_point_ms = 0.0
+        self._elapsed_collect_ms = 0.0
+        self._lock_window.clear()
+        self._lock_window_ms = 0.0
 
     def begin_prepare(self) -> None:
         self._phase = Phase.PREPARE
         self._current_samples = []
+        self._collect_state = CollectState.WAIT_LOCK
+        self._elapsed_in_point_ms = 0.0
+        self._elapsed_collect_ms = 0.0
+        self._lock_window.clear()
+        self._lock_window_ms = 0.0
 
     def begin_collect(self) -> None:
         self._phase = Phase.COLLECT
         self._current_samples = []
+        self._collect_state = CollectState.WAIT_LOCK
+        self._elapsed_in_point_ms = 0.0
+        self._elapsed_collect_ms = 0.0
+        self._lock_window.clear()
+        self._lock_window_ms = 0.0
 
     def add_sample(self, gaze_h: float, gaze_v: float) -> None:
         if self._phase != Phase.COLLECT:
             return
         self._current_samples.append((gaze_h, gaze_v))
+
+    def process_sample(
+        self,
+        gaze_h: float,
+        gaze_v: float,
+        dt_ms: float,
+    ) -> Optional["CalibrationResult"]:
+        """
+        Fixation-gated sample ingestion used by the UI.
+
+        Returns a CalibrationResult only when calibration finishes (success/failure).
+        Otherwise returns None.
+        """
+        if self._phase != Phase.COLLECT:
+            return None
+
+        dt_ms_f = float(max(0.0, dt_ms))
+        self._elapsed_in_point_ms += dt_ms_f
+        if self._elapsed_in_point_ms > POINT_TIMEOUT_MS:
+            self._phase = Phase.DONE
+            idx = self._point_index + 1
+            name = self.point_names[self._point_index]
+            return CalibrationResult(
+                success=False,
+                message=(
+                    f"Point {idx} ({name}): timed out waiting for a stable gaze. "
+                    "Try again and keep your eyes still on the dot."
+                ),
+            )
+
+        sample = (float(gaze_h), float(gaze_v))
+
+        if self._collect_state == CollectState.WAIT_LOCK:
+            self._push_lock_window(sample, dt_ms=dt_ms_f)
+            if self._lock_window_ms >= LOCK_ON_MS and self._samples_are_stable(
+                list(self._lock_window)
+            ):
+                # Ensure gaze actually moved vs previous dot (avoid re-locking on old gaze).
+                mean_x = float(np.mean([s[0] for s in self._lock_window]))
+                mean_y = float(np.mean([s[1] for s in self._lock_window]))
+                if self._completed_iris_means:
+                    prev = self._completed_iris_means[-1]
+                    shift = float(np.hypot(mean_x - prev[0], mean_y - prev[1]))
+                    if shift < MIN_SHIFT_FROM_PREVIOUS:
+                        return None
+
+                self._collect_state = CollectState.COLLECTING
+                self._elapsed_collect_ms = 0.0
+                self._current_samples = list(self._lock_window)
+            return None
+
+        # COLLECTING
+        self._elapsed_collect_ms += dt_ms_f
+        self._current_samples.append(sample)
+
+        # If gaze becomes unstable, fall back to re-lock.
+        if not self._samples_are_stable(self._current_samples):
+            self._collect_state = CollectState.WAIT_LOCK
+            self._elapsed_collect_ms = 0.0
+            self._current_samples = []
+            self._lock_window.clear()
+            self._lock_window_ms = 0.0
+            return None
+
+        if self._elapsed_collect_ms >= COMPLETE_MS and len(self._current_samples) >= MIN_SAMPLES:
+            return self.finish_collect()
+
+        return None
 
     def finish_collect(self) -> Optional[CalibrationResult]:
         """Validate current point; advance or complete calibration."""
@@ -133,7 +258,7 @@ class CalibrationSession:
             return validation
 
         idx = self._point_index + 1
-        name = POINT_NAMES[self._point_index]
+        name = self.point_names[self._point_index]
         m = len(self._current_samples)
         filtered = self._filter_samples_iqr(self._current_samples)
         k = len(filtered)
@@ -155,16 +280,37 @@ class CalibrationSession:
 
         self._point_index += 1
         self._current_samples = []
+        self._collect_state = CollectState.WAIT_LOCK
+        self._elapsed_in_point_ms = 0.0
+        self._elapsed_collect_ms = 0.0
+        self._lock_window.clear()
+        self._lock_window_ms = 0.0
 
-        if self._point_index >= 5:
+        if self._point_index >= len(self.screen_targets):
             return self._finalize()
 
         self._phase = Phase.IDLE
         return None
 
+    def _push_lock_window(self, sample: Tuple[float, float], dt_ms: float) -> None:
+        self._lock_window.append(sample)
+        self._lock_window_ms += dt_ms
+        # Cap length to avoid unbounded growth (approx. 2s at 60fps).
+        while len(self._lock_window) > 120:
+            self._lock_window.popleft()
+
+    @staticmethod
+    def _samples_are_stable(samples: List[Tuple[float, float]]) -> bool:
+        if len(samples) < 6:
+            return True
+        xs = np.array([s[0] for s in samples], dtype=np.float64)
+        ys = np.array([s[1] for s in samples], dtype=np.float64)
+        spread = max(float(np.std(xs)), float(np.std(ys)))
+        return spread <= MAX_SPREAD_RATIO
+
     def _validate_current_point(self) -> Optional[CalibrationResult]:
         idx = self._point_index + 1
-        name = POINT_NAMES[self._point_index]
+        name = self.point_names[self._point_index]
         n = len(self._current_samples)
 
         if n < MIN_SAMPLES:
@@ -235,7 +381,7 @@ class CalibrationSession:
             for i, ((ix, iy), (sx, sy)) in enumerate(pairs):
                 mx, my = mapper.map_point(ix, iy)
                 err = float(np.hypot(mx - sx, my - sy))
-                lines.append(f"  {i + 1} ({POINT_NAMES[i]}): {err:.0f}px")
+                lines.append(f"  {i + 1}: {err:.0f}px")
         span_x, span_y = iris_span_across_points(iris_means)
         lines.append(
             f"Gaze range across dots: {span_x:.2f} horizontal, {span_y:.2f} vertical."

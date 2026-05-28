@@ -85,25 +85,38 @@ class VirtualKeyboard(QWidget):
             }
         """)
         
-        container_layout = QVBoxLayout(self.main_content_widget)
-        container_layout.setContentsMargins(0, 0, 0, 0)
-        container_layout.setSpacing(0)
+        self._container_layout = QVBoxLayout(self.main_content_widget)
+        self._container_layout.setContentsMargins(0, 0, 0, 0)
+        self._container_layout.setSpacing(0)
         
-        # Add control bar and keyboard
-        container_layout.addLayout(self.create_control_bar())
-        container_layout.addLayout(self.create_text_display())
-        
-        # Add suggestion bar (for future auto-complete)
-        container_layout.addLayout(self.create_suggestion_bar())
+        # Wrap top bars in widgets so we can enforce fixed heights.
+        self._control_bar_layout = self.create_control_bar()
+        self._control_bar_widget = QWidget()
+        self._control_bar_widget.setLayout(self._control_bar_layout)
+
+        self._text_display_layout = self.create_text_display()
+        self._text_display_widget = QWidget()
+        self._text_display_widget.setLayout(self._text_display_layout)
+
+        self._suggestion_bar_layout = self.create_suggestion_bar()
+        self._suggestion_bar_widget = QWidget()
+        self._suggestion_bar_widget.setLayout(self._suggestion_bar_layout)
+
+        self._container_layout.addWidget(self._control_bar_widget, 0)
+        self._container_layout.addWidget(self._text_display_widget, 0)
+        self._container_layout.addWidget(self._suggestion_bar_widget, 0)
         
         # Create keyboard layout widget (so we can hide/show it for zoom)
         self.keyboard_widget = QWidget()
         self.keyboard_widget.setStyleSheet("background-color: #000000;")
-        keyboard_layout = QVBoxLayout(self.keyboard_widget)
-        keyboard_layout.setContentsMargins(0, 0, 0, 0)
-        keyboard_layout.setSpacing(0)
-        keyboard_layout.addLayout(self.create_letters_layout())
-        container_layout.addWidget(self.keyboard_widget, 1)
+        self._keyboard_layout = QVBoxLayout(self.keyboard_widget)
+        self._keyboard_layout.setContentsMargins(0, 0, 0, 0)
+        self._keyboard_layout.setSpacing(0)
+        self._keyboard_layout.addLayout(self.create_letters_layout())
+        self._container_layout.addWidget(self.keyboard_widget, 1)
+
+        # Floating webcam preview window (bottom-right of screen).
+        # Created lazily when tracking starts.
         
         # Create minimized view (hidden initially)
         self.minimized_content_widget = self.create_minimized_view()
@@ -115,12 +128,13 @@ class VirtualKeyboard(QWidget):
         
         self.setLayout(main_layout)
         self.setStyleSheet("background-color: #000000;")
+        self._update_responsive_sizes()
         
     def create_control_bar(self):
         """Create the top control bar with calibrate, zoom, etc."""
         layout = QHBoxLayout()
         layout.setSpacing(8)
-        layout.setContentsMargins(8, 8, 8, 4)
+        layout.setContentsMargins(0, 0, 0, 0)
         
         # Calibrate button (prominent)
         self.calibrate_btn = QPushButton("👁 CALIBRATE")
@@ -243,12 +257,13 @@ class VirtualKeyboard(QWidget):
     def create_text_display(self):
         """Internal text buffer display for gaze/mouse typing."""
         layout = QHBoxLayout()
-        layout.setContentsMargins(8, 4, 8, 4)
+        layout.setContentsMargins(0, 0, 0, 0)
         self.text_display = QLineEdit()
         self.text_display.setPlaceholderText("Typed text appears here…")
         self.text_display.setReadOnly(True)
-        self.text_display.setMinimumHeight(44)
-        self.text_display.setFont(QFont("Segoe UI", 16))
+        # Keep readable but allow shrinking on small screens.
+        self.text_display.setMinimumHeight(34)
+        self.text_display.setFont(QFont("Segoe UI", 14))
         self.text_display.setStyleSheet("""
             QLineEdit {
                 background-color: #111111;
@@ -265,7 +280,7 @@ class VirtualKeyboard(QWidget):
         """Create the suggestion bar for future auto-complete (UI only)"""
         layout = QHBoxLayout()
         layout.setSpacing(0)
-        layout.setContentsMargins(8, 4, 8, 4)
+        layout.setContentsMargins(0, 0, 0, 0)
         
         # Store suggestion buttons for future updates
         self.suggestion_buttons = []
@@ -275,8 +290,10 @@ class VirtualKeyboard(QWidget):
         
         for suggestion in placeholder_suggestions:
             btn = QPushButton(suggestion)
-            btn.setMinimumHeight(52)
-            btn.setFont(QFont("Segoe UI", 20, QFont.Weight.Medium))
+            # Suggestion bar should never force the keyboard off-screen.
+            btn.setMinimumHeight(30)
+            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+            btn.setFont(QFont("Segoe UI", 14, QFont.Weight.Medium))
             btn.setStyleSheet("""
                 QPushButton {
                     background-color: #000000;
@@ -284,7 +301,7 @@ class VirtualKeyboard(QWidget):
                     border: 1px solid #333333;
                     border-radius: 0;
                     text-align: center;
-                    padding: 4px 12px;
+                    padding: 0px 10px;
                 }
                 QPushButton:hover {
                     background-color: #1A1A1A;
@@ -355,9 +372,10 @@ class VirtualKeyboard(QWidget):
                 color: #FFFFFF;
                 border: 1px solid #333333;
                 border-radius: 0;
-                padding: 0;
+                padding: 2px 4px;
                 margin: 0;
                 font-weight: 500;
+                text-align: center;
             }
             QPushButton#keyboardKey:hover {
                 background-color: #1A1A1A;
@@ -384,7 +402,7 @@ class VirtualKeyboard(QWidget):
     def _keyboard_row_layout(self):
         """Horizontal row with a small gap so gaze hit boxes do not overlap."""
         row = QHBoxLayout()
-        row.setSpacing(3)
+        row.setSpacing(int(getattr(self, "_key_gap_px", 3)))
         row.setContentsMargins(0, 0, 0, 0)
         return row
 
@@ -399,7 +417,7 @@ class VirtualKeyboard(QWidget):
         """Create the main QWERTY keyboard grid (4 rows, full-width stretch)."""
         self.letter_keys.clear()
         layout = QVBoxLayout()
-        layout.setSpacing(3)
+        layout.setSpacing(int(getattr(self, "_key_gap_px", 3)))
         layout.setContentsMargins(0, 0, 0, 0)
 
         # Row 1: Q W E R T Y U I O P
@@ -456,7 +474,7 @@ class VirtualKeyboard(QWidget):
     def create_symbols_layout(self):
         """Create the symbols keyboard grid (same 4-row structure as letters)."""
         layout = QVBoxLayout()
-        layout.setSpacing(3)
+        layout.setSpacing(int(getattr(self, "_key_gap_px", 3)))
         layout.setContentsMargins(0, 0, 0, 0)
 
         # Row 1: 1 2 3 4 5 6 7 8 9 0
@@ -498,8 +516,9 @@ class VirtualKeyboard(QWidget):
         btn = QPushButton(text)
         btn.setObjectName("keyboardKey")
         btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        btn.setMinimumHeight(48)
-        btn.setFont(QFont("Segoe UI", 22, QFont.Weight.Medium))
+        # Do not force a large min height; we scale keys to fit the window.
+        btn.setMinimumHeight(24)
+        btn.setFont(QFont("Segoe UI", 16, QFont.Weight.Medium))
         btn.setStyleSheet(self._keyboard_key_stylesheet())
 
         special_chars = [
@@ -544,6 +563,7 @@ class VirtualKeyboard(QWidget):
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
+        self._update_responsive_sizes()
         if self._gaze_mapper is not None:
             self._gaze_typing_controller.mark_keyboard_dirty()
 
@@ -684,10 +704,13 @@ class VirtualKeyboard(QWidget):
         self._last_tick_time = now
 
         if self.tracking_manager and self.camera_preview_window:
-            if self.camera_preview_window.isVisible():
-                frame = self.tracking_manager.get_latest_frame()
-                if frame is not None:
-                    self.camera_preview_window.update_frame(frame)
+            frame = self.tracking_manager.get_latest_frame()
+            if frame is not None:
+                self.camera_preview_window.update_frame(frame)
+
+        # Floating live preview in bottom-right of the screen.
+        if self.tracking_manager:
+            self._ensure_camera_preview()
 
         if self.tracking_manager:
             stats = self.tracking_manager.get_statistics()
@@ -719,7 +742,7 @@ class VirtualKeyboard(QWidget):
         if self._is_calibrating and self._calibration_overlay is not None:
             gaze = gaze_ratios(eye_data)
             if gaze is not None:
-                self._calibration_overlay.add_sample(gaze[0], gaze[1])
+                self._calibration_overlay.add_sample_dt(gaze[0], gaze[1], dt_ms=dt * 1000.0)
             return
 
         active = self._gaze_typing_active()
@@ -805,6 +828,15 @@ class VirtualKeyboard(QWidget):
             self.camera_preview_window.close()
         
         QApplication.quit()
+
+    def _ensure_camera_preview(self) -> None:
+        """Create/show the floating camera preview window (bottom-right)."""
+        if self.camera_preview_window is None:
+            self.camera_preview_window = CameraPreviewWindow(dock="bottom_right")
+        if self.is_expanded:
+            if not self.camera_preview_window.isVisible():
+                self.camera_preview_window.show()
+            self.camera_preview_window.position_at_bottom_right()
     
     def on_shift_clicked(self, checked):
         """Handle shift toggle - updates all letter keys"""
@@ -830,6 +862,8 @@ class VirtualKeyboard(QWidget):
         self.minimized_content_widget.show()
         self._apply_minimized_geometry()
         self.is_expanded = False
+        if self.camera_preview_window:
+            self.camera_preview_window.hide()
         print("Keyboard minimized to icon")
     
     def on_restore_clicked(self):
@@ -839,6 +873,9 @@ class VirtualKeyboard(QWidget):
         self.main_content_widget.show()
         self._apply_full_keyboard_geometry()
         self.is_expanded = True
+        if self.camera_preview_window:
+            self.camera_preview_window.show()
+            self.camera_preview_window.position_at_bottom_right()
         self._gaze_typing_controller.mark_keyboard_dirty()
         print("Keyboard restored to full view")
     
@@ -891,25 +928,197 @@ class VirtualKeyboard(QWidget):
         """Return the primary screen geometry in global coordinates."""
         return QApplication.primaryScreen().geometry()
 
+    def _primary_screen_available_geometry(self):
+        """
+        Return the usable primary screen geometry (excludes taskbar/docks).
+        This prevents the keyboard from being pushed behind the Windows taskbar.
+        """
+        return QApplication.primaryScreen().availableGeometry()
+
     def _full_keyboard_size(self):
-        """Full-width keyboard height: half of the screen."""
-        screen = self._primary_screen_geometry()
+        """Full-width keyboard size based on available screen height."""
+        screen = self._primary_screen_available_geometry()
         width = screen.width()
-        height = screen.height() // 2
+        # Docked keyboard height ratio of usable screen.
+        # Increase this if the bottom row is still clipped on high-DPI displays.
+        height_ratio = 0.62
+        height = int(screen.height() * height_ratio)
         return width, height
 
     def _position_at_bottom(self):
         """Pin the window to the bottom edge of the primary screen."""
-        screen = self._primary_screen_geometry()
+        screen = self._primary_screen_available_geometry()
         x = screen.x()
         y = screen.y() + screen.height() - self.height()
         self.move(x, y)
 
+    def _position_at_top(self):
+        """Dock the window to the top edge of the usable primary screen."""
+        screen = self._primary_screen_available_geometry()
+        x = screen.x()
+        y = screen.y()
+        self.move(x, y)
+
     def _apply_full_keyboard_geometry(self):
-        """Set full keyboard size and fix it to the bottom of the screen."""
+        """Set full keyboard size and dock it to the top of the screen."""
         width, height = self._full_keyboard_size()
-        self.setFixedSize(width, height)
-        self._position_at_bottom()
+        screen = self._primary_screen_available_geometry()
+        # Lock the height to the requested half-screen size.
+        self.setFixedHeight(min(height, screen.height()))
+        # Full width.
+        self.setFixedWidth(width)
+        self._position_at_top()
+
+    def _update_responsive_sizes(self) -> None:
+        """
+        Scale key sizes/fonts so the full keyboard fits the current window.
+
+        Root cause fixed: the window had a fixed height while keys and toolbars had
+        large minimum sizes, so the keyboard rows were clipped.
+        """
+        if not hasattr(self, "keyboard_widget"):
+            return
+
+        window_h = float(self.height() or 0)
+        if window_h <= 0:
+            return
+
+        window_w = float(self.width() or 0)
+        if window_w <= 0:
+            return
+
+        # Global spacing/margins scale (OptiKey-style tight grid, but readable).
+        margin = int(max(4.0, min(14.0, window_h * 0.02)))
+        gap = int(max(2.0, min(8.0, window_h * 0.01)))
+        self._key_gap_px = gap
+
+        # Apply margins/gaps to the major layout blocks.
+        if hasattr(self, "_container_layout"):
+            self._container_layout.setContentsMargins(margin, margin, margin, margin)
+            self._container_layout.setSpacing(gap)
+        if hasattr(self, "_keyboard_layout"):
+            self._keyboard_layout.setContentsMargins(0, 0, 0, 0)
+            self._keyboard_layout.setSpacing(gap)
+        if hasattr(self, "_control_bar_layout"):
+            self._control_bar_layout.setSpacing(gap)
+        if hasattr(self, "_text_display_layout"):
+            self._text_display_layout.setSpacing(gap)
+        if hasattr(self, "_suggestion_bar_layout"):
+            self._suggestion_bar_layout.setSpacing(gap)
+
+        # Camera preview is a separate floating window now.
+
+        # Clamp the non-keyboard UI so it cannot steal all vertical space.
+        # Allocate explicit heights so the keyboard always gets the remainder.
+        chrome_h = int(max(34.0, min(58.0, window_h * 0.12)))
+        text_h = int(max(24.0, min(38.0, window_h * 0.08)))
+        # Give suggestions enough height to look centered.
+        sugg_h = int(max(26.0, min(40.0, window_h * 0.08)))
+
+        # Control bar typography
+        chrome_pt = int(max(11.0, min(18.0, chrome_h * 0.30)))
+        if hasattr(self, "calibrate_btn"):
+            f = self.calibrate_btn.font()
+            if f.pointSize() != chrome_pt + 4:
+                f.setPointSize(chrome_pt + 4)
+                self.calibrate_btn.setFont(f)
+        if hasattr(self, "camera_status_label"):
+            f = self.camera_status_label.font()
+            if f.pointSize() != max(8, chrome_pt - 2):
+                f.setPointSize(max(8, chrome_pt - 2))
+                self.camera_status_label.setFont(f)
+
+        if hasattr(self, "calibrate_btn"):
+            self.calibrate_btn.setMinimumHeight(chrome_h)
+            self.calibrate_btn.setMaximumHeight(chrome_h)
+        for attr in ("lang_btn", "symbols_btn", "minimize_btn", "close_btn"):
+            if hasattr(self, attr):
+                btn = getattr(self, attr)
+                btn.setMinimumHeight(max(34, chrome_h - 10))
+                btn.setMaximumHeight(max(34, chrome_h - 10))
+                f = btn.font()
+                if f.pointSize() != max(9, chrome_pt):
+                    f.setPointSize(max(9, chrome_pt))
+                    btn.setFont(f)
+
+        if hasattr(self, "text_display"):
+            self.text_display.setMinimumHeight(text_h)
+            self.text_display.setMaximumHeight(text_h)
+            f = self.text_display.font()
+            if f.pointSize() != int(max(11.0, min(18.0, text_h * 0.45))):
+                f.setPointSize(int(max(11.0, min(18.0, text_h * 0.45))))
+                self.text_display.setFont(f)
+
+        if hasattr(self, "suggestion_buttons"):
+            for btn in self.suggestion_buttons:
+                btn.setMinimumHeight(sugg_h)
+                btn.setMaximumHeight(sugg_h)
+                f = btn.font()
+                target = int(max(10.0, min(18.0, sugg_h * 0.45)))
+                if f.pointSize() != target:
+                    f.setPointSize(target)
+                    btn.setFont(f)
+
+        # Determine how much vertical space the keyboard should get.
+        # This avoids depending on whatever height Qt happened to assign already.
+        margins_total = float(margin * 2)
+        gaps_total = float(gap * 3)  # between control/text/sugg/keyboard blocks
+        desired_kb_h = window_h - (margins_total + gaps_total + chrome_h + text_h + sugg_h)
+
+        if desired_kb_h < 4 * 24:
+            # If space is still tight, compress chrome further but keep keyboard visible.
+            extra = (4 * 24) - desired_kb_h
+            shrink = min(extra, chrome_h * 0.25)
+            chrome_h = int(max(28.0, chrome_h - shrink))
+            desired_kb_h = window_h - (margins_total + gaps_total + chrome_h + text_h + sugg_h)
+
+        # Force the keyboard widget to take the remainder.
+        self.keyboard_widget.setMinimumHeight(int(max(0.0, desired_kb_h)))
+        self.keyboard_widget.setMaximumHeight(int(max(0.0, desired_kb_h)))
+
+        # And force the top bar containers to their computed heights.
+        for widget_attr, h in (
+            ("_control_bar_widget", chrome_h),
+            ("_text_display_widget", text_h),
+            ("_suggestion_bar_widget", sugg_h),
+        ):
+            if hasattr(self, widget_attr):
+                w = getattr(self, widget_attr)
+                w.setMinimumHeight(int(h))
+                w.setMaximumHeight(int(h))
+
+        kb_h = float(desired_kb_h)
+        if kb_h <= 0:
+            return
+
+        row_spacing = float(gap)
+        rows = 4.0
+        usable = max(0.0, kb_h - row_spacing * (rows - 1.0))
+        row_h = usable / rows if rows > 0 else usable
+
+        key_h = int(max(24.0, min(72.0, row_h)))
+        font_pt = int(max(11.0, min(22.0, key_h * 0.42)))
+
+        # Update all keyboard keys.
+        for btn in self.keyboard_widget.findChildren(QPushButton, "keyboardKey"):
+            btn.setMinimumHeight(key_h)
+            btn.setMaximumHeight(key_h)
+            f = btn.font()
+            if f.pointSize() != font_pt:
+                f.setPointSize(font_pt)
+                btn.setFont(f)
+
+        # Update suggestion buttons (if present) to avoid pushing content off-screen.
+        if hasattr(self, "suggestion_buttons"):
+            sug_h = int(max(26.0, min(48.0, key_h * 0.75)))
+            sug_pt = int(max(10.0, min(18.0, sug_h * 0.45)))
+            for btn in self.suggestion_buttons:
+                btn.setMinimumHeight(sug_h)
+                btn.setMaximumHeight(sug_h)
+                f = btn.font()
+                if f.pointSize() != sug_pt:
+                    f.setPointSize(sug_pt)
+                    btn.setFont(f)
 
     def _apply_minimized_geometry(self):
         """Small minimized icon, fixed at the bottom-right corner."""

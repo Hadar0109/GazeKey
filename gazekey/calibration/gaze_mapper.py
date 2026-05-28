@@ -32,7 +32,7 @@ class FitResult:
 
 class InterpolationGazeMapper:
     """
-    Map gaze by weighting the five calibration points by inverse distance
+    Map gaze by weighting the calibration points by inverse distance
     in gaze-ratio space (Shepard interpolation).
     """
 
@@ -46,8 +46,10 @@ class InterpolationGazeMapper:
         frame_w: float = 640.0,
         feature: str = FEATURE_GAZE_RATIO,
     ):
-        if len(iris_points) != 5 or len(screen_points) != 5:
-            raise ValueError("Expected 5 calibration points")
+        if len(iris_points) < 5 or len(screen_points) < 5:
+            raise ValueError("Expected at least 5 calibration points")
+        if len(iris_points) != len(screen_points):
+            raise ValueError("Expected equal iris_points and screen_points lengths")
         self.iris_points = [tuple(p) for p in iris_points]
         self.screen_points = [tuple(p) for p in screen_points]
         self.flip_x = flip_x
@@ -130,7 +132,7 @@ class InterpolationGazeMapper:
         if len(pairs) < 5:
             return FitResult(
                 success=False,
-                message=f"Calibration fit failed: need 5 points, got {len(pairs)}.",
+                message=f"Calibration fit failed: need at least 5 points, got {len(pairs)}.",
             )
 
         best_mapper: Optional[InterpolationGazeMapper] = None
@@ -186,7 +188,9 @@ class InterpolationGazeMapper:
         try:
             iris_points = [tuple(p) for p in data["iris_points"]]
             screen_points = [tuple(p) for p in data["screen_points"]]
-            if len(iris_points) != 5 or len(screen_points) != 5:
+            if len(iris_points) < 5 or len(screen_points) < 5:
+                return None
+            if len(iris_points) != len(screen_points):
                 return None
             return cls(
                 iris_points,
