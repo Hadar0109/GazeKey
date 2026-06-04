@@ -1,0 +1,674 @@
+[calib2] t=0/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=0 state=WAIT_LOCK avg_h=0.6559766677452228 avg_v=0.127705464644822 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=0/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=0 state=WAIT_LOCK avg_h=0.654397990040974 avg_v=0.12080515516871584 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] target row0_left: collection enabled after 2000ms prepare (fixation lock-on ~420ms before samples count)
+[calib2] t=0/15 window_size=6 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=0 state=WAIT_LOCK avg_h=0.6537070681445876 avg_v=0.12625218880293246 std=(0.000,0.000) lock_ms=420 win_ms=204 collect_ms=0 reason=locking:time
+[calib2] t=0/15 window_size=14 samples_used_for_target_mean=1 target_mean_ready=False target_means_count=0 state=LOCKED_COLLECTING avg_h=0.652915431072317 avg_v=0.1278636041921766 std=(0.000,0.003) lock_ms=420 win_ms=474 collect_ms=34 reason=
+[calib2] t=0/15 window_size=22 samples_used_for_target_mean=9 target_mean_ready=False target_means_count=0 state=LOCKED_COLLECTING avg_h=0.6535659705683663 avg_v=0.13333044230665825 std=(0.000,0.003) lock_ms=420 win_ms=744 collect_ms=303 reason=
+[calib2] t=0/15 window_size=30 samples_used_for_target_mean=17 target_mean_ready=False target_means_count=0 state=LOCKED_COLLECTING avg_h=0.6528695281029941 avg_v=0.12428260217105458 std=(0.000,0.003) lock_ms=420 win_ms=1016 collect_ms=576 reason=
+[calib2] t=0/15 window_size=38 samples_used_for_target_mean=25 target_mean_ready=False target_means_count=0 state=LOCKED_COLLECTING avg_h=0.6522295508627927 avg_v=0.11813355451111765 std=(0.000,0.004) lock_ms=420 win_ms=1287 collect_ms=846 reason=
+[calib2] t=0/15 window_size=46 samples_used_for_target_mean=33 target_mean_ready=False target_means_count=0 state=LOCKED_COLLECTING avg_h=0.6512994817568345 avg_v=0.11805976980534486 std=(0.001,0.005) lock_ms=420 win_ms=1559 collect_ms=1118 reason=
+[calib2] t=1/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=1 state=WAIT_LOCK avg_h=0.6498967750823298 avg_v=0.12673071138108943 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=1/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=1 state=WAIT_LOCK avg_h=0.5486234744591664 avg_v=0.08820236361742737 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=1/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=1 state=WAIT_LOCK avg_h=0.5346333792436777 avg_v=0.0909163790422132 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=1/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=1 state=WAIT_LOCK avg_h=0.532053217240728 avg_v=0.0878715993076892 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=1/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=1 state=WAIT_LOCK avg_h=0.5297646568298422 avg_v=0.0884743975115348 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=1/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=1 state=WAIT_LOCK avg_h=0.5279106933826365 avg_v=0.08128788761166153 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=1/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=1 state=WAIT_LOCK avg_h=0.5281939132277355 avg_v=0.08095150552596855 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] target row0_center: collection enabled after 2000ms prepare (fixation lock-on ~420ms before samples count)
+[calib2] t=1/15 window_size=2 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=1 state=WAIT_LOCK avg_h=0.5285575492184693 avg_v=0.08871016368477577 std=(0.000,0.000) lock_ms=420 win_ms=67 collect_ms=0 reason=locking:time
+[calib2] t=1/15 window_size=10 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=1 state=WAIT_LOCK avg_h=0.5275368961624137 avg_v=0.08028919450271757 std=(0.000,0.000) lock_ms=420 win_ms=338 collect_ms=0 reason=locking:time
+[calib2] t=1/15 window_size=18 samples_used_for_target_mean=5 target_mean_ready=False target_means_count=1 state=LOCKED_COLLECTING avg_h=0.5268284612477535 avg_v=0.06902229116728054 std=(0.001,0.006) lock_ms=420 win_ms=609 collect_ms=166 reason=
+[calib2] t=1/15 window_size=26 samples_used_for_target_mean=13 target_mean_ready=False target_means_count=1 state=LOCKED_COLLECTING avg_h=0.5267734244531782 avg_v=0.06870704175668299 std=(0.001,0.008) lock_ms=420 win_ms=880 collect_ms=437 reason=
+[calib2] t=1/15 window_size=34 samples_used_for_target_mean=21 target_mean_ready=False target_means_count=1 state=LOCKED_COLLECTING avg_h=0.5266942322168648 avg_v=0.08694750331571299 std=(0.001,0.007) lock_ms=420 win_ms=1164 collect_ms=721 reason=
+[calib2] t=1/15 window_size=42 samples_used_for_target_mean=29 target_mean_ready=False target_means_count=1 state=LOCKED_COLLECTING avg_h=0.5262391901920435 avg_v=0.06876048099652549 std=(0.001,0.007) lock_ms=420 win_ms=1420 collect_ms=977 reason=
+[calib2] t=2/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=2 state=WAIT_LOCK avg_h=0.5258918047352833 avg_v=0.08049698604109637 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=2/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=2 state=WAIT_LOCK avg_h=0.46337803882496487 avg_v=0.1602543725074351 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=2/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=2 state=WAIT_LOCK avg_h=0.41977483102084945 avg_v=0.12904070660116215 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=2/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=2 state=WAIT_LOCK avg_h=0.4208184052732653 avg_v=0.07923881769002208 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=2/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=2 state=WAIT_LOCK avg_h=0.4236990994782816 avg_v=0.07870748527733973 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=2/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=2 state=WAIT_LOCK avg_h=0.42502203060229593 avg_v=0.0806620324960391 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=2/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=2 state=WAIT_LOCK avg_h=0.4272357894283646 avg_v=0.0853293727795128 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=2/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=2 state=WAIT_LOCK avg_h=0.4278760265272442 avg_v=0.08633016146424019 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] target row0_right: collection enabled after 2000ms prepare (fixation lock-on ~420ms before samples count)
+[calib2] t=2/15 window_size=6 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=2 state=WAIT_LOCK avg_h=0.4288482776191919 avg_v=0.08543799592123866 std=(0.000,0.000) lock_ms=420 win_ms=209 collect_ms=0 reason=locking:time
+[calib2] t=2/15 window_size=14 samples_used_for_target_mean=1 target_mean_ready=False target_means_count=2 state=LOCKED_COLLECTING avg_h=0.42847591946130137 avg_v=0.08253286382298677 std=(0.000,0.001) lock_ms=420 win_ms=471 collect_ms=31 reason=
+[calib2] t=2/15 window_size=22 samples_used_for_target_mean=9 target_mean_ready=False target_means_count=2 state=LOCKED_COLLECTING avg_h=0.4278517897994621 avg_v=0.07963943925795627 std=(0.000,0.003) lock_ms=420 win_ms=742 collect_ms=301 reason=
+[calib2] t=2/15 window_size=30 samples_used_for_target_mean=17 target_mean_ready=False target_means_count=2 state=LOCKED_COLLECTING avg_h=0.4274744226675954 avg_v=0.07917061322850691 std=(0.000,0.003) lock_ms=420 win_ms=1014 collect_ms=573 reason=
+[calib2] t=2/15 window_size=38 samples_used_for_target_mean=25 target_mean_ready=False target_means_count=2 state=LOCKED_COLLECTING avg_h=0.42786032037079863 avg_v=0.07854319430438705 std=(0.001,0.003) lock_ms=420 win_ms=1284 collect_ms=844 reason=
+[calib2] t=2/15 window_size=46 samples_used_for_target_mean=33 target_mean_ready=False target_means_count=2 state=LOCKED_COLLECTING avg_h=0.4278445616026205 avg_v=0.07984931393370404 std=(0.001,0.003) lock_ms=420 win_ms=1556 collect_ms=1115 reason=
+[calib2] t=3/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=3 state=WAIT_LOCK avg_h=0.42774364228818085 avg_v=0.07620291770957796 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=3/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=3 state=WAIT_LOCK avg_h=0.6105678114509879 avg_v=0.13283181342271977 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=3/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=3 state=WAIT_LOCK avg_h=0.6295845783918499 avg_v=0.1581045557727041 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=3/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=3 state=WAIT_LOCK avg_h=0.6309016213486995 avg_v=0.1482999007038507 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=3/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=3 state=WAIT_LOCK avg_h=0.6301318841200022 avg_v=0.1530160119677971 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=3/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=3 state=WAIT_LOCK avg_h=0.6295213559714617 avg_v=0.14471299959221787 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=3/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=3 state=WAIT_LOCK avg_h=0.6274348544137367 avg_v=0.15908753874082762 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] target row1_left: collection enabled after 2000ms prepare (fixation lock-on ~420ms before samples count)
+[calib2] t=3/15 window_size=2 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=3 state=WAIT_LOCK avg_h=0.6266281316548601 avg_v=0.15687430306781816 std=(0.000,0.000) lock_ms=420 win_ms=67 collect_ms=0 reason=locking:time
+[calib2] t=3/15 window_size=9 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=3 state=WAIT_LOCK avg_h=0.6260142170537235 avg_v=0.1558214340428442 std=(0.000,0.000) lock_ms=420 win_ms=342 collect_ms=0 reason=locking:time
+[calib2] t=3/15 window_size=17 samples_used_for_target_mean=5 target_mean_ready=False target_means_count=3 state=LOCKED_COLLECTING avg_h=0.6241717546705107 avg_v=0.15995423001788298 std=(0.001,0.002) lock_ms=420 win_ms=590 collect_ms=168 reason=
+[calib2] t=3/15 window_size=26 samples_used_for_target_mean=14 target_mean_ready=False target_means_count=3 state=LOCKED_COLLECTING avg_h=0.6244935244977344 avg_v=0.17738180074409884 std=(0.001,0.004) lock_ms=420 win_ms=895 collect_ms=472 reason=
+[calib2] t=3/15 window_size=34 samples_used_for_target_mean=22 target_mean_ready=False target_means_count=3 state=LOCKED_COLLECTING avg_h=0.6247056950496124 avg_v=0.17312061790696057 std=(0.001,0.008) lock_ms=420 win_ms=1169 collect_ms=747 reason=
+[calib2] t=3/15 window_size=42 samples_used_for_target_mean=30 target_mean_ready=False target_means_count=3 state=LOCKED_COLLECTING avg_h=0.6211107222381849 avg_v=0.1656843797162672 std=(0.001,0.007) lock_ms=420 win_ms=1438 collect_ms=1015 reason=
+[calib2] t=4/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=4 state=WAIT_LOCK avg_h=0.6230747562413779 avg_v=0.1738040272490783 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=4/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=4 state=WAIT_LOCK avg_h=0.5674867351381756 avg_v=0.15202231974094224 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=4/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=4 state=WAIT_LOCK avg_h=0.5214792774638752 avg_v=0.14202119689772458 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=4/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=4 state=WAIT_LOCK avg_h=0.5186647324744917 avg_v=0.1282521006516287 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=4/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=4 state=WAIT_LOCK avg_h=0.5176008852846322 avg_v=0.13390646039168413 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=4/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=4 state=WAIT_LOCK avg_h=0.5172193583273892 avg_v=0.11728683850905725 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=4/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=4 state=WAIT_LOCK avg_h=0.5162823272621453 avg_v=0.11957886939102672 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=4/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=4 state=WAIT_LOCK avg_h=0.5154838890064918 avg_v=0.1150900505914714 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] target row1_center: collection enabled after 2000ms prepare (fixation lock-on ~420ms before samples count)
+[calib2] t=4/15 window_size=7 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=4 state=WAIT_LOCK avg_h=0.5162259621507758 avg_v=0.12111674287597551 std=(0.000,0.000) lock_ms=420 win_ms=237 collect_ms=0 reason=locking:time
+[calib2] t=4/15 window_size=15 samples_used_for_target_mean=2 target_mean_ready=False target_means_count=4 state=LOCKED_COLLECTING avg_h=0.516904996835027 avg_v=0.12295585256829614 std=(0.001,0.002) lock_ms=420 win_ms=508 collect_ms=68 reason=
+[calib2] t=4/15 window_size=23 samples_used_for_target_mean=10 target_mean_ready=False target_means_count=4 state=LOCKED_COLLECTING avg_h=0.5160406468673437 avg_v=0.13038453393738955 std=(0.001,0.003) lock_ms=420 win_ms=777 collect_ms=338 reason=
+[calib2] t=4/15 window_size=31 samples_used_for_target_mean=18 target_mean_ready=False target_means_count=4 state=LOCKED_COLLECTING avg_h=0.5155140899733806 avg_v=0.13781978993985733 std=(0.001,0.005) lock_ms=420 win_ms=1048 collect_ms=609 reason=
+[calib2] t=4/15 window_size=39 samples_used_for_target_mean=26 target_mean_ready=False target_means_count=4 state=LOCKED_COLLECTING avg_h=0.5148814390854151 avg_v=0.13626566583702393 std=(0.001,0.009) lock_ms=420 win_ms=1317 collect_ms=878 reason=
+[calib2] t=4/15 window_size=47 samples_used_for_target_mean=34 target_mean_ready=False target_means_count=4 state=LOCKED_COLLECTING avg_h=0.5134016304260571 avg_v=0.1237530380012333 std=(0.001,0.008) lock_ms=420 win_ms=1587 collect_ms=1148 reason=
+[calib2] t=5/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=5 state=WAIT_LOCK avg_h=0.5133609152862724 avg_v=0.12537928640416976 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=5/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=5 state=WAIT_LOCK avg_h=0.47415216591232606 avg_v=0.1204578145109162 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=5/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=5 state=WAIT_LOCK avg_h=0.4449231460214248 avg_v=0.41308932097216094 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=5/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=5 state=WAIT_LOCK avg_h=0.43950618738367736 avg_v=0.09453965319902874 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=5/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=5 state=WAIT_LOCK avg_h=0.44188251200028644 avg_v=0.09941121553763752 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=5/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=5 state=WAIT_LOCK avg_h=0.4443635578907246 avg_v=0.10259516338163013 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=5/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=5 state=WAIT_LOCK avg_h=0.4450989298052021 avg_v=0.10677566941287056 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] target row1_right: collection enabled after 2000ms prepare (fixation lock-on ~420ms before samples count)
+[calib2] t=5/15 window_size=3 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=5 state=WAIT_LOCK avg_h=0.444722515514541 avg_v=0.10819823926515917 std=(0.000,0.000) lock_ms=420 win_ms=101 collect_ms=0 reason=locking:time
+[calib2] t=5/15 window_size=11 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=5 state=WAIT_LOCK avg_h=0.4438489486782678 avg_v=0.1208557461207827 std=(0.000,0.000) lock_ms=420 win_ms=371 collect_ms=0 reason=locking:time
+[calib2] t=5/15 window_size=19 samples_used_for_target_mean=6 target_mean_ready=False target_means_count=5 state=LOCKED_COLLECTING avg_h=0.44494486981081044 avg_v=0.11580172703594921 std=(0.001,0.005) lock_ms=420 win_ms=642 collect_ms=203 reason=
+[calib2] t=5/15 window_size=27 samples_used_for_target_mean=14 target_mean_ready=False target_means_count=5 state=LOCKED_COLLECTING avg_h=0.4453085044498156 avg_v=0.1120037318487419 std=(0.001,0.005) lock_ms=420 win_ms=914 collect_ms=475 reason=
+[calib2] t=5/15 window_size=35 samples_used_for_target_mean=22 target_mean_ready=False target_means_count=5 state=LOCKED_COLLECTING avg_h=0.44597014743368624 avg_v=0.1107785331451886 std=(0.001,0.004) lock_ms=420 win_ms=1184 collect_ms=745 reason=
+[calib2] t=5/15 window_size=43 samples_used_for_target_mean=30 target_mean_ready=False target_means_count=5 state=LOCKED_COLLECTING avg_h=0.4472974125448208 avg_v=0.11291897286993205 std=(0.001,0.004) lock_ms=420 win_ms=1454 collect_ms=1016 reason=
+[calib2] t=6/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=6 state=WAIT_LOCK avg_h=0.4474531783074053 avg_v=0.11671857508776518 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=6/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=6 state=WAIT_LOCK avg_h=0.44604109953086274 avg_v=0.11865965845108079 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=6/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=6 state=WAIT_LOCK avg_h=0.6317475146083964 avg_v=0.18464519870361873 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=6/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=6 state=WAIT_LOCK avg_h=0.6276284524560698 avg_v=0.18631231010743216 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=6/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=6 state=WAIT_LOCK avg_h=0.6271881014129188 avg_v=0.17956715561560457 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=6/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=6 state=WAIT_LOCK avg_h=0.6265576348678983 avg_v=0.17615232763009567 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=6/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=6 state=WAIT_LOCK avg_h=0.6256195342945752 avg_v=0.181266179177706 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] target row2_left: collection enabled after 2000ms prepare (fixation lock-on ~420ms before samples count)
+[calib2] t=6/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=6 state=WAIT_LOCK avg_h=0.6226175966098573 avg_v=0.17762340652224412 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=6/15 window_size=8 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=6 state=WAIT_LOCK avg_h=0.6229036889083959 avg_v=0.17941067016495083 std=(0.000,0.000) lock_ms=420 win_ms=271 collect_ms=0 reason=locking:time
+[calib2] t=6/15 window_size=16 samples_used_for_target_mean=3 target_mean_ready=False target_means_count=6 state=LOCKED_COLLECTING avg_h=0.6219984331147456 avg_v=0.17940823900240677 std=(0.000,0.001) lock_ms=420 win_ms=543 collect_ms=101 reason=
+[calib2] t=6/15 window_size=24 samples_used_for_target_mean=11 target_mean_ready=False target_means_count=6 state=LOCKED_COLLECTING avg_h=0.6217898303199901 avg_v=0.17903146789129853 std=(0.000,0.001) lock_ms=420 win_ms=813 collect_ms=371 reason=
+[calib2] t=6/15 window_size=31 samples_used_for_target_mean=18 target_mean_ready=False target_means_count=6 state=LOCKED_COLLECTING avg_h=0.6194459391809097 avg_v=0.1724575274437301 std=(0.001,0.002) lock_ms=420 win_ms=1085 collect_ms=643 reason=
+[calib2] t=6/15 window_size=38 samples_used_for_target_mean=25 target_mean_ready=False target_means_count=6 state=LOCKED_COLLECTING avg_h=0.6203675926638437 avg_v=0.183606665561495 std=(0.001,0.003) lock_ms=420 win_ms=1301 collect_ms=860 reason=
+[calib2] t=6/15 window_size=46 samples_used_for_target_mean=33 target_mean_ready=False target_means_count=6 state=LOCKED_COLLECTING avg_h=0.6186956457754818 avg_v=0.17955380729523876 std=(0.001,0.004) lock_ms=420 win_ms=1572 collect_ms=1130 reason=
+[calib2] t=7/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=7 state=WAIT_LOCK avg_h=0.6170436680689697 avg_v=0.17632018034566369 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=7/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=7 state=WAIT_LOCK avg_h=0.5245383151322092 avg_v=0.1585755395421927 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=7/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=7 state=WAIT_LOCK avg_h=0.4963983020051869 avg_v=0.30909301005493073 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=7/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=7 state=WAIT_LOCK avg_h=0.49615034841088945 avg_v=0.23206353737400381 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=7/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=7 state=WAIT_LOCK avg_h=0.5047880282078625 avg_v=0.19237760242808913 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=7/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=7 state=WAIT_LOCK avg_h=0.5068778437164754 avg_v=0.18137538571762477 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=7/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=7 state=WAIT_LOCK avg_h=0.50861408580969 avg_v=0.1857161001934434 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] target row2_center: collection enabled after 2000ms prepare (fixation lock-on ~420ms before samples count)
+[calib2] t=7/15 window_size=2 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=7 state=WAIT_LOCK avg_h=0.5086976436501962 avg_v=0.1846518781705874 std=(0.000,0.000) lock_ms=420 win_ms=68 collect_ms=0 reason=locking:time
+[calib2] t=7/15 window_size=10 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=7 state=WAIT_LOCK avg_h=0.5098685580612439 avg_v=0.17987424642686378 std=(0.000,0.000) lock_ms=420 win_ms=341 collect_ms=0 reason=locking:time
+[calib2] t=7/15 window_size=18 samples_used_for_target_mean=5 target_mean_ready=False target_means_count=7 state=LOCKED_COLLECTING avg_h=0.5099114410345209 avg_v=0.18199313687998167 std=(0.001,0.002) lock_ms=420 win_ms=611 collect_ms=170 reason=
+[calib2] t=7/15 window_size=26 samples_used_for_target_mean=13 target_mean_ready=False target_means_count=7 state=LOCKED_COLLECTING avg_h=0.5109214296542185 avg_v=0.17993189494434916 std=(0.001,0.002) lock_ms=420 win_ms=881 collect_ms=440 reason=
+[calib2] t=7/15 window_size=34 samples_used_for_target_mean=21 target_mean_ready=False target_means_count=7 state=LOCKED_COLLECTING avg_h=0.5098063228968226 avg_v=0.1626659993784361 std=(0.001,0.004) lock_ms=420 win_ms=1151 collect_ms=710 reason=
+[calib2] t=7/15 window_size=42 samples_used_for_target_mean=29 target_mean_ready=False target_means_count=7 state=LOCKED_COLLECTING avg_h=0.507668212231026 avg_v=0.20045018663974273 std=(0.001,0.007) lock_ms=420 win_ms=1421 collect_ms=981 reason=
+[calib2] t=8/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=8 state=WAIT_LOCK avg_h=0.5086954594364053 avg_v=0.1888923868790278 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=8/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=8 state=WAIT_LOCK avg_h=0.5072130548073277 avg_v=0.17152316619205982 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=8/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=8 state=WAIT_LOCK avg_h=0.45240623202328345 avg_v=0.14240769536803535 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=8/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=8 state=WAIT_LOCK avg_h=0.47554284969038074 avg_v=0.8820092625100077 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=8/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=8 state=WAIT_LOCK avg_h=0.43580715838575856 avg_v=0.15588506276927505 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=8/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=8 state=WAIT_LOCK avg_h=0.4451752151116132 avg_v=0.13730974025056977 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=8/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=8 state=WAIT_LOCK avg_h=0.44932480519667684 avg_v=0.15540552899006937 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=8/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=8 state=WAIT_LOCK avg_h=0.44965785933517266 avg_v=0.17097866578948556 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] target row2_right: collection enabled after 2000ms prepare (fixation lock-on ~420ms before samples count)
+[calib2] t=8/15 window_size=6 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=8 state=WAIT_LOCK avg_h=0.4495143504432857 avg_v=0.16363961373286323 std=(0.000,0.000) lock_ms=420 win_ms=221 collect_ms=0 reason=locking:time
+[calib2] t=8/15 window_size=14 samples_used_for_target_mean=2 target_mean_ready=False target_means_count=8 state=LOCKED_COLLECTING avg_h=0.45201007610832905 avg_v=0.1685251057360219 std=(0.001,0.002) lock_ms=420 win_ms=492 collect_ms=68 reason=
+[calib2] t=8/15 window_size=22 samples_used_for_target_mean=10 target_mean_ready=False target_means_count=8 state=LOCKED_COLLECTING avg_h=0.4511877794858804 avg_v=0.17260925433254 std=(0.001,0.003) lock_ms=420 win_ms=764 collect_ms=340 reason=
+[calib2] t=8/15 window_size=30 samples_used_for_target_mean=18 target_mean_ready=False target_means_count=8 state=LOCKED_COLLECTING avg_h=0.4525872928046108 avg_v=0.18490008090060858 std=(0.001,0.006) lock_ms=420 win_ms=1034 collect_ms=610 reason=
+[calib2] t=8/15 window_size=38 samples_used_for_target_mean=26 target_mean_ready=False target_means_count=8 state=LOCKED_COLLECTING avg_h=0.4517270659633172 avg_v=0.18740375331907808 std=(0.001,0.009) lock_ms=420 win_ms=1305 collect_ms=881 reason=
+[calib2] t=8/15 window_size=46 samples_used_for_target_mean=34 target_mean_ready=False target_means_count=8 state=LOCKED_COLLECTING avg_h=0.4521604622209753 avg_v=0.1847654529952946 std=(0.001,0.010) lock_ms=420 win_ms=1575 collect_ms=1151 reason=
+[calib2] t=9/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=9 state=WAIT_LOCK avg_h=0.450164028309493 avg_v=0.17678247883051085 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=9/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=9 state=WAIT_LOCK avg_h=0.5070632598316257 avg_v=0.1539170298114858 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=9/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=9 state=WAIT_LOCK avg_h=0.5152677699178403 avg_v=0.1297536094888482 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=9/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=9 state=WAIT_LOCK avg_h=0.514460528065831 avg_v=0.13508610251350092 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=9/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=9 state=WAIT_LOCK avg_h=0.5132134819547567 avg_v=0.1229732193617713 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=9/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=9 state=WAIT_LOCK avg_h=0.5127219860770762 avg_v=0.1250684529461138 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=9/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=9 state=WAIT_LOCK avg_h=0.5119998664727679 avg_v=0.1255920474277811 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] target gap_0_1: collection enabled after 2000ms prepare (fixation lock-on ~420ms before samples count)
+[calib2] t=9/15 window_size=3 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=9 state=WAIT_LOCK avg_h=0.5112556133884714 avg_v=0.12336833249893123 std=(0.000,0.000) lock_ms=420 win_ms=102 collect_ms=0 reason=locking:time
+[calib2] t=9/15 window_size=11 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=9 state=WAIT_LOCK avg_h=0.5113564861601716 avg_v=0.12282952245097314 std=(0.000,0.000) lock_ms=420 win_ms=372 collect_ms=0 reason=locking:time
+[calib2] t=9/15 window_size=19 samples_used_for_target_mean=6 target_mean_ready=False target_means_count=9 state=LOCKED_COLLECTING avg_h=0.5110867638264205 avg_v=0.12500139961533357 std=(0.000,0.002) lock_ms=420 win_ms=642 collect_ms=203 reason=
+[calib2] t=9/15 window_size=27 samples_used_for_target_mean=14 target_mean_ready=False target_means_count=9 state=LOCKED_COLLECTING avg_h=0.5107183725271159 avg_v=0.11953010691017601 std=(0.000,0.002) lock_ms=420 win_ms=913 collect_ms=474 reason=
+[calib2] t=9/15 window_size=35 samples_used_for_target_mean=22 target_mean_ready=False target_means_count=9 state=LOCKED_COLLECTING avg_h=0.511344761416825 avg_v=0.12393088032937394 std=(0.000,0.003) lock_ms=420 win_ms=1191 collect_ms=752 reason=
+[calib2] t=9/15 window_size=43 samples_used_for_target_mean=30 target_mean_ready=False target_means_count=9 state=LOCKED_COLLECTING avg_h=0.5113473321635624 avg_v=0.12232238501008624 std=(0.000,0.003) lock_ms=420 win_ms=1455 collect_ms=1015 reason=
+[calib2] t=10/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=10 state=WAIT_LOCK avg_h=0.5122365625431603 avg_v=0.12023165456692125 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=10/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=10 state=WAIT_LOCK avg_h=0.5126527107090978 avg_v=0.12545290627020217 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=10/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=10 state=WAIT_LOCK avg_h=0.4963863444048523 avg_v=0.339445384680814 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=10/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=10 state=WAIT_LOCK avg_h=0.5091512078598688 avg_v=0.11789578274870466 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=10/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=10 state=WAIT_LOCK avg_h=0.511414912525036 avg_v=0.12368777037207679 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=10/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=10 state=WAIT_LOCK avg_h=0.5114097430399768 avg_v=0.13270706948219377 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=10/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=10 state=WAIT_LOCK avg_h=0.5115693085530568 avg_v=0.14068237293889757 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] target gap_1_2: collection enabled after 2000ms prepare (fixation lock-on ~420ms before samples count)
+[calib2] t=10/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=10 state=WAIT_LOCK avg_h=0.5122001043058465 avg_v=0.1423594803658882 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=10/15 window_size=8 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=10 state=WAIT_LOCK avg_h=0.5128307675613573 avg_v=0.1476618104984291 std=(0.000,0.000) lock_ms=420 win_ms=273 collect_ms=0 reason=locking:time
+[calib2] t=10/15 window_size=16 samples_used_for_target_mean=3 target_mean_ready=False target_means_count=10 state=LOCKED_COLLECTING avg_h=0.5144522234335652 avg_v=0.14905725781673118 std=(0.001,0.003) lock_ms=420 win_ms=541 collect_ms=101 reason=
+[calib2] t=10/15 window_size=24 samples_used_for_target_mean=11 target_mean_ready=False target_means_count=10 state=LOCKED_COLLECTING avg_h=0.5149020791491579 avg_v=0.1459032587591811 std=(0.001,0.002) lock_ms=420 win_ms=811 collect_ms=371 reason=
+[calib2] t=10/15 window_size=32 samples_used_for_target_mean=19 target_mean_ready=False target_means_count=10 state=LOCKED_COLLECTING avg_h=0.5151549665937172 avg_v=0.13171803502982804 std=(0.001,0.006) lock_ms=420 win_ms=1082 collect_ms=642 reason=
+[calib2] t=10/15 window_size=40 samples_used_for_target_mean=27 target_mean_ready=False target_means_count=10 state=LOCKED_COLLECTING avg_h=0.5144924259544092 avg_v=0.13423775225534956 std=(0.001,0.007) lock_ms=420 win_ms=1353 collect_ms=913 reason=
+[calib2] t=10/15 window_size=48 samples_used_for_target_mean=35 target_mean_ready=False target_means_count=10 state=LOCKED_COLLECTING avg_h=0.5144112845740152 avg_v=0.1358375937157209 std=(0.001,0.007) lock_ms=420 win_ms=1624 collect_ms=1184 reason=
+[calib2] t=11/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=11 state=WAIT_LOCK avg_h=0.5145794990316266 avg_v=0.1439927711530625 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=11/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=11 state=WAIT_LOCK avg_h=0.5644101517293867 avg_v=0.13019934741261277 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=11/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=11 state=WAIT_LOCK avg_h=0.5783074845598339 avg_v=0.116176125746656 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=11/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=11 state=WAIT_LOCK avg_h=0.5780211101648376 avg_v=0.10932936951768224 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=11/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=11 state=WAIT_LOCK avg_h=0.5752275538653486 avg_v=0.10997088411638292 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=11/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=11 state=WAIT_LOCK avg_h=0.5763535995246898 avg_v=0.08676665920066842 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=11/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=11 state=WAIT_LOCK avg_h=0.5799220023496103 avg_v=0.07930084229954473 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] target row0_x28: collection enabled after 2000ms prepare (fixation lock-on ~420ms before samples count)
+[calib2] t=11/15 window_size=4 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=11 state=WAIT_LOCK avg_h=0.5741074312987462 avg_v=0.08100411348295283 std=(0.000,0.000) lock_ms=420 win_ms=136 collect_ms=0 reason=locking:time
+[calib2] t=11/15 window_size=12 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=11 state=WAIT_LOCK avg_h=0.5755991873541588 avg_v=0.08082998730061397 std=(0.001,0.002) lock_ms=420 win_ms=406 collect_ms=0 reason=locking:time
+[calib2] t=11/15 window_size=20 samples_used_for_target_mean=7 target_mean_ready=False target_means_count=11 state=LOCKED_COLLECTING avg_h=0.5743889299266023 avg_v=0.0776888054784943 std=(0.001,0.003) lock_ms=420 win_ms=674 collect_ms=234 reason=
+[calib2] t=11/15 window_size=29 samples_used_for_target_mean=16 target_mean_ready=False target_means_count=11 state=LOCKED_COLLECTING avg_h=0.5756353814802284 avg_v=0.08382197664437907 std=(0.001,0.004) lock_ms=420 win_ms=1001 collect_ms=560 reason=
+[calib2] t=11/15 window_size=37 samples_used_for_target_mean=24 target_mean_ready=False target_means_count=11 state=LOCKED_COLLECTING avg_h=0.5768542863729068 avg_v=0.088720809478604 std=(0.001,0.004) lock_ms=420 win_ms=1273 collect_ms=832 reason=
+[calib2] t=11/15 window_size=45 samples_used_for_target_mean=32 target_mean_ready=False target_means_count=11 state=LOCKED_COLLECTING avg_h=0.5766945602138747 avg_v=0.09350537641022924 std=(0.001,0.005) lock_ms=420 win_ms=1541 collect_ms=1100 reason=
+[calib2] t=12/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=12 state=WAIT_LOCK avg_h=0.5794726633105762 avg_v=0.09829742475434505 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=12/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=12 state=WAIT_LOCK avg_h=0.4891611103504184 avg_v=0.09087528527179214 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=12/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=12 state=WAIT_LOCK avg_h=0.48069505551044345 avg_v=0.09448385257181693 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=12/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=12 state=WAIT_LOCK avg_h=0.4794717488643103 avg_v=0.08721679167516472 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=12/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=12 state=WAIT_LOCK avg_h=0.48117754884749453 avg_v=0.9210135361179193 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=12/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=12 state=WAIT_LOCK avg_h=0.47455809158133516 avg_v=0.036682172377725974 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=12/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=12 state=WAIT_LOCK avg_h=0.4762225192286783 avg_v=0.07511546195348676 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] target row0_x72: collection enabled after 2000ms prepare (fixation lock-on ~420ms before samples count)
+[calib2] t=12/15 window_size=3 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=12 state=WAIT_LOCK avg_h=0.4780860189594028 avg_v=0.08549933805578355 std=(0.000,0.000) lock_ms=420 win_ms=103 collect_ms=0 reason=locking:time
+[calib2] t=12/15 window_size=11 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=12 state=WAIT_LOCK avg_h=0.47885456113567726 avg_v=0.08303201697511775 std=(0.000,0.000) lock_ms=420 win_ms=371 collect_ms=0 reason=locking:time
+[calib2] t=12/15 window_size=19 samples_used_for_target_mean=6 target_mean_ready=False target_means_count=12 state=LOCKED_COLLECTING avg_h=0.47965434124030576 avg_v=0.09133157645362161 std=(0.001,0.002) lock_ms=420 win_ms=643 collect_ms=204 reason=
+[calib2] t=12/15 window_size=27 samples_used_for_target_mean=14 target_mean_ready=False target_means_count=12 state=LOCKED_COLLECTING avg_h=0.4810138212948078 avg_v=0.09385438252968084 std=(0.001,0.004) lock_ms=420 win_ms=913 collect_ms=474 reason=
+[calib2] t=12/15 window_size=35 samples_used_for_target_mean=22 target_mean_ready=False target_means_count=12 state=LOCKED_COLLECTING avg_h=0.48222641923541554 avg_v=0.0942826753759334 std=(0.001,0.004) lock_ms=420 win_ms=1184 collect_ms=745 reason=
+[calib2] t=12/15 window_size=43 samples_used_for_target_mean=30 target_mean_ready=False target_means_count=12 state=LOCKED_COLLECTING avg_h=0.482762863398182 avg_v=0.09345019902735105 std=(0.002,0.005) lock_ms=420 win_ms=1452 collect_ms=1013 reason=
+[calib2] t=13/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=13 state=WAIT_LOCK avg_h=0.48255675700355194 avg_v=0.09072766661164725 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=13/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=13 state=WAIT_LOCK avg_h=0.4926310834651729 avg_v=0.11496346165147459 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=13/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=13 state=WAIT_LOCK avg_h=0.5380410786814156 avg_v=0.15499273878998102 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=13/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=13 state=WAIT_LOCK avg_h=0.5359798260815113 avg_v=0.165104201934281 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=13/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=13 state=WAIT_LOCK avg_h=0.53570822450098 avg_v=0.16820359769725948 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=13/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=13 state=WAIT_LOCK avg_h=0.5350505773792551 avg_v=0.16667783987825602 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=13/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=13 state=WAIT_LOCK avg_h=0.5331872801360185 avg_v=0.16633786545985205 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=13/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=13 state=WAIT_LOCK avg_h=0.5342713105559832 avg_v=0.1682533950751576 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] target row2_x28: collection enabled after 2000ms prepare (fixation lock-on ~420ms before samples count)
+[calib2] t=13/15 window_size=7 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=13 state=WAIT_LOCK avg_h=0.5348376493491035 avg_v=0.1664290582502634 std=(0.000,0.000) lock_ms=420 win_ms=240 collect_ms=0 reason=locking:time
+[calib2] t=13/15 window_size=15 samples_used_for_target_mean=2 target_mean_ready=False target_means_count=13 state=LOCKED_COLLECTING avg_h=0.5340879986774673 avg_v=0.1663361645024616 std=(0.000,0.002) lock_ms=420 win_ms=512 collect_ms=61 reason=
+[calib2] t=13/15 window_size=23 samples_used_for_target_mean=10 target_mean_ready=False target_means_count=13 state=LOCKED_COLLECTING avg_h=0.533389615769602 avg_v=0.15210071574022346 std=(0.000,0.005) lock_ms=420 win_ms=787 collect_ms=336 reason=
+[calib2] t=13/15 window_size=31 samples_used_for_target_mean=18 target_mean_ready=False target_means_count=13 state=LOCKED_COLLECTING avg_h=0.5336914299021696 avg_v=0.164103401001481 std=(0.000,0.006) lock_ms=420 win_ms=1047 collect_ms=596 reason=
+[calib2] t=13/15 window_size=39 samples_used_for_target_mean=26 target_mean_ready=False target_means_count=13 state=LOCKED_COLLECTING avg_h=0.5325214744087929 avg_v=0.15770257596852003 std=(0.001,0.006) lock_ms=420 win_ms=1329 collect_ms=878 reason=
+[calib2] t=13/15 window_size=47 samples_used_for_target_mean=34 target_mean_ready=False target_means_count=13 state=LOCKED_COLLECTING avg_h=0.5315183687753885 avg_v=0.13944777693039656 std=(0.001,0.009) lock_ms=420 win_ms=1586 collect_ms=1135 reason=
+[calib2] t=14/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=14 state=WAIT_LOCK avg_h=0.5303365081372633 avg_v=0.15646518113540625 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=14/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=14 state=WAIT_LOCK avg_h=0.4972702978244991 avg_v=0.15010668817891712 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=14/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=14 state=WAIT_LOCK avg_h=0.4902946783077984 avg_v=0.15307575521780242 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=14/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=14 state=WAIT_LOCK avg_h=0.4908884001684625 avg_v=0.14882754250811833 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=14/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=14 state=WAIT_LOCK avg_h=0.4913969250910978 avg_v=0.14172001219924024 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=14/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=14 state=WAIT_LOCK avg_h=0.49082952202670965 avg_v=0.14258880899683182 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] t=14/15 window_size=0 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=14 state=WAIT_LOCK avg_h=0.4908666375917782 avg_v=0.1354200141495345 std=(0.000,0.000) lock_ms=420 win_ms=0 collect_ms=0 reason=
+[calib2] target row2_x72: collection enabled after 2000ms prepare (fixation lock-on ~420ms before samples count)
+[calib2] t=14/15 window_size=3 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=14 state=WAIT_LOCK avg_h=0.4907968560207561 avg_v=0.13183600336849197 std=(0.000,0.000) lock_ms=420 win_ms=101 collect_ms=0 reason=locking:time
+[calib2] t=14/15 window_size=11 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=14 state=WAIT_LOCK avg_h=0.49187391583712775 avg_v=0.12440789211462883 std=(0.000,0.000) lock_ms=420 win_ms=373 collect_ms=0 reason=locking:time
+[calib2] t=14/15 window_size=19 samples_used_for_target_mean=6 target_mean_ready=False target_means_count=14 state=LOCKED_COLLECTING avg_h=0.4900744546977634 avg_v=0.11768101097131262 std=(0.001,0.005) lock_ms=420 win_ms=642 collect_ms=202 reason=
+[calib2] t=14/15 window_size=27 samples_used_for_target_mean=14 target_mean_ready=False target_means_count=14 state=LOCKED_COLLECTING avg_h=0.4904183809125135 avg_v=0.11317086214434513 std=(0.001,0.006) lock_ms=420 win_ms=913 collect_ms=473 reason=
+[calib2] t=14/15 window_size=35 samples_used_for_target_mean=22 target_mean_ready=False target_means_count=14 state=LOCKED_COLLECTING avg_h=0.4907734347697037 avg_v=0.12223681681823606 std=(0.001,0.006) lock_ms=420 win_ms=1184 collect_ms=744 reason=
+[calib2] t=14/15 window_size=43 samples_used_for_target_mean=30 target_mean_ready=False target_means_count=14 state=LOCKED_COLLECTING avg_h=0.4910992233401232 avg_v=0.12705258604752445 std=(0.001,0.006) lock_ms=420 win_ms=1454 collect_ms=1014 reason=
+[calib2] t=15/15 window_size=49 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=15 state=LOCKED_COLLECTING avg_h=0.49088511823180336 avg_v=0.12489946623915385 std=(0.001,0.006) lock_ms=420 win_ms=1658 collect_ms=1218 reason=
+[calib2] t=15/15 window_size=49 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=15 state=LOCKED_COLLECTING avg_h=0.4914599706813776 avg_v=0.12927412594271406 std=(0.001,0.006) lock_ms=420 win_ms=1658 collect_ms=1218 reason=
+[calib2] t=15/15 window_size=49 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=15 state=LOCKED_COLLECTING avg_h=0.4983557929665713 avg_v=0.8683804966920976 std=(0.001,0.006) lock_ms=420 win_ms=1658 collect_ms=1218 reason=
+[calib2] t=15/15 window_size=49 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=15 state=LOCKED_COLLECTING avg_h=0.5188528590996583 avg_v=0.023948183180275112 std=(0.001,0.006) lock_ms=420 win_ms=1658 collect_ms=1218 reason=
+[calib2] t=15/15 window_size=49 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=15 state=LOCKED_COLLECTING avg_h=0.522195116260741 avg_v=0.03818112951978342 std=(0.001,0.006) lock_ms=420 win_ms=1658 collect_ms=1218 reason=
+[calib2] t=15/15 window_size=49 samples_used_for_target_mean=0 target_mean_ready=False target_means_count=15 state=LOCKED_COLLECTING avg_h=0.5213608444222912 avg_v=0.11014128695868411 std=(0.001,0.006) lock_ms=420 win_ms=1658 collect_ms=1218 reason=
+[calib2] --- per-target training means (u/v per eye) ---
+[calib2] id   label                screen       uL       vL       uR       vR    avg_v
+[calib2] T01 row0_left      ( 196, 169)   0.1039  -0.4011   0.2015  -0.3528   0.1231
+[calib2] T02 row0_center    ( 576, 169)  -0.0379  -0.3618   0.0912  -0.4977   0.0703
+[calib2] T03 row0_right     (1083, 169)  -0.1377  -0.3415  -0.0068  -0.6877   0.0793
+[calib2] T04 row1_left      ( 292, 237)   0.0742  -0.3519   0.1744  -0.3129   0.1676
+[calib2] T05 row1_center    ( 639, 237)  -0.0449  -0.2980   0.0764  -0.4377   0.1321
+[calib2] T06 row1_right     ( 987, 237)  -0.1149  -0.2729   0.0062  -0.5386   0.1136
+[calib2] T07 row2_left      ( 292, 305)   0.0711  -0.3475   0.1703  -0.2917   0.1806
+[calib2] T08 row2_center    ( 639, 305)  -0.0538  -0.2474   0.0730  -0.3887   0.1799
+[calib2] T09 row2_right     ( 987, 305)  -0.1063  -0.2107   0.0101  -0.4283   0.1805
+[calib2] T10 gap_0_1        ( 640, 203)  -0.0466  -0.3042   0.0691  -0.4513   0.1222
+[calib2] T11 gap_1_2        ( 640, 271)  -0.0489  -0.2913   0.0782  -0.4308   0.1389
+[calib2] T12 row0_x28       ( 449, 169)   0.0225  -0.3860   0.1289  -0.4436   0.0851
+[calib2] T13 row0_x72       ( 829, 169)  -0.0805  -0.3149   0.0430  -0.5356   0.0925
+[calib2] T14 row2_x28       ( 524, 305)  -0.0292  -0.2885   0.0956  -0.3950   0.1574
+[calib2] T15 row2_x72       ( 755, 305)  -0.0736  -0.2776   0.0551  -0.4824   0.1200
+[diag] avg_h range: 0.428-0.653 span=0.225
+[diag] avg_v range: 0.070-0.181 span=0.110
+[diag] pca features sample[0]: FrameFeatures(timestamp_ms=0, face_detected=True, blink=False, confidence=1.0, Lh=0.6039052995524128, Lv=0.09889708104424444, Rh=0.7015299183160255, Rv=0.14724903010642867, avg_h=0.652717608934219, avg_v=0.12307305557533654, eye_box_w=0.06933356697360675, eye_box_h=0.031914847902953625, face_x=0.5098848785123518, face_y=0.6340455735723177, pca_uL=0.10390529955241284, pca_vL=-0.40110291895575556, pca_uR=0.20152991831602537, pca_vR=-0.35275096989357135)      
+[calib2] fitting mapper with 15 target-mean samples
+[calib2] mapper clip bounds: keyboard region (8.0, 135.0, 1264.0, 273.0)
+[calib2] alpha grid pca4_baseline: a=1:64.3px a=10:96.7px a=50:187.3px a=100:223.3px a=200:248.3px a=400:263.3px -> selected 1.0 (best_loocv=64.3px tol=5.0px chosen_loocv=64.3px)
+[calib2] alpha grid pca4_decoupled_split: a=1:63.2px a=10:94.0px a=50:184.7px a=100:221.6px a=200:247.3px a=400:262.7px -> selected 1.0 (best_loocv=63.2px tol=5.0px chosen_loocv=63.2px)
+[calib2] alpha grid poly12_ridge: a=1:59.8px a=10:64.7px a=50:110.7px a=100:150.0px a=200:191.6px a=400:226.3px -> selected 10.0 (best_loocv=59.8px tol=5.0px chosen_loocv=64.7px)
+[calib2] alpha grid poly12_ridge_split_y_probe: a=1:59.8px a=10:64.7px a=50:110.7px a=100:150.0px a=200:191.6px a=400:226.3px -> selected 10.0 (best_loocv=59.8px tol=5.0px chosen_loocv=64.7px)
+[calib2] poly12 Y-mode: decoupled_v LOOCV=61.7px beats poly12=64.7px
+[calib2] alpha grid poly12_ridge_split_decoupled_v: a=1:57.4px a=10:61.7px a=50:109.4px a=100:149.3px a=200:191.2px a=400:226.1px -> selected 10.0 (best_loocv=57.4px tol=5.0px chosen_loocv=61.7px)
+[calib2] --- row-level Y residuals (train, before bias correction) ---
+[calib2] row top: n=5 mean_target_y=169.0 mean_residual_dy=+12.9px
+[calib2] row mid: n=3 mean_target_y=237.0 mean_residual_dy=+8.7px
+[calib2] row bottom: n=5 mean_target_y=305.0 mean_residual_dy=-23.5px
+[calib2] --- u–v coupling (horizontal vs vertical features) ---
+[calib2] raw corr(vL,uL)=-0.663 corr(vL,uR)=-0.668 corr(vR,uR)=0.797 corr(vR,uL)=0.804
+[calib2] raw corr(v_mean,u_mean)=0.415 (high |r| => vertical conflated with horizontal)
+[calib2] decoupled corr(vL_res,u_mean)=0.000 corr(vR_res,u_mean)=-0.000
+[calib2] --- row-level Y residuals (train, before bias correction) ---
+[calib2] row top: n=5 mean_target_y=169.0 mean_residual_dy=+11.7px
+[calib2] row mid: n=3 mean_target_y=237.0 mean_residual_dy=+7.4px
+[calib2] row bottom: n=5 mean_target_y=305.0 mean_residual_dy=-21.1px
+[calib2] --- row-level Y residuals (train, before bias correction) ---
+[calib2] row top: n=5 mean_target_y=169.0 mean_residual_dy=+19.7px
+[calib2] row mid: n=3 mean_target_y=237.0 mean_residual_dy=+9.2px
+[calib2] row bottom: n=5 mean_target_y=305.0 mean_residual_dy=-30.4px
+[calib2] --- row-level Y residuals (train, before bias correction) ---
+[calib2] row top: n=5 mean_target_y=169.0 mean_residual_dy=+23.9px
+[calib2] row mid: n=3 mean_target_y=237.0 mean_residual_dy=+5.7px
+[calib2] row bottom: n=5 mean_target_y=305.0 mean_residual_dy=-31.9px
+[calib2] --- mapper candidate comparison (LOOCV refit per fold) ---
+[calib2] candidate mapper_type=pca4_baseline success=True train_RMS=54.3px LOOCV_RMS=64.3px worst_LOOCV=106.6px max_train=85.0px alpha=1.0 quality_gates=FAILED     
+[calib2]   gate: train region wrong on 2 target(s) (allowed 1)
+[calib2]   gate: LOOCV region wrong on 4 target(s) (allowed 2)
+[calib2]   warning: (warning) max train error 85.0px > 60.0px
+[calib2]   region: train_wrong=2 loocv_wrong=4 worst_train=row0_right worst_loocv=row0_right
+[calib2] candidate mapper_type=pca4_decoupled_split success=True train_RMS=53.7px LOOCV_RMS=63.2px worst_LOOCV=106.6px max_train=87.5px alpha=1.0 quality_gates=FAILED
+[calib2]   gate: train region wrong on 2 target(s) (allowed 1)
+[calib2]   warning: (warning) max train error 87.5px > 60.0px
+[calib2]   region: train_wrong=2 loocv_wrong=2 worst_train=row0_right worst_loocv=row0_right
+[calib2] candidate mapper_type=poly12_ridge success=True train_RMS=49.3px LOOCV_RMS=64.7px worst_LOOCV=154.3px max_train=103.0px alpha=10.0 quality_gates=PASSED    
+[calib2]   warning: (warning) worst LOOCV 154.3px > 110.0px
+[calib2]   warning: (warning) max train error 103.0px > 60.0px
+[calib2]   region: train_wrong=0 loocv_wrong=2 worst_train=row2_right worst_loocv=row2_right
+[calib2] candidate mapper_type=poly12_ridge_split_decoupled_y success=True train_RMS=49.7px LOOCV_RMS=61.7px worst_LOOCV=156.6px max_train=103.2px alpha=10.0 quality_gates=PASSED
+[calib2]   warning: (warning) worst LOOCV 156.6px > 110.0px
+[calib2]   warning: (warning) max train error 103.2px > 60.0px
+[calib2]   region: train_wrong=0 loocv_wrong=2 worst_train=row2_right worst_loocv=row2_right
+[calib2] --- row-level Y residuals (train, before bias correction) ---
+[calib2] row top: n=5 mean_target_y=169.0 mean_residual_dy=+23.9px
+[calib2] row mid: n=3 mean_target_y=237.0 mean_residual_dy=+5.7px
+[calib2] row bottom: n=5 mean_target_y=305.0 mean_residual_dy=-31.9px
+[calib2] local Y correction: 15 anchors dy range [-60.7, +36.8] px
+[calib2] region gate limits: graded=13 max_train_wrong=1 max_loocv_wrong=2
+[calib2] --- calibration target region check (train) ---
+[calib2] train T01 row0_left: expect=top/left pred=top/left err=24.4px OK
+[calib2] train T02 row0_center: expect=top/center pred=top/center err=20.6px OK
+[calib2] train T03 row0_right: expect=top/right pred=top/right err=17.0px OK
+[calib2] train T04 row1_left: expect=mid/left pred=mid/left err=18.4px OK
+[calib2] train T05 row1_center: expect=mid/center pred=mid/center err=8.3px OK
+[calib2] train T06 row1_right: expect=mid/right pred=mid/right err=50.9px OK
+[calib2] train T07 row2_left: expect=bottom/left pred=bottom/left err=26.0px OK
+[calib2] train T08 row2_center: expect=bottom/center pred=bottom/center err=36.7px OK
+[calib2] train T09 row2_right: expect=bottom/right pred=bottom/right err=102.9px OK
+[calib2] train T12 row0_x28: expect=top/center pred=top/center err=23.5px OK
+[calib2] train T13 row0_x72: expect=top/center pred=top/center err=37.8px OK
+[calib2] train T14 row2_x28: expect=bottom/center pred=bottom/center err=62.4px OK
+[calib2] train T15 row2_x72: expect=bottom/center pred=bottom/center err=0.9px OK
+[calib2] --- calibration target region check (LOOCV) ---
+[calib2] loocv T01 row0_left: expect=top/left pred=top/left err=36.6px OK
+[calib2] loocv T02 row0_center: expect=top/center pred=top/center err=26.9px OK
+[calib2] loocv T03 row0_right: expect=top/right pred=top/right err=25.3px OK
+[calib2] loocv T04 row1_left: expect=mid/left pred=mid/left err=27.4px OK
+[calib2] loocv T05 row1_center: expect=mid/center pred=mid/center err=11.9px OK
+[calib2] loocv T06 row1_right: expect=mid/right pred=mid/right err=62.2px OK
+[calib2] loocv T07 row2_left: expect=bottom/left pred=bottom/left err=30.6px OK
+[calib2] loocv T08 row2_center: expect=bottom/center pred=bottom/center err=48.9px OK
+[calib2] loocv T09 row2_right: expect=bottom/right pred=bottom/center err=156.7px WRONG_REGION
+[calib2] loocv T12 row0_x28: expect=top/center pred=top/center err=34.3px OK
+[calib2] loocv T13 row0_x72: expect=top/center pred=top/center err=46.6px OK
+[calib2] loocv T14 row2_x28: expect=bottom/center pred=mid/center err=85.2px WRONG_REGION
+[calib2] loocv T15 row2_x72: expect=bottom/center pred=bottom/center err=3.8px OK
+[calib2] worst train: row2_right err=102.9px
+[calib2] worst LOOCV: row2_right err=156.7px
+[calib2] SELECTED mapper_type=poly12_ridge_split_decoupled_y LOOCV_RMS=61.7px worst_LOOCV=156.6px worst_train=row2_right worst_loocv=row2_right train_RMS=49.7px alpha=10.0
+[calib2] mapper fit: success=True rms_px=49.686442794992736 msg=Selected poly12_ridge_split_decoupled_y (LOOCV=61.7px).
+[calib2] ridge diag: feature_count=12 sample_count=15 alpha=10.0 training_RMS=49.686442794992736 LOOCV_RMS=55.879806066953996
+[calib2] pca_ridge: LOOCV_RMS=55.9px
+[calib2] pca_ridge: LOOCV worst targets: T09=156.7px, T14=85.2px, T06=62.2px, T08=48.9px
+[calib2] loocv worst: T09 label=row2_right target=(987.0,305.0) pred=(832.9,333.5) err=156.7px
+[calib2] loocv worst: T14 label=row2_x28 target=(524.0,305.0) pred=(595.8,259.2) err=85.2px
+[calib2] loocv worst: T06 label=row1_right target=(987.0,237.0) pred=(925.5,228.3) err=62.2px
+[calib2] loocv worst: T08 label=row2_center target=(639.0,305.0) pred=(685.3,320.6) err=48.9px
+[calib2] active_mapper=poly12_ridge_split_decoupled_y
+[calib2] avg_v row top: (no targets)
+[calib2] avg_v row mid: (no targets)
+[calib2] avg_v row bottom: (no targets)
+[calib2] wrote ratio-space scatter CSV: C:\Users\Lenovo\Desktop\Virtual Keyboard\calibration_ratio_space.csv
+[calib2] --- per-target vertical features (training means) ---
+[calib2] id   label          screen_y    avg_v   pca_vL   pca_vR    pca_v   face_y    eye_h
+[calib2] T01 row0_left           169   0.1231  -0.4011  -0.3528  -0.3769   0.6340   0.0319
+[calib2] T02 row0_center         169   0.0703  -0.3618  -0.4977  -0.4298   0.6407   0.0323
+[calib2] T03 row0_right          169   0.0793  -0.3415  -0.6877  -0.5146   0.6427   0.0315
+[calib2] T04 row1_left           237   0.1676  -0.3519  -0.3129  -0.3324   0.6494   0.0307
+[calib2] T05 row1_center         237   0.1321  -0.2980  -0.4377  -0.3679   0.6541   0.0310
+[calib2] T06 row1_right          237   0.1136  -0.2729  -0.5386  -0.4057   0.6576   0.0309
+[calib2] T07 row2_left           305   0.1806  -0.3475  -0.2917  -0.3196   0.6617   0.0310
+[calib2] T08 row2_center         305   0.1799  -0.2474  -0.3887  -0.3181   0.6651   0.0296
+[calib2] T09 row2_right          305   0.1805  -0.2107  -0.4283  -0.3195   0.6661   0.0296
+[calib2] T10 gap_0_1             203   0.1222  -0.3042  -0.4513  -0.3778   0.6647   0.0321
+[calib2] T11 gap_1_2             271   0.1389  -0.2913  -0.4308  -0.3611   0.6656   0.0301
+[calib2] T12 row0_x28            169   0.0851  -0.3860  -0.4436  -0.4148   0.6619   0.0316
+[calib2] T13 row0_x72            169   0.0925  -0.3149  -0.5356  -0.4253   0.6620   0.0324
+[calib2] T14 row2_x28            305   0.1574  -0.2885  -0.3950  -0.3417   0.6709   0.0298
+[calib2] T15 row2_x72            305   0.1200  -0.2776  -0.4824  -0.3800   0.6746   0.0295
+[calib2] --- row means (vertical features) ---
+[calib2] row top: avg_v=  0.0900 pca_v= -0.4323 pca_vL= -0.3611 pca_vR= -0.5035 face_y=  0.6483 eye_box_h=  0.0319 n=5
+[calib2] row mid: avg_v=  0.1377 pca_v= -0.3687 pca_vL= -0.3076 pca_vR= -0.4298 face_y=  0.6537 eye_box_h=  0.0309 n=3
+[calib2] row bottom: avg_v=  0.1637 pca_v= -0.3358 pca_vL= -0.2743 pca_vR= -0.3972 face_y=  0.6677 eye_box_h=  0.0299 n=5
+[calib2] --- within-row vertical feature spread ---
+[calib2] within-row avg_v span (top): 0.0528
+[calib2] within-row pca_v span (top): 0.1377
+[calib2] within-row v_res span (top): 0.0718
+[calib2] within-row avg_v span (mid): 0.0540
+[calib2] within-row pca_v span (mid): 0.0733
+[calib2] within-row v_res span (mid): 0.0212
+[calib2] within-row avg_v span (bottom): 0.0606
+[calib2] within-row pca_v span (bottom): 0.0620
+[calib2] within-row v_res span (bottom): 0.0618
+[calib2] --- head pose / face geometry per target ---
+[calib2] id   label            face_x   face_y    eye_w    eye_h
+[calib2] T01 row0_left        0.5099   0.6340   0.0693   0.0319
+[calib2] T02 row0_center      0.5038   0.6407   0.0694   0.0323
+[calib2] T03 row0_right       0.4948   0.6427   0.0690   0.0315
+[calib2] T04 row1_left        0.5125   0.6494   0.0694   0.0307
+[calib2] T05 row1_center      0.5066   0.6541   0.0694   0.0310
+[calib2] T06 row1_right       0.5011   0.6576   0.0700   0.0309
+[calib2] T07 row2_left        0.5183   0.6617   0.0700   0.0310
+[calib2] T08 row2_center      0.5109   0.6651   0.0696   0.0296
+[calib2] T09 row2_right       0.5050   0.6661   0.0697   0.0296
+[calib2] T10 gap_0_1          0.5113   0.6647   0.0700   0.0321
+[calib2] T11 gap_1_2          0.5095   0.6656   0.0692   0.0301
+[calib2] T12 row0_x28         0.5165   0.6619   0.0696   0.0316
+[calib2] T13 row0_x72         0.5076   0.6620   0.0699   0.0324
+[calib2] T14 row2_x28         0.5142   0.6709   0.0694   0.0298
+[calib2] T15 row2_x72         0.5098   0.6746   0.0690   0.0295
+[calib2] head geometry span: face_x=0.0235 face_y=0.0405 eye_box_w=0.0011 eye_box_h=0.0029
+[calib2] WARNING: head drift: face_x span 0.0235 > 0.0120 across targets
+[calib2] WARNING: head drift: face_y span 0.0405 > 0.0120 across targets
+[calib2] --- vertical monotonicity (top < mid < bottom) ---
+[calib2] avg_v: VALID — OK top=0.0900 < mid=0.1377 < bottom=0.1637
+[calib2] pca_v: VALID — OK top=-0.4323 < mid=-0.3687 < bottom=-0.3358
+[calib2] pca_vL: VALID — OK top=-0.3611 < mid=-0.3076 < bottom=-0.2743
+[calib2] pca_vR: VALID — OK top=-0.5035 < mid=-0.4298 < bottom=-0.3972
+[calib2] face_y: INVALID — FAIL top=0.6483 mid=0.6537 bottom=0.6677 (sep top-mid=0.0054 mid-bot=0.0140, need >=0.0080)
+[calib2] within-row pca_v span (top): 0.1377 (row0_left, row0_center, row0_right, row0_x28, row0_x72)
+[calib2] within-row avg_v span (top): 0.0528 (row0_left, row0_center, row0_right, row0_x28, row0_x72)
+[calib2] within-row pca_v span (mid): 0.0733 (row1_left, row1_center, row1_right)
+[calib2] within-row avg_v span (mid): 0.0540 (row1_left, row1_center, row1_right)
+[calib2] within-row pca_v span (bottom): 0.0620 (row2_left, row2_center, row2_right, row2_x28, row2_x72)
+[calib2] within-row avg_v span (bottom): 0.0606 (row2_left, row2_center, row2_right, row2_x28, row2_x72)
+[calib2] --- training predictions (Y-axis check) ---
+[calib2] T01 target_y=169 pred_y=169.0 dy=+0px err=24.4px in_screen=True
+[calib2] T02 target_y=169 pred_y=169.0 dy=+0px err=20.6px in_screen=True
+[calib2] T03 target_y=169 pred_y=169.0 dy=+0px err=17.0px in_screen=True
+[calib2] T04 target_y=237 pred_y=237.0 dy=+0px err=18.4px in_screen=True
+[calib2] T05 target_y=237 pred_y=237.0 dy=+0px err=8.3px in_screen=True
+[calib2] T06 target_y=237 pred_y=237.0 dy=+0px err=50.9px in_screen=True
+[calib2] T07 target_y=305 pred_y=305.0 dy=+0px err=26.0px in_screen=True
+[calib2] T08 target_y=305 pred_y=305.0 dy=+0px err=36.7px in_screen=True
+[calib2] T09 target_y=305 pred_y=305.0 dy=+0px err=102.9px in_screen=True
+[calib2] T10 target_y=203 pred_y=203.0 dy=+0px err=22.8px in_screen=True
+[calib2] T11 target_y=271 pred_y=271.0 dy=+0px err=11.5px in_screen=True
+[calib2] T12 target_y=169 pred_y=169.0 dy=+0px err=23.5px in_screen=True
+[calib2] T13 target_y=169 pred_y=169.0 dy=+0px err=37.8px in_screen=True
+[calib2] T14 target_y=305 pred_y=305.0 dy=+0px err=62.4px in_screen=True
+[calib2] T15 target_y=305 pred_y=305.0 dy=+0px err=0.9px in_screen=True
+[calib2] worst train target: row2_right err=102.9px
+[calib2]   pixel (warning): max train error 102.9px > 60.0px
+[calib2]   pixel (warning): row2_right train error 102.9px > 55.0px
+[calib2]   pixel (warning): row2_x28 train error 62.4px > 55.0px
+[calib2] worst LOOCV target: row2_right err=156.7px
+[calib2]   pixel (warning): worst LOOCV 156.7px > 110.0px
+[calib2] keyboard gate: region OK — pixel thresholds exceeded but not failing (wrong key/row would fail)
+[calib2] avg_v span across targets: 0.1103
+[calib2] pca_v span across targets: 0.1965
+[calib2] corr(screen_y, avg_v)=0.824 (expect positive)
+[calib2] quality gates: PASSED
+[calib2] --- fullscreen mapping feasibility ---
+[calib2] avg_v row separation (bottom-top): 0.0737
+[calib2] avg_v: row monotonicity OK (coarse vertical signal present)
+[calib2] pca_v*: better row separation than avg_v alone — prefer ridge PCA features
+[calib2] LOOCV 55.9px: fullscreen mapping may be viable
+[calib2] --- geometric diagnostics (train) ---
+[calib2] train T01 row0_left: expect=r0/c0 pred=r0/c0 OK nearest_key=w@1 dx=+24.4 dy=+0.0 err=24.4px
+[calib2] train T02 row0_center: expect=r0/c1 pred=r0/c1 OK nearest_key=t@1 dx=+20.6 dy=+0.0 err=20.6px
+[calib2] train T03 row0_right: expect=r0/c2 pred=r0/c2 OK nearest_key=o@1 dx=-17.0 dy=+0.0 err=17.0px
+[calib2] train T04 row1_left: expect=r1/c0 pred=r1/c0 OK nearest_key=s@2 dx=+18.4 dy=+0.0 err=18.4px
+[calib2] train T05 row1_center: expect=r1/c1 pred=r1/c1 OK nearest_key=g@2 dx=+8.3 dy=+0.0 err=8.3px
+[calib2] train T06 row1_right: expect=r1/c2 pred=r1/c2 OK nearest_key=k@2 dx=-50.9 dy=+0.0 err=50.9px
+[calib2] train T07 row2_left: expect=r2/c0 pred=r2/c0 OK nearest_key=z@3 dx=+26.0 dy=+0.0 err=26.0px
+[calib2] train T08 row2_center: expect=r2/c1 pred=r2/c1 OK nearest_key=v@3 dx=+36.7 dy=+0.0 err=36.7px
+[calib2] train T09 row2_right: expect=r2/c2 pred=r2/c2 OK nearest_key=n@3 dx=-102.9 dy=+0.0 err=102.9px
+[calib2] train T10 gap_0_1: expect=mid/center pred=mid/center OK nearest_key=g@2 dx=+22.8 dy=+0.0 err=22.8px
+[calib2] train T11 gap_1_2: expect=mid/center pred=mid/center OK nearest_key=g@2 dx=+11.5 dy=+0.0 err=11.5px
+[calib2] train T12 row0_x28: expect=r0/c1 pred=r0/c1 OK nearest_key=r@1 dx=-23.5 dy=+0.0 err=23.5px
+[calib2] train T13 row0_x72: expect=r0/c1 pred=r0/c1 OK nearest_key=u@1 dx=-37.8 dy=+0.0 err=37.8px
+[calib2] train T14 row2_x28: expect=r2/c1 pred=r2/c1 OK nearest_key=v@3 dx=+62.4 dy=+0.0 err=62.4px
+[calib2] train T15 row2_x72: expect=r2/c1 pred=r2/c1 OK nearest_key=b@3 dx=+0.9 dy=+0.0 err=0.9px
+[calib2] --- geometric diagnostics (LOOCV) ---
+[calib2] loocv T01 row0_left: expect=r0/c0 pred=r0/c0 OK nearest_key=w@1 dx=+25.8 dy=-26.0 err=36.6px
+[calib2] loocv T02 row0_center: expect=r0/c1 pred=r0/c1 OK nearest_key=t@1 dx=+26.4 dy=-5.1 err=26.9px
+[calib2] loocv T03 row0_right: expect=r0/c2 pred=r0/c2 OK nearest_key=o@1 dx=+15.9 dy=-19.8 err=25.3px
+[calib2] loocv T04 row1_left: expect=r1/c0 pred=r1/c0 OK nearest_key=s@2 dx=+20.4 dy=+18.3 err=27.4px
+[calib2] loocv T05 row1_center: expect=r1/c1 pred=r1/c1 OK nearest_key=g@2 dx=+9.4 dy=+7.3 err=11.9px
+[calib2] loocv T06 row1_right: expect=r1/c2 pred=r1/c2 OK nearest_key=j@2 dx=-61.5 dy=-8.7 err=62.2px
+[calib2] loocv T07 row2_left: expect=r2/c0 pred=r2/c0 OK nearest_key=z@3 dx=+30.4 dy=-2.8 err=30.6px
+[calib2] loocv T08 row2_center: expect=r2/c1 pred=r2/c1 OK nearest_key=v@3 dx=+46.3 dy=+15.6 err=48.9px
+[calib2] loocv T09 row2_right: expect=r2/c2 pred=r2/c1 WRONG nearest_key=n@3 dx=-154.1 dy=+28.5 err=156.7px
+[calib2] loocv T10 gap_0_1: expect=mid/center pred=mid/center OK nearest_key=g@2 dx=+25.4 dy=+4.5 err=25.8px
+[calib2] loocv T11 gap_1_2: expect=mid/center pred=mid/center OK nearest_key=g@2 dx=+13.1 dy=-5.9 err=14.4px
+[calib2] loocv T12 row0_x28: expect=r0/c1 pred=r0/c1 OK nearest_key=r@1 dx=-34.0 dy=+4.1 err=34.3px
+[calib2] loocv T13 row0_x72: expect=r0/c1 pred=r0/c1 OK nearest_key=u@1 dx=-43.0 dy=+18.0 err=46.6px
+[calib2] loocv T14 row2_x28: expect=r2/c1 pred=mid/center WRONG nearest_key=g@2 dx=+71.8 dy=-45.8 err=85.2px
+[calib2] loocv T15 row2_x72: expect=r2/c1 pred=r2/c1 OK nearest_key=b@3 dx=+0.8 dy=-3.7 err=3.8px
+[calib2] saved v2 mapper to C:\Users\Lenovo\Desktop\Virtual Keyboard\calibration_v2.json
+[calib2] complete. Gaze typing now uses v2 mapper + intent + selection.
+[runtime] mapper_mode=keyboard15 active_mapper=poly12_ridge_split_decoupled_y mapper_type=poly12_ridge_split_decoupled_y LOOCV_RMS=55.879806066953996 corr(screen_y,avg_v)=0.824
+[key_accuracy] started (15 keys) — CSV -> C:\Users\Lenovo\Desktop\Virtual Keyboard\key_accuracy_debug.csv
+[calib2] wrote calibration debug CSV: C:\Users\Lenovo\Desktop\Virtual Keyboard\calibration_debug.csv
+[calib2] target samples: T01 label=row0_left raw_n=36 filt_n=36 avg_h(mean=0.6527 std=0.0009) avg_v(mean=0.1231 std=0.0051) noisy=False
+[calib2] target samples: T02 label=row0_center raw_n=35 filt_n=29 avg_h(mean=0.5266 std=0.0004) avg_v(mean=0.0728 std=0.0061) noisy=False
+[calib2] target samples: T03 label=row0_right raw_n=36 filt_n=29 avg_h(mean=0.4278 std=0.0005) avg_v(mean=0.0796 std=0.0017) noisy=False
+[calib2] target samples: T04 label=row1_left raw_n=36 filt_n=29 avg_h(mean=0.6239 std=0.0013) avg_v(mean=0.1676 std=0.0061) noisy=False
+[calib2] target samples: T05 label=row1_center raw_n=36 filt_n=36 avg_h(mean=0.5155 std=0.0010) avg_v(mean=0.1321 std=0.0074) noisy=False
+[calib2] target samples: T06 label=row1_right raw_n=36 filt_n=36 avg_h(mean=0.4457 std=0.0013) avg_v(mean=0.1136 std=0.0022) noisy=False
+[calib2] target samples: T07 label=row2_left raw_n=36 filt_n=31 avg_h(mean=0.6207 std=0.0013) avg_v(mean=0.1808 std=0.0041) noisy=False
+[calib2] target samples: T08 label=row2_center raw_n=36 filt_n=28 avg_h(mean=0.5096 std=0.0011) avg_v(mean=0.1812 std=0.0103) noisy=False
+[calib2] target samples: T09 label=row2_right raw_n=36 filt_n=36 avg_h(mean=0.4519 std=0.0005) avg_v(mean=0.1805 std=0.0078) noisy=False
+[calib2] target samples: T10 label=gap_0_1 raw_n=36 filt_n=36 avg_h(mean=0.5112 std=0.0004) avg_v(mean=0.1222 std=0.0032) noisy=False
+[calib2] target samples: T11 label=gap_1_2 raw_n=36 filt_n=34 avg_h(mean=0.5147 std=0.0003) avg_v(mean=0.1389 std=0.0071) noisy=False
+[calib2] target samples: T12 label=row0_x28 raw_n=35 filt_n=30 avg_h(mean=0.5757 std=0.0009) avg_v(mean=0.0849 std=0.0062) noisy=False
+[calib2] target samples: T13 label=row0_x72 raw_n=36 filt_n=36 avg_h(mean=0.4812 std=0.0013) avg_v(mean=0.0925 std=0.0030) noisy=False
+[calib2] target samples: T14 label=row2_x28 raw_n=36 filt_n=36 avg_h(mean=0.5332 std=0.0008) avg_v(mean=0.1574 std=0.0091) noisy=False
+[calib2] target samples: T15 label=row2_x72 raw_n=36 filt_n=31 avg_h(mean=0.4906 std=0.0006) avg_v(mean=0.1200 std=0.0055) noisy=False
+[key_accuracy] Q: pred=(170.2,209.6) key=A err=109.1px correct=False
+[key_accuracy] E: pred=(303.4,204.5) key=S err=40.0px correct=False
+[key_accuracy] T: pred=(641.3,135.0) key=Y err=73.6px correct=False
+[key_accuracy] U: pred=(972.0,136.4) key=I err=146.6px correct=False
+[key_accuracy] P: pred=(1272.0,173.1) key=P err=63.1px correct=True
+[key_accuracy] A: pred=(247.6,203.5) key=S err=79.0px correct=False
+[key_accuracy] D: pred=(448.5,224.8) key=D err=42.3px correct=True
+[key_accuracy] G: pred=(710.9,201.7) key=Y err=80.1px correct=False
+[key_accuracy] J: pred=(1027.5,159.0) key=O err=174.8px correct=False
+[key_accuracy] L: pred=(1272.0,149.2) key=P err=191.3px correct=False
+[key_accuracy] Z: pred=(429.1,307.3) key=X err=137.1px correct=False
+[key_accuracy] C: pred=(676.5,224.2) key=G err=172.6px correct=False
+[key_accuracy] B: pred=(956.5,192.5) key=I err=230.8px correct=False
+[key_accuracy] M: pred=(1218.5,198.9) key=P err=254.7px correct=False
+[key_accuracy] Space: pred=(794.9,259.8) key=H err=191.1px correct=False
+[key_accuracy] wrote 15 rows to C:\Users\Lenovo\Desktop\Virtual Keyboard\key_accuracy_debug.csv
+[key_accuracy] --- summary ---
+[key_accuracy] total tested keys: 15
+[key_accuracy] correct: 2
+[key_accuracy] accuracy: 13.3%
+[key_accuracy] mean error px: 132.4
+[key_accuracy] max error px: 254.7
+[key_accuracy] worst keys:
+[key_accuracy]   target M -> predicted P err=254.7px dx=+231.5 dy=-106.1
+[key_accuracy]   target B -> predicted I err=230.8px dx=+201.5 dy=-112.5
+[key_accuracy]   target L -> predicted P err=191.3px dx=+170.0 dy=-87.8
+[key_accuracy]   target Space -> predicted H err=191.1px dx=+153.9 dy=-113.2
+[key_accuracy]   target J -> predicted O err=174.8px dx=+156.5 dy=-78.0
+[key_accuracy] confusion pairs (target -> predicted):
+[key_accuracy]   A -> S
+[key_accuracy]   B -> I
+[key_accuracy]   C -> G
+[key_accuracy]   E -> S
+[key_accuracy]   G -> Y
+[key_accuracy]   J -> O
+[key_accuracy]   L -> P
+[key_accuracy]   M -> P
+[key_accuracy]   Q -> A
+[key_accuracy]   Space -> H
+[key_accuracy]   T -> Y
+[key_accuracy]   U -> I
+[key_accuracy]   Z -> X
+[key_accuracy_compare] replaying 15 keys across 4 candidates
+[calib2] --- row-level Y residuals (train, before bias correction) ---
+[calib2] row top: n=5 mean_target_y=169.0 mean_residual_dy=+12.9px
+[calib2] row mid: n=3 mean_target_y=237.0 mean_residual_dy=+8.7px
+[calib2] row bottom: n=5 mean_target_y=305.0 mean_residual_dy=-23.5px
+[key_accuracy_compare] --- pca4_baseline ---
+[key_accuracy] --- summary ---
+[key_accuracy] total tested keys: 15
+[key_accuracy] correct: 3
+[key_accuracy] accuracy: 20.0%
+[key_accuracy] mean error px: 110.9
+[key_accuracy] max error px: 225.4
+[key_accuracy] worst keys:
+[key_accuracy]   target B -> predicted I err=225.4px dx=+148.9 dy=-169.2
+[key_accuracy]   target M -> predicted P err=202.7px dx=+175.2 dy=-101.9
+[key_accuracy]   target C -> predicted G err=171.6px dx=+152.8 dy=-78.1
+[key_accuracy]   target Space -> predicted B err=145.1px dx=+133.8 dy=-56.2
+[key_accuracy]   target Z -> predicted D err=138.4px dx=+133.4 dy=-36.6
+[key_accuracy] confusion pairs (target -> predicted):
+[key_accuracy]   A -> W
+[key_accuracy]   B -> I
+[key_accuracy]   C -> G
+[key_accuracy]   D -> R
+[key_accuracy]   E -> S
+[key_accuracy]   G -> Y
+[key_accuracy]   J -> I
+[key_accuracy]   L -> P
+[key_accuracy]   M -> P
+[key_accuracy]   Space -> B
+[key_accuracy]   T -> Y
+[key_accuracy]   Z -> D
+[calib2] --- row-level Y residuals (train, before bias correction) ---
+[calib2] row top: n=5 mean_target_y=169.0 mean_residual_dy=+11.7px
+[calib2] row mid: n=3 mean_target_y=237.0 mean_residual_dy=+7.4px
+[calib2] row bottom: n=5 mean_target_y=305.0 mean_residual_dy=-21.1px
+[key_accuracy_compare] --- pca4_decoupled_split ---
+[key_accuracy] --- summary ---
+[key_accuracy] total tested keys: 15
+[key_accuracy] correct: 3
+[key_accuracy] accuracy: 20.0%
+[key_accuracy] mean error px: 109.1
+[key_accuracy] max error px: 217.2
+[key_accuracy] worst keys:
+[key_accuracy]   target B -> predicted I err=217.2px dx=+148.9 dy=-158.2
+[key_accuracy]   target M -> predicted P err=200.3px dx=+175.2 dy=-97.2
+[key_accuracy]   target C -> predicted G err=166.0px dx=+152.8 dy=-64.9
+[key_accuracy]   target Space -> predicted B err=137.9px dx=+133.8 dy=-33.3
+[key_accuracy]   target Z -> predicted X err=134.0px dx=+133.4 dy=+12.7
+[key_accuracy] confusion pairs (target -> predicted):
+[key_accuracy]   B -> I
+[key_accuracy]   C -> G
+[key_accuracy]   D -> F
+[key_accuracy]   E -> S
+[key_accuracy]   G -> Y
+[key_accuracy]   J -> I
+[key_accuracy]   L -> P
+[key_accuracy]   M -> P
+[key_accuracy]   Q -> A
+[key_accuracy]   Space -> B
+[key_accuracy]   T -> Y
+[key_accuracy]   Z -> X
+[calib2] --- row-level Y residuals (train, before bias correction) ---
+[calib2] row top: n=5 mean_target_y=169.0 mean_residual_dy=+19.7px
+[calib2] row mid: n=3 mean_target_y=237.0 mean_residual_dy=+9.2px
+[calib2] row bottom: n=5 mean_target_y=305.0 mean_residual_dy=-30.4px
+[key_accuracy_compare] --- poly12_ridge ---
+[key_accuracy] --- summary ---
+[key_accuracy] total tested keys: 15
+[key_accuracy] correct: 3
+[key_accuracy] accuracy: 20.0%
+[key_accuracy] mean error px: 135.2
+[key_accuracy] max error px: 254.2
+[key_accuracy] worst keys:
+[key_accuracy]   target M -> predicted P err=254.2px dx=+231.5 dy=-105.1
+[key_accuracy]   target B -> predicted I err=238.3px dx=+201.5 dy=-127.1
+[key_accuracy]   target Space -> predicted H err=207.9px dx=+153.9 dy=-139.8
+[key_accuracy]   target L -> predicted P err=191.7px dx=+170.0 dy=-88.6
+[key_accuracy]   target J -> predicted O err=183.3px dx=+156.5 dy=-95.4
+[key_accuracy] confusion pairs (target -> predicted):
+[key_accuracy]   A -> W
+[key_accuracy]   B -> I
+[key_accuracy]   C -> G
+[key_accuracy]   G -> Y
+[key_accuracy]   J -> O
+[key_accuracy]   L -> P
+[key_accuracy]   M -> P
+[key_accuracy]   Q -> A
+[key_accuracy]   Space -> H
+[key_accuracy]   T -> Y
+[key_accuracy]   U -> I
+[key_accuracy]   Z -> D
+[key_accuracy_compare] --- poly12_ridge_split_decoupled_y ---
+[key_accuracy] --- summary ---
+[key_accuracy] total tested keys: 15
+[key_accuracy] correct: 2
+[key_accuracy] accuracy: 13.3%
+[key_accuracy] mean error px: 132.4
+[key_accuracy] max error px: 254.7
+[key_accuracy] worst keys:
+[key_accuracy]   target M -> predicted P err=254.7px dx=+231.5 dy=-106.1
+[key_accuracy]   target B -> predicted I err=230.8px dx=+201.5 dy=-112.5
+[key_accuracy]   target L -> predicted P err=191.3px dx=+170.0 dy=-87.8
+[key_accuracy]   target Space -> predicted H err=191.1px dx=+153.9 dy=-113.2
+[key_accuracy]   target J -> predicted O err=174.8px dx=+156.5 dy=-78.0
+[key_accuracy] confusion pairs (target -> predicted):
+[key_accuracy]   A -> S
+[key_accuracy]   B -> I
+[key_accuracy]   C -> G
+[key_accuracy]   E -> S
+[key_accuracy]   G -> Y
+[key_accuracy]   J -> O
+[key_accuracy]   L -> P
+[key_accuracy]   M -> P
+[key_accuracy]   Q -> A
+[key_accuracy]   Space -> H
+[key_accuracy]   T -> Y
+[key_accuracy]   U -> I
+[key_accuracy]   Z -> X
+[key_accuracy_compare] wrote C:\Users\Lenovo\Desktop\Virtual Keyboard\key_accuracy_compare.csv
+[key_accuracy_compare] --- leaderboard (same gaze, different mappers) ---
+[key_accuracy_compare] mapper                             acc%    ok  mean_err   max_err  mean|dx|  mean|dy|
+[key_accuracy_compare] pca4_decoupled_split               20.0  3/15     109.1     217.2      89.9      53.8
+[key_accuracy_compare] pca4_baseline                      20.0  3/15     110.9     225.4      89.9      59.9
+[key_accuracy_compare] poly12_ridge                       20.0  3/15     135.2     254.2     118.5      62.2
+[key_accuracy_compare] poly12_ridge_split_decoupled_y     13.3  2/15     132.4     254.7     118.5      53.9
+[key_accuracy_compare] selected mapper poly12_ridge_split_decoupled_y matches debug CSV (2/15 correct)
+[rt2] pred x=799.1 y=227.2 q=1.00
+[rt2] pred x=799.9 y=226.8 q=1.00
+[rt2] pred x=800.2 y=227.1 q=1.00
+[rt2] pred x=800.5 y=226.9 q=1.00
+[rt2] pred x=800.7 y=226.9 q=1.00
+[rt2] pred x=801.5 y=225.9 q=1.00
+[rt2] pred x=801.9 y=225.2 q=1.00
+[rt2] pred x=802.2 y=224.6 q=1.00
+[rt2] pred x=802.4 y=224.5 q=1.00
+[rt2] pred x=802.6 y=224.2 q=1.00
+[rt2] pred x=802.6 y=224.1 q=1.00
+[rt2] pred x=802.6 y=224.2 q=1.00
+[rt2] pred x=802.6 y=224.3 q=1.00
+[rt2] pred x=802.1 y=224.2 q=1.00
+[rt2] pred x=801.9 y=224.3 q=1.00
+[rt2] pred x=801.5 y=224.4 q=1.00
+[rt2] pred x=801.5 y=224.5 q=1.00
+[rt2] pred x=801.5 y=224.8 q=1.00
+[rt2] pred x=801.3 y=225.6 q=1.00
+[rt2] pred x=800.8 y=226.2 q=1.00
+[rt2] pred x=805.4 y=201.9 q=1.00
+[rt2] pred x=778.6 y=199.3 q=1.00
+[rt2] pred x=737.3 y=186.5 q=1.00
+[rt2] pred x=697.3 y=135.0 q=1.00
+[rt2] pred x=658.4 y=135.0 q=1.00
+[rt2] pred x=626.1 y=135.0 q=1.00

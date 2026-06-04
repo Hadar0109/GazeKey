@@ -8,6 +8,9 @@ from gazekey.features.feature_types import FrameFeatures
 from gazekey.features.poly_features import poly12_from_uv
 from gazekey.features.vertical_decouple import fit_v_residualizers
 from gazekey.mapping.ridge import (
+    ALPHA_GRID,
+    ALPHA_SELECT_LOOCV_TOL_PX,
+    _auto_alpha,
     _loocv_pca4_decoupled,
     _loocv_poly12_joint,
     fit_calibration_mapper,
@@ -104,6 +107,22 @@ def test_coupled_synthetic_selects_non_baseline_mapper():
     worst = max(float(d["err"]) for d in detail)
     # Raw [vL,vR] baseline LOOCV worst ~113px on corners; decoupled/poly12 should be far lower.
     assert worst < 50.0
+
+
+def test_auto_alpha_prefers_higher_when_loocv_near_tied():
+    # alpha=1 is slightly better on mean LOOCV; alpha=50 is within tolerance -> pick 50.
+    loocv_by_alpha = {a: 60.0 for a in ALPHA_GRID}
+    loocv_by_alpha.update({1.0: 40.0, 10.0: 41.0, 50.0: 44.0, 100.0: 55.0})
+    chosen = _auto_alpha(lambda a: loocv_by_alpha[a], candidate_label="test")
+    assert chosen == 50.0
+    assert 44.0 - 40.0 <= ALPHA_SELECT_LOOCV_TOL_PX
+
+
+def test_auto_alpha_picks_highest_when_only_one_near_best():
+    loocv_by_alpha = {a: 50.0 for a in ALPHA_GRID}
+    loocv_by_alpha[1.0] = 40.0
+    chosen = _auto_alpha(lambda a: loocv_by_alpha[a], candidate_label="test")
+    assert chosen == 1.0
 
 
 def test_fit_v_residualizers_reduces_u_v_correlation():

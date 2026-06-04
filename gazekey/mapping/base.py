@@ -21,6 +21,8 @@ class MapperFitResult:
     message: str
     model: Optional["Mapper"] = None
     rms_px: Optional[float] = None
+    # Ridge selection only: all fitted candidates from the same calibration session.
+    candidate_reports: Tuple[object, ...] = ()
 
 
 class Mapper(Protocol):

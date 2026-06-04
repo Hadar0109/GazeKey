@@ -36,6 +36,8 @@ if False:  # TYPE_CHECKING
     from gazekey.calibration2.targets import CalibrationTarget
 
 ALPHA_GRID: Tuple[float, ...] = (1.0, 10.0, 50.0, 100.0, 200.0, 400.0)
+# Among alphas with LOOCV RMS within this band of the grid minimum, pick the largest alpha.
+ALPHA_SELECT_LOOCV_TOL_PX = 5.0
 LOOCV_TIE_TOL_PX = 2.0
 MAPPER_SIMPLICITY: Tuple[str, ...] = (
     "pca4_baseline",
@@ -132,15 +134,34 @@ def _clip_xy(
     return float(max(x0, min(x1, px))), float(max(y0, min(y1, py)))
 
 
-def _auto_alpha(loocv_fn, *, min_alpha: float = 1.0) -> float:
+def _auto_alpha(
+    loocv_fn,
+    *,
+    min_alpha: float = 1.0,
+    candidate_label: str = "",
+) -> float:
+    """Pick ridge alpha: prefer stronger regularization when LOOCV is nearly tied."""
+    label = str(candidate_label).strip() or "ridge"
     try:
         scored = [(float(loocv_fn(a)), float(a)) for a in ALPHA_GRID]
         scored = [t for t in scored if np.isfinite(t[0])]
         if scored:
-            scored.sort(key=lambda t: t[0])
-            return float(max(float(min_alpha), scored[0][1]))
-    except Exception:
-        pass
+            best_loocv = min(t[0] for t in scored)
+            tol = float(ALPHA_SELECT_LOOCV_TOL_PX)
+            near = [t for t in scored if t[0] <= best_loocv + tol]
+            chosen_alpha = max(t[1] for t in near)
+            chosen_loocv = min(t[0] for t in near if t[1] == chosen_alpha)
+            chosen_alpha = float(max(float(min_alpha), chosen_alpha))
+            parts = " ".join(f"a={a:.0f}:{rms:.1f}px" for rms, a in sorted(scored, key=lambda t: t[1]))
+            print(
+                f"[calib2] alpha grid {label}: {parts} "
+                f"-> selected {chosen_alpha:.1f} "
+                f"(best_loocv={best_loocv:.1f}px tol={tol:.1f}px "
+                f"chosen_loocv={chosen_loocv:.1f}px)"
+            )
+            return chosen_alpha
+    except Exception as e:
+        print(f"[calib2] alpha grid {label}: failed ({e}), using min_alpha={min_alpha:.1f}")
     return float(min_alpha)
 
 
@@ -1042,33 +1063,37 @@ def fit_calibration_mapper(
         half_key_height_px=half_key_height_px,
     )
 
-    def alpha_for(loocv_builder):
+    def alpha_for(candidate_label: str, loocv_builder):
         return _auto_alpha(
             lambda a: _loocv_rms_from_detail(loocv_builder(a)),
             min_alpha=min_alpha,
+            candidate_label=candidate_label,
         )
 
     a_base = alpha_for(
-        lambda a: _loocv_pca4_baseline(u_l, u_r, v_l, v_r, Y, alpha=a, clip_bounds=clip_bounds)
+        "pca4_baseline",
+        lambda a: _loocv_pca4_baseline(u_l, u_r, v_l, v_r, Y, alpha=a, clip_bounds=clip_bounds),
     )
     a_dec = alpha_for(
-        lambda a: _loocv_pca4_decoupled(u_l, u_r, v_l, v_r, Y, alpha=a, clip_bounds=clip_bounds)
+        "pca4_decoupled_split",
+        lambda a: _loocv_pca4_decoupled(u_l, u_r, v_l, v_r, Y, alpha=a, clip_bounds=clip_bounds),
     )
     a_poly_joint = alpha_for(
-        lambda a: _loocv_rms_from_detail(
-            _loocv_poly12_joint(u_l, u_r, v_l, v_r, Y, alpha=a, clip_bounds=clip_bounds)
-        )
+        "poly12_ridge",
+        lambda a: _loocv_poly12_joint(u_l, u_r, v_l, v_r, Y, alpha=a, clip_bounds=clip_bounds),
     )
     a_poly_probe = alpha_for(
+        "poly12_ridge_split_y_probe",
         lambda a: _loocv_poly12_split(
             u_l, u_r, v_l, v_r, Y, alpha=a, y_mode="poly12", clip_bounds=clip_bounds
-        )
+        ),
     )
     y_mode = _pick_poly12_y_mode(u_l, u_r, v_l, v_r, Y, alpha=a_poly_probe, clip_bounds=clip_bounds)
     a_poly = alpha_for(
+        f"poly12_ridge_split_{y_mode}",
         lambda a: _loocv_poly12_split(
             u_l, u_r, v_l, v_r, Y, alpha=a, y_mode=y_mode, clip_bounds=clip_bounds
-        )
+        ),
     )
 
     reports: List[MapperCandidateReport] = []
@@ -1181,6 +1206,7 @@ def fit_calibration_mapper(
         message=f"Selected {final_model.mapper_type} (LOOCV={winner.loocv_rms_px:.1f}px).",
         model=final_model,
         rms_px=winner.train_rms_px,
+        candidate_reports=tuple(reports),
     )
 
 

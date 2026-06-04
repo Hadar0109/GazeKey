@@ -30,6 +30,22 @@ from gazekey.calibration2.session import CalibrationV2Result, CalibrationV2Sessi
 from gazekey.calibration2.geometry_diagnostics import print_geometric_diagnostics
 from gazekey.calibration2.targets import CalibrationTarget, keyboard_geometry_targets
 from gazekey.ui.calibration_geometry_overlay import CalibrationGeometryOverlay
+from gazekey.debug.keyboard_accuracy import (
+    KeyAccuracyDebugCsv,
+    KeyboardAccuracyEvalSession,
+    default_key_accuracy_debug_path,
+    predict_key_accuracy_screen_xy,
+    print_accuracy_summary,
+    resolve_sample_keys,
+)
+from gazekey.debug.keyboard_accuracy_compare import (
+    compare_mapper_candidates,
+    default_compare_csv_path,
+    print_compare_leaderboard,
+    validate_selected_mapper_matches_debug,
+    write_compare_csv,
+)
+from gazekey.mapping.ridge import MapperCandidateReport
 from gazekey.debug.runtime_key_confidence_logger import (
     RuntimeKeyConfidenceLogger,
     RuntimeLogRow,
@@ -121,6 +137,17 @@ class VirtualKeyboard(QWidget):
         self._rt2_debug_pred = self._rt2_debug or os.environ.get("GAZEKEY_GAZE_DEBUG_PRED", "0").strip() == "1"
         self._rt2_debug_selection = os.environ.get("GAZEKEY_GAZE_DEBUG_SELECTION", "0").strip() == "1"
         self._calib_debug = os.environ.get("GAZEKEY_CALIB_DEBUG", "0").strip() == "1"
+        self._keyboard_accuracy_debug = (
+            os.environ.get("GAZEKEY_KEYBOARD_ACCURACY_DEBUG", "0").strip() == "1"
+        )
+        self._keyboard_accuracy_compare = (
+            os.environ.get("GAZEKEY_KEYBOARD_ACCURACY_COMPARE", "0").strip() == "1"
+        )
+        self._last_mapper_candidate_reports: tuple[MapperCandidateReport, ...] = ()
+        self._last_calib_samples = []
+        self._keyboard_accuracy_session: KeyboardAccuracyEvalSession | None = None
+        self._keyboard_accuracy_banner: QLabel | None = None
+        self._keyboard_accuracy_highlight_btn = None
         self._last_raw_mapped_x: float | None = None
         self._last_raw_mapped_y: float | None = None
         # Runtime prediction safety.
@@ -455,10 +482,36 @@ class VirtualKeyboard(QWidget):
         if self._preview_dot is not None:
             self._preview_dot.hide()
 
+    def _update_gaze_preview_dot(
+        self,
+        screen_x: float,
+        screen_y: float,
+        *,
+        label: str = "",
+        raw_global: Tuple[float, float] | None = None,
+    ) -> None:
+        """Show mapped gaze on the keyboard (preview dot overlay)."""
+        self._ensure_preview_dot()
+        p = self.keyboard_widget.mapFromGlobal(QPoint(int(screen_x), int(screen_y)))
+        raw_local = None
+        if raw_global is not None:
+            pr = self.keyboard_widget.mapFromGlobal(
+                QPoint(int(raw_global[0]), int(raw_global[1]))
+            )
+            raw_local = (pr.x(), pr.y())
+        self._preview_dot.set_row_rect_and_label(None, str(label or ""))
+        self._preview_dot.set_pos(p.x(), p.y(), raw=raw_local)
+        self._preview_dot.show()
+        self._preview_dot.raise_()
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         if self._preview_dot is not None and self.keyboard_widget is not None:
             self._preview_dot.setGeometry(self.keyboard_widget.rect())
+        if self._keyboard_accuracy_banner is not None:
+            self._keyboard_accuracy_banner.setGeometry(
+                12, 8, max(200, self.main_content_widget.width() - 24), 44
+            )
 
     def create_text_display(self):
         """Internal text buffer display for gaze/mouse typing."""
@@ -741,7 +794,7 @@ class VirtualKeyboard(QWidget):
     
     def on_key_pressed(self, key):
         """Handle key press from mouse or gaze dwell."""
-        if self._is_calibrating:
+        if self._is_calibrating or self._keyboard_accuracy_active():
             return
         if key == "SHIFT":
             return
@@ -1084,6 +1137,10 @@ class VirtualKeyboard(QWidget):
             max_train_error_px=60.0,
             half_key_height_px=34.0,
         )
+        self._last_calib_samples = list(samples)
+        self._last_mapper_candidate_reports = tuple(
+            r for r in (ridge_fit.candidate_reports or ()) if isinstance(r, MapperCandidateReport)
+        )
         print(f"[calib2] mapper fit: success={ridge_fit.success} rms_px={ridge_fit.rms_px} msg={ridge_fit.message}")
         if not ridge_fit.success or ridge_fit.model is None:
             print(f"[calib2] ridge fit failed: {ridge_fit.message}")
@@ -1309,11 +1366,17 @@ class VirtualKeyboard(QWidget):
         except Exception:
             pass
 
-        # Live validation at the calibrated center target (not raw screen center).
-        try:
-            self._start_calib2_validation(self._calibration_v2_session.targets)
-        except Exception as e:
-            print(f"[calib2] validation setup failed: {e}")
+        if self._keyboard_accuracy_debug:
+            try:
+                self._start_keyboard_accuracy_debug()
+            except Exception as e:
+                print(f"[key_accuracy] failed to start: {e}")
+        else:
+            # Live validation at the calibrated center target (not raw screen center).
+            try:
+                self._start_calib2_validation(self._calibration_v2_session.targets)
+            except Exception as e:
+                print(f"[calib2] validation setup failed: {e}")
 
         try:
             self._write_calibration_debug_csv(ridge_fit=ridge_fit, loocv_detail=ridge_loocv_detail)
@@ -1519,6 +1582,222 @@ class VirtualKeyboard(QWidget):
             ly = int(self._ty - self.geometry().y())
             painter.drawEllipse(int(lx - r), int(ly - r), int(r * 2), int(r * 2))
             painter.end()
+
+    def _keyboard_accuracy_active(self) -> bool:
+        return self._keyboard_accuracy_session is not None and not self._keyboard_accuracy_session.finished
+
+    def _ensure_keyboard_accuracy_banner(self) -> None:
+        if self._keyboard_accuracy_banner is not None:
+            return
+        banner = QLabel(self.main_content_widget)
+        banner.setObjectName("keyboardAccuracyBanner")
+        banner.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        banner.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
+        banner.setStyleSheet(
+            """
+            QLabel#keyboardAccuracyBanner {
+                background-color: rgba(15, 23, 42, 230);
+                color: #FBBF24;
+                border: 2px solid #FBBF24;
+                border-radius: 6px;
+                padding: 8px 12px;
+            }
+            """
+        )
+        banner.setGeometry(12, 8, max(200, self.main_content_widget.width() - 24), 44)
+        banner.raise_()
+        self._keyboard_accuracy_banner = banner
+
+    def _update_keyboard_accuracy_banner(self, text: str) -> None:
+        self._ensure_keyboard_accuracy_banner()
+        if self._keyboard_accuracy_banner is not None:
+            self._keyboard_accuracy_banner.setText(str(text))
+            self._keyboard_accuracy_banner.show()
+            self._keyboard_accuracy_banner.raise_()
+
+    def _hide_keyboard_accuracy_banner(self) -> None:
+        if self._keyboard_accuracy_banner is not None:
+            self._keyboard_accuracy_banner.hide()
+
+    def _clear_keyboard_accuracy_highlight(self) -> None:
+        if self._keyboard_accuracy_highlight_btn is not None:
+            self._set_key_gaze_style(self._keyboard_accuracy_highlight_btn, False, 0.0)
+        self._keyboard_accuracy_highlight_btn = None
+
+    def _highlight_keyboard_accuracy_target(self, button) -> None:
+        self._clear_keyboard_accuracy_highlight()
+        if button is None:
+            return
+        self._keyboard_accuracy_highlight_btn = button
+        self._set_key_gaze_style(button, True, 1.0, dwelling=True)
+
+    def _start_keyboard_accuracy_debug(self) -> None:
+        if self._gaze_mapper_v2 is None:
+            print("[key_accuracy] skipped: no v2 mapper loaded")
+            return
+        self._export_keyboard_layout()
+        if not self._intent_keys:
+            print("[key_accuracy] skipped: keyboard layout not ready")
+            return
+        if self.current_layout != "letters":
+            self.switch_layout("letters")
+        try:
+            resolved = resolve_sample_keys(self._intent_keys)
+        except ValueError as e:
+            print(f"[key_accuracy] {e}")
+            return
+
+        # Keep gaze preview visible so you can see where the mapper points while testing.
+        self._preview_mode = True
+        if hasattr(self, "preview_btn"):
+            self.preview_btn.setProperty("active", "true")
+            self.preview_btn.style().unpolish(self.preview_btn)
+            self.preview_btn.style().polish(self.preview_btn)
+            self.preview_btn.update()
+        self._clear_v2_focus()
+        self._gaze_smoother.reset()
+        self._feature_smoother.reset()
+
+        self._keyboard_accuracy_session = KeyboardAccuracyEvalSession(
+            resolved,
+            keys_for_hit_test=self._intent_keys,
+            predict_screen_xy=self._key_accuracy_predict_screen_xy,
+            on_collect_begin=lambda: self._feature_smoother.reset(),
+        )
+        now_ms = int(time.time() * 1000)
+        self._keyboard_accuracy_session.begin(now_ms)
+        cur = self._keyboard_accuracy_session.current_sample()
+        if cur is not None:
+            _label, row = cur
+            self._highlight_keyboard_accuracy_target(row.button)
+        self._update_keyboard_accuracy_banner(self._keyboard_accuracy_session.instruction_text())
+        print(
+            f"[key_accuracy] started ({len(resolved)} keys) — "
+            f"CSV -> {default_key_accuracy_debug_path()}"
+        )
+
+    def _finish_keyboard_accuracy_debug(self) -> None:
+        session = self._keyboard_accuracy_session
+        if session is None:
+            return
+        rows = session.results
+        try:
+            KeyAccuracyDebugCsv().write(rows, overwrite=True)
+            print(f"[key_accuracy] wrote {len(rows)} rows to {default_key_accuracy_debug_path()}")
+        except Exception as e:
+            print(f"[key_accuracy] CSV write failed: {e}")
+        print_accuracy_summary(rows)
+        if self._keyboard_accuracy_compare and session.recorded_gaze:
+            self._run_keyboard_accuracy_mapper_compare(session)
+        self._keyboard_accuracy_session = None
+        self._clear_keyboard_accuracy_highlight()
+        self._hide_keyboard_accuracy_banner()
+        self._preview_mode = True
+        if hasattr(self, "preview_btn"):
+            self.preview_btn.setProperty("active", "true")
+            self.preview_btn.style().unpolish(self.preview_btn)
+            self.preview_btn.style().polish(self.preview_btn)
+            self.preview_btn.update()
+
+    def _process_keyboard_accuracy_debug(self, eye_data) -> None:
+        session = self._keyboard_accuracy_session
+        if session is None:
+            return
+        now_ms = int(time.time() * 1000)
+        features = FeatureExtractor.from_eye_data(eye_data, timestamp_ms=now_ms)
+        pred = self._predict_gaze_v2(features)
+        if pred is not None:
+            px = float(pred.x)
+            py = float(pred.y)
+            cur = session.current_sample()
+            target_lbl = cur[0] if cur is not None else ""
+            self._update_gaze_preview_dot(
+                px,
+                py,
+                label=f"key_accuracy: {target_lbl}" if target_lbl else "key_accuracy",
+                raw_global=(px, py),
+            )
+        else:
+            self._hide_preview_dot()
+
+        completed = session.tick(now_ms, features=features)
+        if completed is not None:
+            print(
+                f"[key_accuracy] {completed.target_key}: "
+                f"pred=({completed.predicted_x:.1f},{completed.predicted_y:.1f}) "
+                f"key={completed.predicted_key} err={completed.error_px:.1f}px "
+                f"correct={completed.is_correct}"
+            )
+
+        if session.finished:
+            self._finish_keyboard_accuracy_debug()
+            return
+
+        cur = session.current_sample()
+        if cur is not None:
+            _label, row = cur
+            self._highlight_keyboard_accuracy_target(row.button)
+        self._update_keyboard_accuracy_banner(session.instruction_text())
+
+    def _key_accuracy_predict_screen_xy(self, raw) -> Optional[Tuple[float, float]]:
+        """Shared keyboard-accuracy predict path (live session + compare replay)."""
+        if self._gaze_mapper_v2 is None:
+            return None
+        return predict_key_accuracy_screen_xy(
+            raw,
+            model=self._gaze_mapper_v2,
+            feature_smoother=self._feature_smoother,
+            gaze_bias_x=float(self._gaze_bias_x),
+            gaze_bias_y=float(self._gaze_bias_y),
+            clamp_xy=self._clamp_v2_xy,
+            min_quality=float(self._rt2_min_quality),
+        )
+
+    def _run_keyboard_accuracy_mapper_compare(self, session: KeyboardAccuracyEvalSession) -> None:
+        if not self._last_mapper_candidate_reports:
+            print("[key_accuracy_compare] skipped: no candidate reports from last fit")
+            return
+        if self._calibration_v2_session is None:
+            return
+        recorded = list(session.recorded_gaze)
+        if not recorded:
+            print("[key_accuracy_compare] skipped: no recorded gaze features")
+            return
+        runtime_mapper_type = str(getattr(self._gaze_mapper_v2, "mapper_type", "") or "")
+        print(
+            f"[key_accuracy_compare] replaying {len(recorded)} keys across "
+            f"{len(self._last_mapper_candidate_reports)} candidates"
+        )
+        results = compare_mapper_candidates(
+            recorded=recorded,
+            keys=self._intent_keys,
+            candidates=self._last_mapper_candidate_reports,
+            calib_samples=self._last_calib_samples,
+            calib_targets=self._calibration_v2_session.targets,
+            runtime_model=self._gaze_mapper_v2,
+            runtime_mapper_type=runtime_mapper_type,
+            gaze_bias_x=float(self._gaze_bias_x),
+            gaze_bias_y=float(self._gaze_bias_y),
+            clamp_xy=self._clamp_v2_xy,
+            min_quality=float(self._rt2_min_quality),
+        )
+        path = write_compare_csv(results)
+        print(f"[key_accuracy_compare] wrote {path}")
+        print_compare_leaderboard(results)
+        if runtime_mapper_type:
+            try:
+                validate_selected_mapper_matches_debug(
+                    session.results,
+                    results,
+                    runtime_mapper_type,
+                )
+                debug_ok = sum(1 for r in session.results if r.is_correct)
+                print(
+                    f"[key_accuracy_compare] selected mapper {runtime_mapper_type} "
+                    f"matches debug CSV ({debug_ok}/{len(session.results)} correct)"
+                )
+            except AssertionError as e:
+                print(f"[key_accuracy_compare] WARNING: debug/compare mismatch: {e}")
 
     def _start_calib2_validation(self, targets=None) -> None:
         if self._gaze_mapper_v2 is None:
@@ -1797,6 +2076,13 @@ class VirtualKeyboard(QWidget):
             self._calibration_overlay.add_features_dt(features, dt_ms=dt * 1000.0)
             return
 
+        if self._keyboard_accuracy_active():
+            try:
+                self._process_keyboard_accuracy_debug(eye_data)
+            except Exception as e:
+                print(f"[key_accuracy] frame handler failed: {e}")
+            return
+
         # Collect post-calibration validation predictions (informational only).
         try:
             self._maybe_collect_validation_pred(eye_data)
@@ -1899,14 +2185,6 @@ class VirtualKeyboard(QWidget):
 
         if self._preview_mode:
             if mapped_x is not None and mapped_y is not None:
-                self._ensure_preview_dot()
-                p = self.keyboard_widget.mapFromGlobal(QPoint(int(mapped_x), int(mapped_y)))
-                raw_local = None
-                if self._rt2_debug and raw_global is not None:
-                    pr = self.keyboard_widget.mapFromGlobal(
-                        QPoint(int(raw_global[0]), int(raw_global[1]))
-                    )
-                    raw_local = (pr.x(), pr.y())
                 dbg_label = ""
                 if self._rt2_debug and self._gaze_mapper_v2 is not None:
                     dbg_label = (
@@ -1916,10 +2194,12 @@ class VirtualKeyboard(QWidget):
                         if raw_global
                         else f"mapper={getattr(self._gaze_mapper_v2, 'mapper_type', '?')}"
                     )
-                self._preview_dot.set_row_rect_and_label(None, dbg_label)
-                self._preview_dot.set_pos(p.x(), p.y(), raw=raw_local)
-                self._preview_dot.show()
-                self._preview_dot.raise_()
+                self._update_gaze_preview_dot(
+                    mapped_x,
+                    mapped_y,
+                    label=dbg_label,
+                    raw_global=raw_global if self._rt2_debug else None,
+                )
             else:
                 self._hide_preview_dot()
             # No intent/selection/activation in preview mode.
