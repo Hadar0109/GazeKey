@@ -78,3 +78,14 @@ def typing_region_rect(
         int(keyboard_widget.width()),
         int(keyboard_widget.height() + bar_h),
     )
+
+
+def letter_keys_region_rect(keyboard_widget: QWidget) -> QRect:
+    """Global rect over letter/symbol keys only (excludes the Calibrate bar)."""
+    kb_tl = keyboard_widget.mapToGlobal(QPoint(0, 0))
+    return QRect(
+        int(kb_tl.x()),
+        int(kb_tl.y()),
+        int(keyboard_widget.width()),
+        int(keyboard_widget.height()),
+    )

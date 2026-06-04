@@ -1,6 +1,14 @@
-"""Fullscreen calibration overlay."""
+"""Fullscreen calibration overlay.
 
-from typing import Callable, List, Optional, Tuple
+Supports two paths:
+- Legacy v1 calibration session (gaze_h/gaze_v ratios)
+- Calibration v2 session (FrameFeatures + gating), used by `VirtualKeyboard`
+"""
+
+from __future__ import annotations
+
+import os
+from typing import Callable, List, Optional, Tuple, Union
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont, QPainter, QColor, QPen, QBrush
@@ -19,6 +27,8 @@ from gazekey.calibration.calibration_session import (
     Phase,
     PREPARE_MS,
 )
+from gazekey.calibration2.session import CalibrationV2Result, CalibrationV2Session
+from gazekey.features.feature_types import FrameFeatures
 
 
 class CalibrationDotWidget(QWidget):
@@ -79,19 +89,21 @@ class CalibrationOverlay(QWidget):
         self,
         dot_targets: List[Tuple[float, float]],
         screen_targets: List[Tuple[float, float]],
-        on_finished: Callable[[CalibrationResult], None],
+        on_finished: Callable[[Union[CalibrationResult, CalibrationV2Result]], None],
         frame_w: float = 640.0,
         frame_h: float = 480.0,
+        session_v2: CalibrationV2Session | None = None,
         parent=None,
     ):
         super().__init__(parent)
         self._dot_targets = dot_targets
         self._screen_targets = screen_targets
         self._on_finished = on_finished
-        self._session = CalibrationSession(
-            screen_targets, frame_w=frame_w, frame_h=frame_h
-        )
-        self._result: Optional[CalibrationResult] = None
+        self._session_v2 = session_v2
+        self._session = None if self._session_v2 is not None else CalibrationSession(screen_targets, frame_w=frame_w, frame_h=frame_h)
+        self._result: Optional[Union[CalibrationResult, CalibrationV2Result]] = None
+        self._v2_last_target_index: int = -1
+        self._v2_collect_enabled: bool = False
 
         self._prepare_timer = QTimer(self)
         self._prepare_timer.setSingleShot(True)
@@ -107,7 +119,15 @@ class CalibrationOverlay(QWidget):
 
     @property
     def session(self) -> CalibrationSession:
+        if self._session is None:
+            raise RuntimeError("Legacy v1 session is not available when session_v2 is provided.")
         return self._session
+
+    @property
+    def session_v2(self) -> CalibrationV2Session:
+        if self._session_v2 is None:
+            raise RuntimeError("session_v2 is not set.")
+        return self._session_v2
 
     def _setup_window(self) -> None:
         screen = QApplication.primaryScreen().geometry()
@@ -186,9 +206,14 @@ class CalibrationOverlay(QWidget):
         super().resizeEvent(event)
         if hasattr(self, "dot_widget"):
             self.dot_widget.setGeometry(self.rect())
-            idx = self._session.point_index
-            if idx < len(self._dot_targets) and not self._session.is_finished:
-                self.dot_widget.set_target(*self._dot_targets[idx])
+            if self._session_v2 is not None:
+                idx = int(self._session_v2.target_index)
+                if idx < len(self._dot_targets) and not self._session_v2.is_finished:
+                    self.dot_widget.set_target(*self._dot_targets[idx])
+            else:
+                idx = self._session.point_index
+                if idx < len(self._dot_targets) and not self._session.is_finished:
+                    self.dot_widget.set_target(*self._dot_targets[idx])
 
     def add_sample(self, iris_x: float, iris_y: float) -> None:
         self.add_sample_dt(iris_x, iris_y, dt_ms=16.7)
@@ -200,6 +225,10 @@ class CalibrationOverlay(QWidget):
         The session itself decides when a dot is "locked" and when collection
         is complete (fixation-style lock-on + completion).
         """
+        if self._session_v2 is not None:
+            # v2 path is driven by FrameFeatures; ignore v1 ratio samples.
+            return
+
         if self._result is not None or self._session.is_finished:
             return
 
@@ -215,31 +244,107 @@ class CalibrationOverlay(QWidget):
         if self._session.phase == Phase.IDLE and not self._session.is_finished:
             self._begin_current_point()
 
-    def _begin_current_point(self) -> None:
-        idx = self._session.point_index
-        if idx >= self._session.point_count:
+    def add_features_dt(self, features: FrameFeatures, *, dt_ms: float) -> None:
+        """Feed one FrameFeatures sample into calibration v2 session."""
+        if self._session_v2 is None:
+            return
+        if self._result is not None or self._session_v2.is_finished:
+            return
+        # If we advanced targets, update the dot and reset the gate ONCE.
+        idx = int(self._session_v2.target_index)
+        if idx != self._v2_last_target_index:
+            self._begin_current_point()
+            # During prepare delay we don't collect.
             return
 
-        tx, ty = self._dot_targets[idx]
+        if not self._v2_collect_enabled:
+            return
+
+        if os.environ.get("GAZEKEY_CALIB_DEBUG", "0").strip() == "1":
+            idx = int(self._session_v2.target_index)
+            label = (
+                self._session_v2.targets[idx].label
+                if idx < len(self._session_v2.targets)
+                else f"T{idx+1:02d}"
+            )
+            gate = self._session_v2.gate.debug_metrics()
+            self.status_label.setText(
+                f"Point {idx + 1} ({label}) — {gate.get('state', '?')}\n"
+                f"uL={features.pca_uL} vL={features.pca_vL} "
+                f"uR={features.pca_uR} vR={features.pca_vR} "
+                f"avg_v={features.avg_v}"
+            )
+
+        res = self._session_v2.process(features, dt_ms=float(dt_ms))
+        if res is not None:
+            self._show_result(res)
+            return
+
+        # If we advanced targets, update the dot/label.
+        if int(self._session_v2.target_index) != idx:
+            self._begin_current_point()
+
+    def _begin_current_point(self) -> None:
+        if self._session_v2 is not None:
+            idx = int(self._session_v2.target_index)
+            if idx >= len(self._dot_targets) or self._session_v2.is_finished:
+                return
+            if idx == self._v2_last_target_index:
+                return
+            self._v2_last_target_index = idx
+            self._v2_collect_enabled = False
+            tx, ty = self._dot_targets[idx]
+            point_count = len(self._dot_targets)
+            name = self._session_v2.targets[idx].label if idx < len(self._session_v2.targets) else f"T{idx+1:02d}"
+        else:
+            idx = self._session.point_index
+            if idx >= self._session.point_count:
+                return
+            tx, ty = self._dot_targets[idx]
+            point_count = self._session.point_count
+            name = self._session.current_point_name()
+
         self.dot_widget.set_target(tx, ty)
         self.dot_widget.show()
         self.dot_widget.raise_()
 
-        name = self._session.current_point_name()
         self.status_label.setStyleSheet("color: #CCCCCC; background: transparent;")
         self.status_label.setText(
-            f"Point {idx + 1} of {self._session.point_count} ({name})\n"
-            "Look at the dot — keep your head still."
+            f"Point {idx + 1} of {point_count} ({name})\n"
+            "Look at the dot — move your eyes only; keep your head still."
         )
 
-        self._session.begin_prepare()
-        self._prepare_timer.start(PREPARE_MS)
+        if self._session_v2 is None:
+            self._session.begin_prepare()
+            self._prepare_timer.start(PREPARE_MS)
+        else:
+            # v2 session controls readiness via its own gating; we still keep a short "prepare" pause
+            # so the user can saccade to the new dot, THEN we enable collecting.
+            try:
+                self._session_v2.begin_target()
+            except Exception:
+                pass
+            self._prepare_timer.start(PREPARE_MS)
 
     def _start_collect(self) -> None:
-        self._session.begin_collect()
-        # Collection completes when the session detects a stable fixation.
+        if self._session_v2 is None:
+            self._session.begin_collect()
+            # Collection completes when the session detects a stable fixation.
+        else:
+            self._v2_collect_enabled = True
+            idx = int(self._session_v2.target_index)
+            label = (
+                self._session_v2.targets[idx].label
+                if idx < len(self._session_v2.targets)
+                else f"T{idx+1:02d}"
+            )
+            print(
+                f"[calib2] target {label}: collection enabled after {PREPARE_MS}ms prepare "
+                f"(fixation lock-on ~{self._session_v2.gate.cfg.lock_on_ms:.0f}ms before samples count)"
+            )
+            return
 
-    def _show_result(self, result: CalibrationResult) -> None:
+    def _show_result(self, result: Union[CalibrationResult, CalibrationV2Result]) -> None:
         self._result = result
         self.dot_widget.hide()
         self._prepare_timer.stop()
@@ -256,16 +361,17 @@ class CalibrationOverlay(QWidget):
 
     def _restart(self) -> None:
         self._result = None
-        self._session.reset()
+        if self._session_v2 is None and self._session is not None:
+            self._session.reset()
         self.try_again_btn.hide()
         self.cancel_btn.hide()
         self._begin_current_point()
 
     def _cancel(self) -> None:
-        self._result = CalibrationResult(
-            success=False,
-            message="Calibration cancelled.",
-        )
+        if self._session_v2 is not None:
+            self._result = CalibrationV2Result(success=False, message="Calibration cancelled.", targets=list(self._session_v2.targets))
+        else:
+            self._result = CalibrationResult(success=False, message="Calibration cancelled.")
         self._emit_finished_and_close()
 
     def _emit_finished_and_close(self) -> None:
@@ -277,7 +383,8 @@ class CalibrationOverlay(QWidget):
         """Public entry to restart the full 5-point flow."""
         self._result = None
         self._success_close_timer.stop()
-        self._session.reset()
+        if self._session_v2 is None and self._session is not None:
+            self._session.reset()
         self.try_again_btn.hide()
         self.cancel_btn.hide()
         self._begin_current_point()

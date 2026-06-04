@@ -2,14 +2,21 @@
 Virtual keyboard overlay window
 """
 
+import os
 import time
+from dataclasses import replace
+from pathlib import Path
+from typing import Optional, Tuple
+import csv
+
+import numpy as np
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QApplication, QSizePolicy, QLineEdit,
 )
-from PySide6.QtCore import Qt, QTimer, QPoint
-from PySide6.QtGui import QFont
+from PySide6.QtCore import Qt, QTimer, QPoint, QRect
+from PySide6.QtGui import QFont, QPainter, QColor, QPen, QBrush
 from gazekey.ui.camera_preview_window import CameraPreviewWindow
 from gazekey.ui.calibration_overlay import CalibrationOverlay
 from gazekey.calibration import (
@@ -18,13 +25,43 @@ from gazekey.calibration import (
     gaze_ratios,
     compute_calibration_targets,
 )
+from gazekey.calibration2.calibration_csv import CalibrationCsvLogger
+from gazekey.calibration2.quality import (
+    assess_fullscreen_feasibility,
+    evaluate_calibration_quality,
+)
+from gazekey.calibration2.mapper_store import MapperStore
+from gazekey.calibration2.session import CalibrationV2Result, CalibrationV2Session
+from gazekey.calibration2.geometry_diagnostics import print_geometric_diagnostics
+from gazekey.calibration2.targets import (
+    CalibrationTarget,
+    keyboard_geometry_targets,
+    keyboard_local_targets,
+)
+from gazekey.ui.calibration_geometry_overlay import CalibrationGeometryOverlay
+from gazekey.debug.runtime_key_confidence_logger import (
+    RuntimeKeyConfidenceLogger,
+    RuntimeLogRow,
+)
+from gazekey.features import FeatureExtractor
+from gazekey.features.feature_types import FrameFeatures
+from gazekey.mapping.base import MapperPrediction
+from gazekey.layout import KeyboardLayoutCsvExporter, inspect_keyboard_layout
+from gazekey.intent import score_keys
+from gazekey.mapping import IDWRatioMapper, RowAwareMapper, fit_calibration_mapper
+from gazekey.selection import SelectionPolicy
 from gazekey.typing import (
     GazeTypingController,
     TextBufferController,
     action_from_button,
 )
 from gazekey.typing.gaze_smoother import GazeSmoother
-from gazekey.typing.gaze_ui_mapper import map_gaze_to_typing_ui
+from gazekey.features.feature_smoother import PcaFeatureSmoother
+from gazekey.typing.gaze_ui_mapper import (
+    letter_keys_region_rect,
+    map_gaze_to_typing_ui,
+    typing_region_rect,
+)
 
 
 class VirtualKeyboard(QWidget):
@@ -43,14 +80,77 @@ class VirtualKeyboard(QWidget):
         self._tracking_bridge = TrackingBridge()
         self._tracking_bridge.eye_data_received.connect(self._on_eye_data_main_thread)
         self._calibration_store = CalibrationStore()
+        self._mapper_store = MapperStore()
         self._gaze_mapper = None  # AffineGazeMapper when calibrated
+        self._gaze_mapper_v2 = None  # Ridge calibration v2 mapper when calibrated
         self._calibration_overlay: CalibrationOverlay | None = None
+        self._calibration_v2_session: CalibrationV2Session | None = None
         self._is_calibrating = False
         self._needs_first_calibration = False
         self._locked_frame_size = None
         self._gaze_focused_button = None
         self._gaze_smoother = GazeSmoother(alpha=0.35)
+        self._feature_smoother = PcaFeatureSmoother(alpha=0.28)
+        self._gaze_bias_x = 0.0
+        self._gaze_bias_y = 0.0
+        self._intent_keys = []
+        self._keys_by_id = {}
+        # Debug mode: chosen must equal best every frame.
+        self._selection_policy = SelectionPolicy(
+            debug_follow_best=os.environ.get("GAZEKEY_SELECTION_DEBUG", "0").strip() == "1",
+            switch_margin=0.10,
+            cross_row_switch_margin=0.20,
+            min_switch_ms=160.0,
+            cross_row_min_switch_ms=320.0,
+        )
         self._last_tick_time = time.perf_counter()
+        self._layout_exporter = KeyboardLayoutCsvExporter()
+        self._layout_version = ""
+        self._layout_export_pending = False
+        self._runtime_logger = RuntimeKeyConfidenceLogger(enabled=True)
+        self._last_runtime_log_ms = 0
+        self._last_mapped_x = None
+        self._last_mapped_y = None
+        self._last_mapped_t = None
+        self._last_v2_pred_x = None
+        self._last_v2_pred_y = None
+        self._last_v2_pred_t = None
+        self._last_v2_focused_key_id = None
+        self._last_calib2_log_ms = 0
+        self._preview_mode = False
+        self._preview_dot = None
+        self._calib2_mode = "keyboard15"
+        # Persisted "what are we using right now?" runtime labels.
+        # - mapper_mode: which calibration target set / session mode we ran (e.g. "row_aware", "precision13")
+        # - active_mapper: which mapper implementation we chose after fitting (e.g. "pca_ridge", "row_aware")
+        self._mapper_mode: str = ""
+        self._active_mapper: str = ""
+        self._calib2_v_ema = None
+        self._calib2_v_alpha = 0.35
+        self._calib2_enable_v_ema = False
+        self._row_aware_mapping = True
+        # New experimental path: PCA geometric features + ridge regression (recommended default).
+        self._use_ridge_mapper = True
+        # Runtime debug (GAZEKEY_GAZE_DEBUG=1 shows raw + smoothed gaze on preview).
+        self._rt2_debug = os.environ.get("GAZEKEY_GAZE_DEBUG", "1").strip() == "1"
+        self._rt2_debug_pred = self._rt2_debug or os.environ.get("GAZEKEY_GAZE_DEBUG_PRED", "0").strip() == "1"
+        self._rt2_debug_selection = os.environ.get("GAZEKEY_GAZE_DEBUG_SELECTION", "0").strip() == "1"
+        self._calib_debug = os.environ.get("GAZEKEY_CALIB_DEBUG", "0").strip() == "1"
+        self._last_raw_mapped_x: float | None = None
+        self._last_raw_mapped_y: float | None = None
+        # Runtime prediction safety.
+        self._rt2_clamp_to_screen = True
+        self._rt2_min_quality = 0.10
+        self._row_aware_row_names = [
+            "control",
+            "suggestions",
+            "letters1",
+            "letters2",
+            "letters3",
+            "actions",
+        ]
+        self._row_aware_row_rects = {}
+        self._key_semantic_row = {}
         self.init_ui()
         self._text_buffer = TextBufferController(self.text_display)
         self._gaze_typing_controller = GazeTypingController(
@@ -58,6 +158,7 @@ class VirtualKeyboard(QWidget):
             on_focus_key=self._on_gaze_focus_key,
             on_activate_key=self._on_gaze_activate_key,
         )
+        self._schedule_layout_export()
         self._init_calibration_on_startup()
         
     def init_ui(self):
@@ -163,6 +264,7 @@ class VirtualKeyboard(QWidget):
             }
         """)
         self.calibrate_btn.clicked.connect(self.on_calibrate_clicked)
+        self._calibrate_btn_style_default = self.calibrate_btn.styleSheet()
         
         # Camera status label (shows if camera is connected)
         self.camera_status_label = QLabel("📷 Camera: Off")
@@ -177,6 +279,28 @@ class VirtualKeyboard(QWidget):
         # Spacer
         layout.addWidget(self.calibrate_btn)
         layout.addWidget(self.camera_status_label)
+        
+        # Preview button: show mapped gaze dot without activating keys
+        self.preview_btn = QPushButton("PREVIEW")
+        self.preview_btn.setMinimumSize(90, 45)
+        self.preview_btn.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+        self.preview_btn.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(16, 185, 129, 0.12);
+                color: #10B981;
+                border: 1px solid rgba(16, 185, 129, 0.35);
+                border-radius: 8px;
+            }
+            QPushButton:hover {
+                background-color: rgba(16, 185, 129, 0.18);
+            }
+            QPushButton[active="true"] {
+                background-color: rgba(16, 185, 129, 0.25);
+                border: 1px solid rgba(16, 185, 129, 0.6);
+            }
+        """)
+        self.preview_btn.clicked.connect(self.on_preview_clicked)
+        layout.addWidget(self.preview_btn)
         layout.addStretch()
         
         # Language toggle
@@ -253,6 +377,103 @@ class VirtualKeyboard(QWidget):
         layout.addWidget(self.close_btn)
         
         return layout
+
+    def on_preview_clicked(self) -> None:
+        self._preview_mode = not bool(self._preview_mode)
+        if hasattr(self, "preview_btn"):
+            self.preview_btn.setProperty("active", "true" if self._preview_mode else "false")
+            self.preview_btn.style().unpolish(self.preview_btn)
+            self.preview_btn.style().polish(self.preview_btn)
+            self.preview_btn.update()
+        if not self._preview_mode:
+            self._hide_preview_dot()
+
+    @staticmethod
+    def _with_avg(features, *, avg_h, avg_v):
+        # FrameFeatures is frozen; create a copy with updated averages.
+        return type(features)(
+            timestamp_ms=features.timestamp_ms,
+            face_detected=features.face_detected,
+            blink=features.blink,
+            confidence=features.confidence,
+            Lh=features.Lh,
+            Lv=features.Lv,
+            Rh=features.Rh,
+            Rv=features.Rv,
+            avg_h=avg_h,
+            avg_v=avg_v,
+            eye_box_w=features.eye_box_w,
+            eye_box_h=features.eye_box_h,
+            face_x=features.face_x,
+            face_y=features.face_y,
+        )
+
+    class _PreviewDotWidget(QWidget):
+        def __init__(self, parent=None):
+            super().__init__(parent)
+            self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+            self._pos = None
+            self._raw_pos = None
+            self._row_rect = None
+            self._label = ""
+
+        def set_pos(self, x: int, y: int, *, raw: tuple[int, int] | None = None) -> None:
+            self._pos = (int(x), int(y))
+            self._raw_pos = raw
+            self.update()
+
+        def set_row_rect_and_label(self, row_rect: QRect | None, label: str) -> None:
+            self._row_rect = row_rect
+            self._label = str(label or "")
+            self.update()
+
+        def paintEvent(self, event):
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            if self._row_rect is not None and not self._row_rect.isNull():
+                painter.setPen(QPen(QColor(16, 185, 129, 160), 3))
+                painter.setBrush(QBrush(QColor(16, 185, 129, 35)))
+                painter.drawRoundedRect(self._row_rect, 10, 10)
+
+            if self._raw_pos is not None:
+                rx, ry = self._raw_pos
+                rr = 8
+                painter.setPen(QPen(QColor(255, 200, 80, 220), 2))
+                painter.setBrush(QBrush(QColor(255, 180, 60, 160)))
+                painter.drawEllipse(int(rx - rr), int(ry - rr), int(rr * 2), int(rr * 2))
+
+            if self._pos is not None:
+                x, y = self._pos
+                r = 10
+                painter.setPen(QPen(QColor(255, 255, 255, 220), 2))
+                painter.setBrush(QBrush(QColor(16, 185, 129, 210)))
+                painter.drawEllipse(int(x - r), int(y - r), int(r * 2), int(r * 2))
+
+            if self._label:
+                painter.setPen(QPen(QColor(255, 255, 255, 230), 1))
+                painter.setBrush(QBrush(QColor(0, 0, 0, 140)))
+                # Draw a small pill near the top-left.
+                x0, y0 = 10, 10
+                w, h = 360, 32
+                painter.drawRoundedRect(x0, y0, w, h, 10, 10)
+                painter.drawText(QRect(x0 + 10, y0 + 6, w - 20, h - 12), Qt.AlignLeft, self._label)
+            painter.end()
+
+    def _ensure_preview_dot(self) -> None:
+        if self._preview_dot is None:
+            self._preview_dot = self._PreviewDotWidget(self.keyboard_widget)
+            self._preview_dot.setGeometry(self.keyboard_widget.rect())
+            self._preview_dot.raise_()
+            self._preview_dot.show()
+
+    def _hide_preview_dot(self) -> None:
+        if self._preview_dot is not None:
+            self._preview_dot.hide()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._preview_dot is not None and self.keyboard_widget is not None:
+            self._preview_dot.setGeometry(self.keyboard_widget.rect())
 
     def create_text_display(self):
         """Internal text buffer display for gaze/mouse typing."""
@@ -535,6 +756,8 @@ class VirtualKeyboard(QWidget):
     
     def on_key_pressed(self, key):
         """Handle key press from mouse or gaze dwell."""
+        if self._is_calibrating:
+            return
         if key == "SHIFT":
             return
         self._text_buffer.apply_key(key, shift_active=self.shift_active)
@@ -542,11 +765,44 @@ class VirtualKeyboard(QWidget):
     
     def on_calibrate_clicked(self):
         """Rerun full 5-point calibration from scratch."""
+        self._gaze_mapper_v2 = None
+        self._calibration_v2_session = None
         self._gaze_mapper = None
         self._calibration_store.clear()
+        self._reset_calibrate_button_style()
         if not self._ensure_tracking_started():
             return
         self._start_calibration()
+
+    def _reset_calibrate_button_style(self) -> None:
+        self.calibrate_btn.setText("👁 CALIBRATE")
+        if getattr(self, "_calibrate_btn_style_default", None):
+            self.calibrate_btn.setStyleSheet(self._calibrate_btn_style_default)
+
+    def _show_recalibrate_prompt(self, status_message: str) -> None:
+        """Highlight RECALIBRATE after failed quality gates."""
+        self.calibrate_btn.setText("👁 RECALIBRATE")
+        self.calibrate_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #E63946;
+                color: white;
+                border: 2px solid #FBBF24;
+                border-radius: 8px;
+                padding: 8px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #F04A57;
+            }
+        """)
+        self.camera_status_label.setText(f"📷 {status_message}")
+        self.camera_status_label.setStyleSheet("""
+            QLabel {
+                color: #E63946;
+                padding: 5px;
+                font-weight: bold;
+            }
+        """)
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
@@ -566,9 +822,29 @@ class VirtualKeyboard(QWidget):
         self._update_responsive_sizes()
         if self._gaze_mapper is not None:
             self._gaze_typing_controller.mark_keyboard_dirty()
+        self._schedule_layout_export()
 
     def _init_calibration_on_startup(self) -> None:
         """Load saved calibration or schedule first-run calibration overlay."""
+        v2 = self._mapper_store.load()
+        if v2 is not None:
+            model, cal_mode, mapper_mode = v2
+            self._gaze_mapper_v2 = model
+            self._calib2_mode = cal_mode
+            self._mapper_mode = mapper_mode
+            self._active_mapper = str(model.mapper_type)
+            self._needs_first_calibration = False
+            self._ensure_tracking_started()
+            print(
+                f"[calib2] loaded v2 mapper_type={model.mapper_type} "
+                f"mode={cal_mode} from {self._mapper_store.path}"
+            )
+            if str(cal_mode) not in {"keyboard15", "keyboard13"}:
+                print(
+                    f"[calib2] NOTE: saved calibration mode={cal_mode!r} is older than keyboard15 — "
+                    "recalibrate for dense key-aligned mapping"
+                )
+            return
         stored = self._calibration_store.load()
         if stored is not None:
             self._gaze_mapper = stored.mapper
@@ -579,7 +855,7 @@ class VirtualKeyboard(QWidget):
         print("No valid calibration — starting calibration on launch.")
 
     def _start_calibration_if_needed(self) -> None:
-        if self._gaze_mapper is not None or self._is_calibrating:
+        if self._gaze_mapper_v2 is not None or self._gaze_mapper is not None or self._is_calibrating:
             return
         if not self._ensure_tracking_started():
             return
@@ -640,30 +916,132 @@ class VirtualKeyboard(QWidget):
 
     def _start_calibration(self) -> None:
         self._gaze_typing_controller.clear_focus()
+        self._selection_policy.reset()
+        # During calibration we want ONLY the calibration overlay visible (no runtime preview dot).
+        self._preview_mode = False
+        try:
+            if hasattr(self, "preview_btn"):
+                self.preview_btn.setProperty("active", "false")
+                self.preview_btn.style().unpolish(self.preview_btn)
+                self.preview_btn.style().polish(self.preview_btn)
+                self.preview_btn.update()
+        except Exception:
+            pass
+        try:
+            self._hide_preview_dot()
+        except Exception:
+            pass
+        # During calibration, hide the floating webcam preview window entirely.
+        try:
+            if self.camera_preview_window is not None:
+                self.camera_preview_window.hide()
+        except Exception:
+            pass
         if not self._ensure_tracking_started():
             return
 
-        frame_w, frame_h = self._lock_frame_size_for_calibration()
-        screen = self._primary_screen_geometry()
-        local_targets = compute_calibration_targets(
-            0, 0, screen.width(), screen.height()
-        )
-        global_targets = [
-            (screen.x() + tx, screen.y() + ty) for tx, ty in local_targets
-        ]
+        _frame_w, _frame_h = self._lock_frame_size_for_calibration()
+        # Refresh geometry snapshot so row-aware targets match current layout.
+        try:
+            self._export_keyboard_layout()
+        except Exception:
+            pass
+
+        screen = QApplication.primaryScreen().geometry()
+        use_fullscreen = os.environ.get("GAZEKEY_CALIB_FULLSCREEN", "0").strip() == "1"
+        if use_fullscreen:
+            margin = 80
+            left = int(screen.left() + margin)
+            right = int(screen.right() - margin)
+            top = int(screen.top() + margin)
+            bottom = int(screen.bottom() - margin)
+            cx = int((left + right) / 2)
+            cy = int((top + bottom) / 2)
+            pts = [
+                (left, top),
+                (cx, top),
+                (right, top),
+                (left, cy),
+                (cx, cy),
+                (right, cy),
+                (left, bottom),
+                (cx, bottom),
+                (right, bottom),
+            ]
+            labels = [
+                "top_left",
+                "top",
+                "top_right",
+                "left",
+                "center",
+                "right",
+                "bottom_left",
+                "bottom",
+                "bottom_right",
+            ]
+            targets = [
+                CalibrationTarget(
+                    target_id=f"T{i+1:02d}",
+                    label=labels[i],
+                    key_id="",
+                    screen_x=float(pts[i][0]),
+                    screen_y=float(pts[i][1]),
+                )
+                for i in range(9)
+            ]
+            self._calib2_mode = "fullscreen9"
+            calib_region = f"FULLSCREEN {screen} margin={margin}px"
+        else:
+            # Calibrate on letter-key area so dots align with where you look while typing.
+            region_rect = letter_keys_region_rect(self.keyboard_widget)
+            self._calib_clip_rect = (
+                float(region_rect.x()),
+                float(region_rect.y()),
+                float(region_rect.width()),
+                float(region_rect.height()),
+            )
+            layout_keys = inspect_keyboard_layout(self.keyboard_widget)
+            targets = keyboard_geometry_targets(
+                keys=layout_keys,
+                typing_region_rect=region_rect,
+                mode="keyboard15",
+            )
+            self._calib2_mode = "keyboard15"
+            calib_region = f"LETTER KEYS region {region_rect}"
+
+        dot_targets = [(t.screen_x - screen.x(), t.screen_y - screen.y()) for t in targets]
 
         if self._calibration_overlay is not None:
             self._calibration_overlay.close()
             self._calibration_overlay = None
 
         self._is_calibrating = True
+        self._calib2_v_ema = None
+
+        csv_logger = CalibrationCsvLogger(enabled=True)
+        self._calibration_v2_session = CalibrationV2Session(
+            targets=targets,
+            csv_logger=csv_logger,
+            calibration_version=6,
+            calibration_mode=self._calib2_mode,
+            max_timeouts_per_target=1,
+            on_timeout="retry",
+        )
+        # Capture the session mode at start (what target set we used).
+        self._mapper_mode = str(self._calib2_mode)
+        print(f"[calib2] start: {len(targets)} targets in {calib_region}")
+        # Clear index mapping for debugging LOOCV outliers.
+        try:
+            for i, t in enumerate(targets):
+                print(f"[calib2] target map: {t.target_id} = {t.label} ({int(t.screen_x)},{int(t.screen_y)})")
+        except Exception:
+            pass
 
         self._calibration_overlay = CalibrationOverlay(
-            dot_targets=local_targets,
-            screen_targets=global_targets,
-            frame_w=frame_w,
-            frame_h=frame_h,
+            dot_targets=dot_targets,
+            screen_targets=[(t.screen_x, t.screen_y) for t in targets],
             on_finished=self._on_calibration_finished,
+            session_v2=self._calibration_v2_session,
         )
         self._calibration_overlay.show()
         self._calibration_overlay.raise_()
@@ -674,28 +1052,689 @@ class VirtualKeyboard(QWidget):
         self._calibration_overlay = None
         self._locked_frame_size = None
 
-        if result.success and result.mapper is not None:
-            self._gaze_mapper = result.mapper
-            self._gaze_smoother.reset()
-            self._gaze_typing_controller.mark_keyboard_dirty()
-            QTimer.singleShot(150, self._gaze_typing_controller.mark_keyboard_dirty)
-            self._calibration_store.save(
-                result.mapper,
-                result.screen_targets,
-                result.iris_means,
-            )
-            self.camera_status_label.setText("📷 Calibration saved ✓")
-            self.camera_status_label.setStyleSheet("""
-                QLabel {
-                    color: #10B981;
-                    padding: 5px;
-                    font-weight: bold;
-                }
-            """)
-            print(result.message)
-            print("Gaze tracking is active. Look at keys to type (dwell ~1.25s).")
+        if not isinstance(result, CalibrationV2Result):
+            print(f"[calib2] unexpected result type: {type(result)}")
+            return
+
+        if not result.success:
+            print(f"[calib2] failed: {result.message}")
+            return
+
+        if self._calibration_v2_session is None:
+            print("[calib2] missing session at finish")
+            return
+
+        # Safety: don't fit until we have at least 1 accepted sample for every target.
+        missing = [
+            i
+            for i in range(len(self._calibration_v2_session.targets))
+            if self._calibration_v2_session.accepted_count_for_target(i) <= 0
+        ]
+        if missing:
+            print(f"[calib2] not fitting mapper: missing accepted samples for targets {missing}")
+            return
+
+        try:
+            self._calibration_v2_session.print_training_means()
+        except Exception as e:
+            print(f"[calib2] training means print failed: {e}")
+
+        samples = self._calibration_v2_session.get_training_samples()
+
+        # Diagnostics before fitting (feature span sanity).
+        try:
+            h_vals = [float(s.avg_h) for (s, _p) in samples if s.avg_h is not None]
+            v_vals = [float(s.avg_v) for (s, _p) in samples if s.avg_v is not None]
+            if h_vals and v_vals:
+                span_h = float(max(h_vals) - min(h_vals))
+                span_v = float(max(v_vals) - min(v_vals))
+                print(f"[diag] avg_h range: {min(h_vals):.3f}-{max(h_vals):.3f} span={span_h:.3f}")
+                print(f"[diag] avg_v range: {min(v_vals):.3f}-{max(v_vals):.3f} span={span_v:.3f}")
+                print(f"[diag] pca features sample[0]: {samples[0][0]}")
+                min_span = 0.06 if str(self._calib2_mode).startswith("keyboard") else 0.15
+                if span_v < min_span or span_h < min_span:
+                    print(
+                        f"[diag] WARNING: feature span small (h={span_h:.3f} v={span_v:.3f}) "
+                        f"— quality gates may fail"
+                    )
+        except Exception as e:
+            print(f"[diag] pre-fit diagnostics failed: {e}")
+        print(f"[calib2] fitting mapper with {len(samples)} target-mean samples")
+
+        screen = QApplication.primaryScreen().geometry()
+        clip_rect = getattr(self, "_calib_clip_rect", None)
+        if clip_rect is not None:
+            screen_rect_fit = clip_rect
+            print(f"[calib2] mapper clip bounds: keyboard region {clip_rect}")
         else:
-            print(f"Calibration failed: {result.message}")
+            screen_rect_fit = (
+                float(screen.x()),
+                float(screen.y()),
+                float(screen.width()),
+                float(screen.height()),
+            )
+        ridge_fit = fit_calibration_mapper(
+            samples=samples,
+            targets=self._calibration_v2_session.targets,
+            calibration_mode=str(self._calib2_mode),
+            screen_rect=screen_rect_fit,
+            min_alpha=1.0,
+            max_loocv_rms_px=95.0,
+            max_target_loocv_px=110.0,
+            max_train_error_px=60.0,
+            half_key_height_px=34.0,
+        )
+        print(f"[calib2] mapper fit: success={ridge_fit.success} rms_px={ridge_fit.rms_px} msg={ridge_fit.message}")
+        if not ridge_fit.success or ridge_fit.model is None:
+            print(f"[calib2] ridge fit failed: {ridge_fit.message}")
+            self._gaze_mapper_v2 = None
+            self._preview_mode = False
+            self._show_recalibrate_prompt(
+                "Calibration could not find a reliable mapper — keep head still, eyes on each dot"
+            )
+            return
+
+        # Ridge diagnostics (stability / overfitting).
+        try:
+            feature_count = int(getattr(ridge_fit.model, "train_X", np.zeros((0, 0))).shape[1])
+            sample_count = int(getattr(ridge_fit.model, "train_X", np.zeros((0, 0))).shape[0])
+        except Exception:
+            feature_count = 0
+            sample_count = 0
+        ridge_alpha = float(getattr(ridge_fit.model, "alpha", 0.0))
+        ridge_train_rms = float(ridge_fit.rms_px) if ridge_fit.rms_px is not None else None
+
+        # Ridge LOOCV diagnostics.
+        ridge_per_target_err = None
+        ridge_loocv_rms = None
+        ridge_worst_str = None
+        ridge_loocv_detail = None
+        try:
+            ridge_loocv_detail = ridge_fit.model.leave_one_out_detail_px()
+            ridge_per_target_err = [float(d["err"]) for d in ridge_loocv_detail]
+            ridge_loocv_rms = (
+                float(np.sqrt(np.mean(np.array(ridge_per_target_err, dtype=np.float64) ** 2)))
+                if ridge_per_target_err
+                else None
+            )
+            if ridge_per_target_err:
+                worst = sorted([(float(d["err"]), int(d["i"])) for d in ridge_loocv_detail], reverse=True)[:4]
+                ridge_worst_str = ", ".join([f"T{i+1:02d}={e:.1f}px" for e, i in worst])
+        except Exception as e:
+            print(f"[calib2] ridge LOOCV compute failed: {e}")
+            ridge_per_target_err = None
+            ridge_loocv_rms = None
+            ridge_worst_str = None
+            ridge_loocv_detail = None
+
+        print(
+            f"[calib2] ridge diag: feature_count={feature_count} sample_count={sample_count} "
+            f"alpha={ridge_alpha} training_RMS={ridge_train_rms} LOOCV_RMS={ridge_loocv_rms}"
+        )
+
+        if ridge_loocv_rms is not None:
+            print(f"[calib2] pca_ridge: LOOCV_RMS={float(ridge_loocv_rms):.1f}px")
+        else:
+            print("[calib2] pca_ridge: LOOCV_RMS=(unavailable)")
+        if ridge_worst_str:
+            print(f"[calib2] pca_ridge: LOOCV worst targets: {ridge_worst_str}")
+        # Rich LOOCV diagnostics: include target label, coords, predicted coords.
+        try:
+            if ridge_loocv_detail is not None and self._calibration_v2_session is not None:
+                sess = self._calibration_v2_session
+                # Sort by error and print top few.
+                worst = sorted(ridge_loocv_detail, key=lambda d: float(d["err"]), reverse=True)[:4]
+                for d in worst:
+                    i = int(d["i"])
+                    t = sess.targets[i] if i < len(sess.targets) else None
+                    label = t.label if t is not None else "?"
+                    tx = float(t.screen_x) if t is not None else float("nan")
+                    ty = float(t.screen_y) if t is not None else float("nan")
+                    print(
+                        "[calib2] loocv worst: "
+                        f"T{i+1:02d} label={label} "
+                        f"target=({tx:.1f},{ty:.1f}) "
+                        f"pred=({float(d['pred_x']):.1f},{float(d['pred_y']):.1f}) "
+                        f"err={float(d['err']):.1f}px"
+                    )
+        except Exception as e:
+            print(f"[calib2] loocv worst detail print failed: {e}")
+
+        selected_type = getattr(ridge_fit.model, "mapper_type", "unknown") if ridge_fit.model else "unknown"
+        print(f"[calib2] active_mapper={selected_type}")
+        self._active_mapper = str(selected_type)
+        fit = ridge_fit
+        per_target_err = ridge_per_target_err
+        loocv_rms = ridge_loocv_rms
+
+        # Per-row avg_v statistics + ratio-space export for debugging vertical separation.
+        try:
+            self._print_row_v_stats_and_export_ratio_space()
+        except Exception as e:
+            print(f"[calib2] ratio-space stats/export failed: {e}")
+
+        screen_rect = screen_rect_fit
+        quality = evaluate_calibration_quality(
+            model=ridge_fit.model,
+            samples=samples,
+            targets=self._calibration_v2_session.targets,
+            screen_rect=screen_rect,
+            calibration_mode=str(self._calib2_mode),
+            loocv_detail=ridge_loocv_detail,
+            max_validation_error_px=80.0,
+            max_train_error_px=60.0,
+            max_loocv_rms_px=95.0,
+            max_target_loocv_px=110.0,
+            max_off_screen_loocv=0,
+            min_screen_y_avg_v_corr=0.55,
+            max_single_target_train_px=55.0,
+        )
+        try:
+            assess_fullscreen_feasibility(
+                row_stats=quality.row_stats,
+                monotonicity=quality.monotonicity,
+                loocv_rms_px=quality.loocv_rms_px,
+            )
+        except Exception as e:
+            print(f"[calib2] feasibility assessment failed: {e}")
+
+        try:
+            print_geometric_diagnostics(
+                model=ridge_fit.model,
+                samples=samples,
+                targets=self._calibration_v2_session.targets,
+                loocv_detail=ridge_loocv_detail,
+                keys=self._intent_keys or inspect_keyboard_layout(self.keyboard_widget),
+            )
+        except Exception as e:
+            print(f"[calib2] geometric diagnostics failed: {e}")
+
+        if self._calib_debug or os.environ.get("GAZEKEY_CALIB_GEOM_DEBUG", "0").strip() == "1":
+            try:
+                self._show_calibration_geometry_overlay(
+                    samples=samples,
+                    model=ridge_fit.model,
+                    loocv_detail=ridge_loocv_detail,
+                )
+            except Exception as e:
+                print(f"[calib2] geometry overlay failed: {e}")
+
+        if not quality.accepted:
+            print("[calib2] RECALIBRATE: quality gates failed — gaze typing will stay disabled")
+            for reason in quality.reasons:
+                print(f"[calib2]   reason: {reason}")
+            self._gaze_mapper_v2 = None
+            self._preview_mode = False
+            self._show_recalibrate_prompt(
+                "Calibration failed — keep head still, move eyes only, then tap RECALIBRATE"
+            )
+            try:
+                self._write_calibration_debug_csv(ridge_fit=ridge_fit, loocv_detail=ridge_loocv_detail)
+                self._print_target_sample_quality()
+            except Exception:
+                pass
+            return
+
+        try:
+            self._calibration_v2_session.write_summary(
+                mapper_type=getattr(fit.model, "mapper_type", "unknown"),
+                per_target_error_px=per_target_err,
+                overall_rms_px=loocv_rms,
+            )
+        except Exception as e:
+            print(f"[calib2] summary write failed: {e}")
+
+        self._gaze_mapper_v2 = ridge_fit.model
+        try:
+            self._mapper_store.save(
+                ridge_fit.model,
+                calibration_mode=str(self._calib2_mode),
+                mapper_mode=str(self._mapper_mode or self._calib2_mode),
+            )
+        except Exception as e:
+            print(f"[calib2] v2 mapper save failed: {e}")
+        self._gaze_smoother.reset()
+        self._feature_smoother.reset()
+        self._gaze_bias_x = 0.0
+        self._gaze_bias_y = 0.0
+        self._selection_policy.reset()
+        self._last_v2_pred_x = None
+        self._last_v2_pred_y = None
+        self._last_v2_pred_t = None
+        self._gaze_typing_controller.mark_keyboard_dirty()
+        QTimer.singleShot(150, self._gaze_typing_controller.mark_keyboard_dirty)
+
+        self._reset_calibrate_button_style()
+        self.camera_status_label.setText("📷 Calibration v2 saved ✓")
+        self.camera_status_label.setStyleSheet("""
+            QLabel {
+                color: #10B981;
+                padding: 5px;
+                font-weight: bold;
+            }
+        """)
+        print("[calib2] complete. Gaze typing now uses v2 mapper + intent + selection.")
+        mapper_type = getattr(self._gaze_mapper_v2, "mapper_type", "unknown")
+        print(
+            "[runtime] "
+            f"mapper_mode={self._mapper_mode or self._calib2_mode} "
+            f"active_mapper={self._active_mapper} "
+            f"mapper_type={mapper_type} "
+            f"LOOCV_RMS={quality.loocv_rms_px}"
+        )
+        # Default to preview mode right after calibration (only when quality passed).
+        self._preview_mode = True
+        if hasattr(self, "preview_btn"):
+            self.preview_btn.setProperty("active", "true")
+            self.preview_btn.style().unpolish(self.preview_btn)
+            self.preview_btn.style().polish(self.preview_btn)
+            self.preview_btn.update()
+        # Ensure the runtime preview dot can re-appear normally post-calibration.
+        try:
+            self._hide_preview_dot()
+        except Exception:
+            pass
+        # Restore webcam preview window after calibration (only when expanded).
+        try:
+            if self.is_expanded:
+                self._ensure_camera_preview()
+        except Exception:
+            pass
+
+        # Live validation at the calibrated center target (not raw screen center).
+        try:
+            self._start_calib2_validation(self._calibration_v2_session.targets)
+        except Exception as e:
+            print(f"[calib2] validation setup failed: {e}")
+
+        try:
+            self._write_calibration_debug_csv(ridge_fit=ridge_fit, loocv_detail=ridge_loocv_detail)
+        except Exception as e:
+            print(f"[calib2] calibration_debug.csv write failed: {e}")
+
+        try:
+            self._print_target_sample_quality()
+        except Exception as e:
+            print(f"[calib2] per-target sample diagnostics failed: {e}")
+
+    def _show_calibration_geometry_overlay(self, *, samples, model, loocv_detail) -> None:
+        if self._calibration_v2_session is None:
+            return
+        targets = self._calibration_v2_session.targets
+        expected = [(float(t.screen_x), float(t.screen_y)) for t in targets]
+        labels = [str(t.label) for t in targets]
+        train_pred: list = []
+        loocv_pred: list = []
+        loocv_by_i = {int(d["i"]): d for d in (loocv_detail or [])}
+        for i, (feat, _xy) in enumerate(samples):
+            pred = model.predict(feat)
+            train_pred.append((float(pred.x), float(pred.y)) if pred is not None else None)
+            d = loocv_by_i.get(i)
+            if d is not None:
+                loocv_pred.append((float(d["pred_x"]), float(d["pred_y"])))
+            else:
+                loocv_pred.append(None)
+        ov = CalibrationGeometryOverlay(
+            expected=expected,
+            train_pred=train_pred,
+            loocv_pred=loocv_pred,
+            labels=labels,
+        )
+        ov.show()
+        ov.raise_()
+        print("[calib2] geometry overlay shown (green=target blue=train orange=LOOCV)")
+
+    def _write_calibration_debug_csv(self, *, ridge_fit, loocv_detail) -> None:
+        if self._calibration_v2_session is None or ridge_fit is None or ridge_fit.model is None:
+            return
+        sess = self._calibration_v2_session
+        model = ridge_fit.model
+
+        # Build a fast lookup for LOOCV info by index.
+        loocv_by_i = {}
+        if loocv_detail:
+            for d in loocv_detail:
+                loocv_by_i[int(d["i"])] = d
+
+        # Write debug CSV at repo root.
+        root = Path(__file__).resolve().parents[2]
+        out_path = root / "calibration_debug.csv"
+        with open(out_path, "w", newline="", encoding="utf-8") as f:
+            w = csv.writer(f)
+            w.writerow(
+                [
+                    "target_index",
+                    "label",
+                    "target_x",
+                    "target_y",
+                    "mean_avg_h",
+                    "mean_avg_v",
+                    "mean_pca_vL",
+                    "mean_pca_vR",
+                    "mean_face_y",
+                    "mean_eye_box_h",
+                    "predicted_x",
+                    "predicted_y",
+                    "train_error_px",
+                    "loocv_error_px",
+                    "sample_count",
+                ]
+            )
+
+            # Training samples are in target order (one mean feature per target).
+            pairs = sess.get_training_samples()
+            for i, ((feat, (tx, ty))) in enumerate(pairs):
+                # Training prediction (on the same point).
+                pred = model.predict(feat)
+                if pred is None:
+                    px = py = None
+                    train_err = None
+                else:
+                    px = float(pred.x)
+                    py = float(pred.y)
+                    train_err = float(np.hypot(px - float(tx), py - float(ty)))
+
+                loocv_err = None
+                if i in loocv_by_i:
+                    loocv_err = float(loocv_by_i[i]["err"])
+
+                n_raw = sess.samples_used_for_target_mean(i)
+
+                w.writerow(
+                    [
+                        int(i + 1),
+                        sess.targets[i].label if i < len(sess.targets) else "",
+                        float(tx),
+                        float(ty),
+                        float(feat.avg_h) if feat.avg_h is not None else "",
+                        float(feat.avg_v) if feat.avg_v is not None else "",
+                        float(feat.pca_vL) if feat.pca_vL is not None else "",
+                        float(feat.pca_vR) if feat.pca_vR is not None else "",
+                        float(feat.face_y) if feat.face_y is not None else "",
+                        float(feat.eye_box_h) if feat.eye_box_h is not None else "",
+                        "" if px is None else float(px),
+                        "" if py is None else float(py),
+                        "" if train_err is None else float(train_err),
+                        "" if loocv_err is None else float(loocv_err),
+                        int(n_raw),
+                    ]
+                )
+        print(f"[calib2] wrote calibration debug CSV: {out_path}")
+
+    def _print_target_sample_quality(self) -> None:
+        """Per-target sample stats to diagnose noisy targets."""
+        if self._calibration_v2_session is None:
+            return
+        sess = self._calibration_v2_session
+
+        def iqr_filter(values: np.ndarray) -> np.ndarray:
+            values = np.asarray(values, dtype=np.float64)
+            values = values[np.isfinite(values)]
+            if values.size < 4:
+                return values
+            q1, q3 = np.percentile(values, [25, 75])
+            iqr = float(q3 - q1)
+            if iqr <= 1e-12:
+                return values
+            lo = float(q1 - 1.5 * iqr)
+            hi = float(q3 + 1.5 * iqr)
+            m = (values >= lo) & (values <= hi)
+            kept = values[m]
+            return kept if kept.size else values
+
+        max_std = float(getattr(sess.gate.cfg, "max_std", 0.045))
+        for i, t in enumerate(sess.targets):
+            # Accepted ratio frames used for the target mean.
+            ratios = sess._accepted_ratios[i]  # noqa: SLF001
+            hs = np.array([p[0] for p in ratios], dtype=np.float64) if ratios else np.array([], dtype=np.float64)
+            vs = np.array([p[1] for p in ratios], dtype=np.float64) if ratios else np.array([], dtype=np.float64)
+            hs_f = iqr_filter(hs)
+            vs_f = iqr_filter(vs)
+
+            raw_n = int(hs.size)
+            filt_n = int(min(hs_f.size, vs_f.size))
+            if raw_n > 0:
+                mu_h = float(np.mean(hs))
+                mu_v = float(np.mean(vs))
+                sd_h = float(np.std(hs))
+                sd_v = float(np.std(vs))
+                noisy = bool(max(sd_h, sd_v) > max_std)
+            else:
+                mu_h = mu_v = sd_h = sd_v = 0.0
+                noisy = True
+
+            print(
+                "[calib2] target samples: "
+                f"T{i+1:02d} label={t.label} "
+                f"raw_n={raw_n} filt_n={filt_n} "
+                f"avg_h(mean={mu_h:.4f} std={sd_h:.4f}) "
+                f"avg_v(mean={mu_v:.4f} std={sd_v:.4f}) "
+                f"noisy={noisy}"
+            )
+
+    class _ValidationOverlay(QWidget):
+        def __init__(self, target_global_xy: tuple[int, int], parent=None):
+            super().__init__(parent)
+            self._tx, self._ty = int(target_global_xy[0]), int(target_global_xy[1])
+            self.setWindowFlags(
+                Qt.WindowType.FramelessWindowHint
+                | Qt.WindowType.WindowStaysOnTopHint
+                | Qt.WindowType.Tool
+            )
+            self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+            self.setStyleSheet("background-color: rgba(10, 10, 20, 140);")
+            self._setup()
+
+        def _setup(self) -> None:
+            screen = QApplication.primaryScreen().geometry()
+            self.setGeometry(screen)
+
+        def paintEvent(self, event):
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            r = 18
+            painter.setPen(QPen(QColor(255, 255, 255, 220), 3))
+            painter.setBrush(QBrush(QColor(255, 255, 255)))
+            # Convert global to overlay-local.
+            lx = int(self._tx - self.geometry().x())
+            ly = int(self._ty - self.geometry().y())
+            painter.drawEllipse(int(lx - r), int(ly - r), int(r * 2), int(r * 2))
+            painter.end()
+
+    def _start_calib2_validation(self, targets=None) -> None:
+        if self._gaze_mapper_v2 is None:
+            return
+        if os.environ.get("GAZEKEY_SKIP_LIVE_VALIDATION", "0").strip() == "1":
+            print("[calib2] live validation skipped (GAZEKEY_SKIP_LIVE_VALIDATION=1)")
+            return
+        screen = QApplication.primaryScreen().geometry()
+        tx = int(screen.x() + screen.width() / 2)
+        ty = int(screen.y() + screen.height() / 2)
+        label = "screen_center"
+        if targets:
+            for t in targets:
+                if str(t.label).lower() == "center":
+                    tx = int(t.screen_x)
+                    ty = int(t.screen_y)
+                    label = "center"
+                    break
+        self._calib2_validation_target = (tx, ty)
+        self._calib2_validation_preds = []
+        # Wait for user to saccade to the dot before scoring (same idea as calibration prepare).
+        self._calib2_validation_collect_after_ms = int(time.time() * 1000) + 2000
+        print(
+            f"[calib2] live validation: look at {label} ({tx},{ty}) "
+            f"(2s prepare, then ~20 frames)"
+        )
+        self._calib2_validation_overlay = self._ValidationOverlay((tx, ty))
+        self._calib2_validation_overlay.show()
+        self._calib2_validation_overlay.raise_()
+        self._calib2_validation_overlay.activateWindow()
+
+    def _maybe_collect_validation_pred(self, eye_data) -> None:
+        if not hasattr(self, "_calib2_validation_target"):
+            return
+        if self._gaze_mapper_v2 is None:
+            return
+        tx, ty = self._calib2_validation_target
+        preds = getattr(self, "_calib2_validation_preds", None)
+        if preds is None:
+            return
+        if len(preds) >= 20:
+            return
+
+        now_ms = int(time.time() * 1000)
+        collect_after = int(getattr(self, "_calib2_validation_collect_after_ms", 0))
+        if now_ms < collect_after:
+            return
+
+        features = FeatureExtractor.from_eye_data(eye_data, timestamp_ms=now_ms)
+        pred = self._predict_gaze_v2(features)
+        if pred is None:
+            return
+        preds.append((float(pred.x), float(pred.y)))
+        if len(preds) < 20:
+            return
+
+        xs = [p[0] for p in preds]
+        ys = [p[1] for p in preds]
+        px = float(sum(xs) / len(xs))
+        py = float(sum(ys) / len(ys))
+        err = float(np.hypot(px - float(tx), py - float(ty)))
+        screen = QApplication.primaryScreen().geometry()
+        x0, y0 = float(screen.x()), float(screen.y())
+        x1, y1 = x0 + float(screen.width()), y0 + float(screen.height())
+        off_screen = not (x0 <= px <= x1 and y0 <= py <= y1)
+        print(f"[calib2] validation: target=({tx},{ty}) predicted=({px:.1f},{py:.1f}) error={err:.1f}px off_screen={off_screen}")
+        # Correct systematic offset (e.g. frame features vs calibration means).
+        if err >= 12.0 and not off_screen:
+            self._gaze_bias_x = float(tx) - px
+            self._gaze_bias_y = float(ty) - py
+            print(
+                f"[calib2] applied gaze bias correction: "
+                f"dx={self._gaze_bias_x:+.1f}px dy={self._gaze_bias_y:+.1f}px"
+            )
+        strict = os.environ.get("GAZEKEY_STRICT_LIVE_VALIDATION", "0").strip() == "1"
+        if err > 150.0 or off_screen:
+            msg = f"Live validation error {err:.0f}px (target was calibrated center, not screen middle)"
+            if strict:
+                print("[calib2] FAIL: live validation failed — disabling gaze mapper")
+                self._gaze_mapper_v2 = None
+                self._preview_mode = False
+                self._show_recalibrate_prompt(f"Live validation failed ({err:.0f}px) — tap RECALIBRATE")
+            else:
+                print(f"[calib2] WARNING: {msg} — keeping mapper (offline gates passed)")
+        else:
+            print(f"[calib2] live validation OK ({err:.1f}px)")
+
+        try:
+            ov = getattr(self, "_calib2_validation_overlay", None)
+            if ov is not None:
+                ov.close()
+        except Exception:
+            pass
+        for k in ("_calib2_validation_overlay", "_calib2_validation_target", "_calib2_validation_preds"):
+            try:
+                delattr(self, k)
+            except Exception:
+                pass
+
+    def _print_row_v_stats_and_export_ratio_space(self) -> None:
+        if self._calibration_v2_session is None:
+            return
+        sess = self._calibration_v2_session
+        # Build per-target mean (avg_h,avg_v) from accepted ratios.
+        rows = []
+        for i, t in enumerate(sess.targets):
+            n = sess.samples_used_for_target_mean(i)
+            if n <= 0:
+                continue
+            ratios = sess._accepted_ratios[i]  # noqa: SLF001
+            hs = [p[0] for p in ratios]
+            vs = [p[1] for p in ratios]
+            mh = float(sum(hs) / len(hs))
+            mv = float(sum(vs) / len(vs))
+            rows.append((t.target_id, t.label, float(t.screen_x), float(t.screen_y), n, mh, mv))
+
+        if not rows:
+            return
+
+        # Group by row using label hints (works for 9/13 modes).
+        top = [r for r in rows if "top" in r[1]]
+        mid = [r for r in rows if r[1] in {"left", "center", "right"} or ("middle" in r[1])]
+        bot = [r for r in rows if "bottom" in r[1]]
+
+        def stats(name: str, rs):
+            if not rs:
+                print(f"[calib2] avg_v row {name}: (no targets)")
+                return None
+            vs = np.array([r[6] for r in rs], dtype=np.float64)
+            mu = float(np.mean(vs))
+            sd = float(np.std(vs))
+            print(f"[calib2] avg_v row {name}: mean={mu:.4f} std={sd:.4f} n_targets={len(rs)}")
+            return mu
+
+        mu_top = stats("top", top)
+        mu_mid = stats("mid", mid)
+        mu_bot = stats("bottom", bot)
+        if mu_top is not None and mu_mid is not None:
+            print(f"[calib2] avg_v separation top-mid: {abs(mu_top - mu_mid):.4f}")
+        if mu_mid is not None and mu_bot is not None:
+            print(f"[calib2] avg_v separation mid-bottom: {abs(mu_mid - mu_bot):.4f}")
+
+        # Export ratio-space CSV for scatter plotting (Excel / Python).
+        root = Path(__file__).resolve().parents[2]
+        out_path = root / "calibration_ratio_space.csv"
+        with open(out_path, "w", newline="", encoding="utf-8") as f:
+            w = csv.writer(f)
+            w.writerow(["session_id", "target_id", "label", "screen_x", "screen_y", "n_samples", "mean_avg_h", "mean_avg_v"])
+            for (tid, label, sx, sy, n, mh, mv) in rows:
+                w.writerow([sess.csv.session_id, tid, label, sx, sy, n, mh, mv])
+        print(f"[calib2] wrote ratio-space scatter CSV: {out_path}")
+
+    def _derive_semantic_row_rects(self):
+        """Return (row_rects, row_centers_y) for the 6 semantic regions."""
+        if not self._intent_keys:
+            return {}, {}
+        keys = list(self._intent_keys)
+        # Aggregate by physical row_index -> rect union + center_y.
+        phys = {}
+        for k in keys:
+            ys = phys.setdefault(k.row_index, {"ys": [], "x0": k.rect.left(), "x1": k.rect.right(), "y0": k.rect.top(), "y1": k.rect.bottom()})
+            ys["ys"].append(float(k.center[1]))
+            ys["x0"] = min(ys["x0"], k.rect.left())
+            ys["x1"] = max(ys["x1"], k.rect.right())
+            ys["y0"] = min(ys["y0"], k.rect.top())
+            ys["y1"] = max(ys["y1"], k.rect.bottom())
+
+        phys_rows = []
+        for ridx, d in phys.items():
+            cy = float(sum(d["ys"]) / max(1, len(d["ys"])))
+            phys_rows.append((cy, ridx, d))
+        phys_rows.sort(key=lambda t: t[0])
+
+        # Map physical rows to semantic row names by quantized rank.
+        sem_rects = {n: QRect() for n in self._row_aware_row_names}
+        sem_centers_y = {}
+
+        def sem_for_rank(rank: int) -> str:
+            if len(phys_rows) <= len(self._row_aware_row_names):
+                return self._row_aware_row_names[min(rank, len(self._row_aware_row_names) - 1)]
+            q = int(round((rank / max(1, len(phys_rows) - 1)) * (len(self._row_aware_row_names) - 1)))
+            return self._row_aware_row_names[max(0, min(len(self._row_aware_row_names) - 1, q))]
+
+        # Union rects per semantic.
+        for rank, (cy, _ridx, d) in enumerate(phys_rows):
+            sem = sem_for_rank(rank)
+            r = QRect(int(d["x0"]), int(d["y0"]), int(d["x1"] - d["x0"]), int(d["y1"] - d["y0"]))
+            if sem_rects[sem].isNull():
+                sem_rects[sem] = r
+            else:
+                sem_rects[sem] = sem_rects[sem].united(r)
+            sem_centers_y.setdefault(sem, []).append(float(cy))
+
+        sem_centers_y = {k: float(sum(v) / len(v)) for k, v in sem_centers_y.items() if v}
+        return sem_rects, sem_centers_y
 
     def _on_eye_data_main_thread(self, eye_data):
         """Main-thread handler for eye data (via TrackingBridge signal)."""
@@ -709,7 +1748,7 @@ class VirtualKeyboard(QWidget):
                 self.camera_preview_window.update_frame(frame)
 
         # Floating live preview in bottom-right of the screen.
-        if self.tracking_manager:
+        if self.tracking_manager and not self._is_calibrating:
             self._ensure_camera_preview()
 
         if self.tracking_manager:
@@ -740,10 +1779,50 @@ class VirtualKeyboard(QWidget):
             """)
 
         if self._is_calibrating and self._calibration_overlay is not None:
-            gaze = gaze_ratios(eye_data)
-            if gaze is not None:
-                self._calibration_overlay.add_sample_dt(gaze[0], gaze[1], dt_ms=dt * 1000.0)
+            now_ms = int(time.time() * 1000)
+            features = FeatureExtractor.from_eye_data(eye_data, timestamp_ms=now_ms)
+            # Optional vertical-only smoothing during calibration to stabilize target means.
+            if self._calib2_enable_v_ema and features.avg_v is not None:
+                if self._calib2_v_ema is None:
+                    self._calib2_v_ema = float(features.avg_v)
+                else:
+                    a = float(self._calib2_v_alpha)
+                    self._calib2_v_ema = (1.0 - a) * float(self._calib2_v_ema) + a * float(features.avg_v)
+                features = self._with_avg(features, avg_h=features.avg_h, avg_v=float(self._calib2_v_ema))
+                if now_ms - self._last_calib2_log_ms >= 250:
+                    print(f"[calib2] v_ema raw_v={features.avg_v} ema_v={self._calib2_v_ema}")
+            if self._calibration_v2_session is not None:
+                # Throttle logs to avoid overwhelming the console.
+                if now_ms - self._last_calib2_log_ms >= 250:
+                    self._last_calib2_log_ms = now_ms
+                    idx = int(self._calibration_v2_session.target_index)
+                    samples_used = self._calibration_v2_session.samples_used_for_target_mean(idx)
+                    means_count = self._calibration_v2_session.target_means_count()
+                    mean_ready = self._calibration_v2_session.target_mean_ready(idx)
+                    gate_dbg = self._calibration_v2_session.gate.debug_metrics()
+                    print(
+                        "[calib2] "
+                        f"t={idx}/{len(self._calibration_v2_session.targets)} "
+                        f"window_size={gate_dbg['window_len']} "
+                        f"samples_used_for_target_mean={samples_used} "
+                        f"target_mean_ready={mean_ready} "
+                        f"target_means_count={means_count} "
+                        f"state={gate_dbg['state']} "
+                        f"avg_h={features.avg_h} avg_v={features.avg_v} "
+                        f"std=({gate_dbg['std_h']:.3f},{gate_dbg['std_v']:.3f}) "
+                        f"lock_ms={gate_dbg['lock_on_ms']:.0f} "
+                        f"win_ms={gate_dbg['window_ms']:.0f} "
+                        f"collect_ms={gate_dbg['elapsed_collect_ms']:.0f} "
+                        f"reason={self._calibration_v2_session.last_reject_reason}"
+                    )
+            self._calibration_overlay.add_features_dt(features, dt_ms=dt * 1000.0)
             return
+
+        # Collect post-calibration validation predictions (informational only).
+        try:
+            self._maybe_collect_validation_pred(eye_data)
+        except Exception:
+            pass
 
         active = self._gaze_typing_active()
         self._gaze_typing_controller.set_enabled(active)
@@ -751,30 +1830,414 @@ class VirtualKeyboard(QWidget):
             self._process_gaze_typing(eye_data, dt)
         else:
             self._gaze_smoother.reset()
+            self._feature_smoother.reset()
 
     def _gaze_typing_active(self) -> bool:
         return (
             self.is_expanded
             and not self._is_calibrating
-            and self._gaze_mapper is not None
+            and (self._gaze_mapper_v2 is not None or self._gaze_mapper is not None)
         )
 
+    def _clamp_v2_xy(self, x: float, y: float) -> Tuple[float, float]:
+        bounds = getattr(self._gaze_mapper_v2, "clip_bounds", None) if self._gaze_mapper_v2 else None
+        if bounds is not None:
+            x0, y0, x1, y1 = bounds
+            return (
+                float(max(x0, min(x1, x))),
+                float(max(y0, min(y1, y))),
+            )
+        if self._rt2_clamp_to_screen:
+            screen = QApplication.primaryScreen().geometry()
+            return (
+                float(max(float(screen.left()), min(float(screen.right()), x))),
+                float(max(float(screen.top()), min(float(screen.bottom()), y))),
+            )
+        return x, y
+
+    def _predict_gaze_v2(self, features: FrameFeatures) -> Optional[MapperPrediction]:
+        """Smooth PCA features, predict screen point, apply live-validation bias."""
+        if self._gaze_mapper_v2 is None:
+            return None
+        smooth = self._feature_smoother.smooth(features)
+        pred = self._gaze_mapper_v2.predict(smooth)
+        if pred is None:
+            return None
+        if pred.quality is not None and float(pred.quality) < float(self._rt2_min_quality):
+            return None
+        px = float(pred.x) + float(self._gaze_bias_x)
+        py = float(pred.y) + float(self._gaze_bias_y)
+        px, py = self._clamp_v2_xy(px, py)
+        return replace(pred, x=px, y=py)
+
     def _process_gaze_typing(self, eye_data, dt: float) -> None:
-        """Map gaze to screen coords and advance dwell selection."""
-        gaze = gaze_ratios(eye_data)
-        if gaze is None:
+        """Map gaze to screen coords and run intent->selection->activation."""
+        now_ms = int(time.time() * 1000)
+        features = FeatureExtractor.from_eye_data(eye_data, timestamp_ms=now_ms)
+
+        mapped_x = mapped_y = None
+        mapped_quality = None
+        if self._gaze_mapper_v2 is not None:
+            pred = self._predict_gaze_v2(features)
+            if pred is not None:
+                mapped_x = float(pred.x)
+                mapped_y = float(pred.y)
+                mapped_quality = float(pred.quality)
+                self._last_raw_mapped_x = mapped_x
+                self._last_raw_mapped_y = mapped_y
+                self._last_v2_pred_x = mapped_x
+                self._last_v2_pred_y = mapped_y
+                self._last_v2_pred_t = now_ms
+                if self._rt2_debug and self._rt2_debug_pred:
+                    print(f"[rt2] pred x={mapped_x:.1f} y={mapped_y:.1f} q={mapped_quality:.2f}")
+            else:
+                # Grace: avoid per-frame bouncing into v1 when v2 is active.
+                grace_ms = 220
+                if (
+                    self._last_v2_pred_x is not None
+                    and self._last_v2_pred_y is not None
+                    and self._last_v2_pred_t is not None
+                    and (now_ms - self._last_v2_pred_t) <= grace_ms
+                ):
+                    mapped_x = float(self._last_v2_pred_x)
+                    mapped_y = float(self._last_v2_pred_y)
+                    mapped_quality = None
+                else:
+                    self._clear_v2_focus()
+                    self._gaze_typing_controller.tick(None, None, dt)
+                    return
+
+        # Safe fallback to v1 path only when v2 is not active.
+        if self._gaze_mapper_v2 is None and (mapped_x is None or mapped_y is None):
+            gaze = gaze_ratios(eye_data)
+            if gaze is None:
+                self._clear_v2_focus()
+                self._gaze_typing_controller.tick(None, None, dt)
+                return
+            mapped_x, mapped_y = map_gaze_to_typing_ui(
+                gaze[0],
+                gaze[1],
+                self._gaze_mapper,
+                self.keyboard_widget,
+                self.calibrate_btn,
+            )
+
+        raw_global = None
+        if self._last_raw_mapped_x is not None and self._last_raw_mapped_y is not None:
+            raw_global = (float(self._last_raw_mapped_x), float(self._last_raw_mapped_y))
+
+        mapped_x, mapped_y = self._gaze_smoother.filter(mapped_x, mapped_y)
+
+        if self._preview_mode:
+            if mapped_x is not None and mapped_y is not None:
+                self._ensure_preview_dot()
+                p = self.keyboard_widget.mapFromGlobal(QPoint(int(mapped_x), int(mapped_y)))
+                raw_local = None
+                if self._rt2_debug and raw_global is not None:
+                    pr = self.keyboard_widget.mapFromGlobal(
+                        QPoint(int(raw_global[0]), int(raw_global[1]))
+                    )
+                    raw_local = (pr.x(), pr.y())
+                dbg_label = ""
+                if self._rt2_debug and self._gaze_mapper_v2 is not None:
+                    dbg_label = (
+                        f"mapper={getattr(self._gaze_mapper_v2, 'mapper_type', '?')} "
+                        f"raw=({raw_global[0]:.0f},{raw_global[1]:.0f}) "
+                        f"smooth=({mapped_x:.0f},{mapped_y:.0f})"
+                        if raw_global
+                        else f"mapper={getattr(self._gaze_mapper_v2, 'mapper_type', '?')}"
+                    )
+                self._preview_dot.set_row_rect_and_label(None, dbg_label)
+                self._preview_dot.set_pos(p.x(), p.y(), raw=raw_local)
+                self._preview_dot.show()
+                self._preview_dot.raise_()
+            else:
+                self._hide_preview_dot()
+            # No intent/selection/activation in preview mode.
             self._gaze_typing_controller.tick(None, None, dt)
             return
 
-        sx, sy = map_gaze_to_typing_ui(
-            gaze[0],
-            gaze[1],
-            self._gaze_mapper,
-            self.keyboard_widget,
-            self.calibrate_btn,
+        # Intent scoring -> selection policy -> UI focus/activation.
+        best_id = None
+        best_conf = 0.0
+        second_id = None
+        second_conf = 0.0
+        best_row_index = None
+        if mapped_x is not None and mapped_y is not None and self._intent_keys:
+            scored = score_keys(
+                keys=self._intent_keys,
+                gaze_x=mapped_x,
+                gaze_y=mapped_y,
+                sigma_px=48.0,
+                sigma_y_px=62.0,
+                focused_key_id=self._selection_policy._focused,
+                row_stickiness=1.5,
+                cross_row_penalty=0.5,
+            )
+            if scored:
+                best_id = scored[0].key_id
+                best_conf = float(scored[0].probability)
+                for k in self._intent_keys:
+                    if k.key_id == best_id:
+                        best_row_index = int(k.row_index)
+                        break
+            if len(scored) >= 2:
+                second_id = scored[1].key_id
+                second_conf = float(scored[1].probability)
+
+        velocity_px_s = None
+        if mapped_x is not None and mapped_y is not None:
+            if self._last_mapped_x is not None and self._last_mapped_y is not None and self._last_mapped_t is not None:
+                dt_s = max(1e-6, (now_ms - self._last_mapped_t) / 1000.0)
+                dx = float(mapped_x - self._last_mapped_x)
+                dy = float(mapped_y - self._last_mapped_y)
+                velocity_px_s = (dx * dx + dy * dy) ** 0.5 / dt_s
+            self._last_mapped_x = float(mapped_x)
+            self._last_mapped_y = float(mapped_y)
+            self._last_mapped_t = now_ms
+
+        state = self._selection_policy.update(
+            timestamp_ms=now_ms,
+            best_key_id=best_id,
+            best_confidence=float(best_conf),
+            second_key_id=second_id,
+            second_confidence=float(second_conf),
+            velocity_px_s=velocity_px_s,
+            dt_s=float(dt),
+            best_row_index=best_row_index,
         )
-        sx, sy = self._gaze_smoother.filter(sx, sy)
-        self._gaze_typing_controller.tick(sx, sy, dt)
+
+        chosen = state.focused_key_id
+        if self._rt2_debug and self._rt2_debug_selection:
+            print(f"[rt2] best={best_id} p={best_conf:.2f} chosen={chosen} dwell={state.progress:.2f} act={state.should_activate}")
+        self._apply_v2_focus(chosen, progress=float(state.progress))
+        if state.should_activate and chosen is not None:
+            row = self._keys_by_id.get(chosen)
+            if row is not None:
+                self._on_gaze_activate_key(row.button)
+
+        # Keep debug CSV logging (now reflects actual runtime decision path).
+        self._log_runtime_row(
+            eye_data,
+            mapped_x=mapped_x,
+            mapped_y=mapped_y,
+            row_name="",
+            row_confidence=None,
+        )
+
+    def _schedule_layout_export(self) -> None:
+        if self._layout_export_pending:
+            return
+        self._layout_export_pending = True
+        QTimer.singleShot(0, self._export_keyboard_layout)
+
+    def _export_keyboard_layout(self) -> None:
+        self._layout_export_pending = False
+        tl = self.mapToGlobal(QPoint(0, 0))
+        window_rect = QRect(tl, self.size())
+
+        try:
+            region_rect = typing_region_rect(self.keyboard_widget, self.calibrate_btn)
+            keys = inspect_keyboard_layout(self.main_content_widget)
+            self._layout_version = self._layout_exporter.export(
+                window_rect=window_rect,
+                typing_region_rect=region_rect,
+                keys=keys,
+            )
+            self._intent_keys = keys
+            self._keys_by_id = {k.key_id: k for k in keys}
+            # Row-aware: update semantic row assignment for keys.
+            self._key_semantic_row = self._derive_key_semantic_rows(keys)
+        except Exception as e:
+            print(f"Failed to export keyboard_layout.csv: {e}")
+
+    def _derive_key_semantic_rows(self, keys):
+        """Assign each key_id to one of the 6 semantic row regions."""
+        # Use the same quantized-rank logic as in `_derive_semantic_row_rects`.
+        phys = {}
+        for k in keys:
+            ys = phys.setdefault(k.row_index, [])
+            ys.append(float(k.center[1]))
+        phys_rows = [(float(sum(v) / len(v)), ridx) for ridx, v in phys.items() if v]
+        phys_rows.sort(key=lambda t: t[0])
+        ordered = [ridx for _, ridx in phys_rows]
+
+        def sem_for_rank(rank: int) -> str:
+            if len(ordered) <= len(self._row_aware_row_names):
+                return self._row_aware_row_names[min(rank, len(self._row_aware_row_names) - 1)]
+            q = int(round((rank / max(1, len(ordered) - 1)) * (len(self._row_aware_row_names) - 1)))
+            return self._row_aware_row_names[max(0, min(len(self._row_aware_row_names) - 1, q))]
+
+        sem_for_phys = {}
+        for rank, ridx in enumerate(ordered):
+            sem_for_phys[ridx] = sem_for_rank(rank)
+
+        return {k.key_id: sem_for_phys.get(k.row_index, "letters2") for k in keys}
+
+    def _row_adjacent(self, row_name: str) -> list[str]:
+        names = list(self._row_aware_row_names)
+        if row_name not in names:
+            return []
+        i = names.index(row_name)
+        out = []
+        if i - 1 >= 0:
+            out.append(names[i - 1])
+        if i + 1 < len(names):
+            out.append(names[i + 1])
+        return out
+
+    def _score_keys_row_weighted(self, *, gaze_x: float, gaze_y: float, row_weight: dict[str, float]):
+        # Clone of `score_keys` but with an extra multiplier per semantic row.
+        from math import exp
+        from PySide6.QtCore import QPoint
+
+        p = QPoint(int(gaze_x), int(gaze_y))
+        sigma_px = 52.0
+        hitbox_bonus = 1.35
+
+        scored = []
+        for k in self._intent_keys:
+            sem = self._key_semantic_row.get(k.key_id, "letters2")
+            rw = float(row_weight.get(sem, 0.0))
+            if rw <= 0.0:
+                continue
+            cx, cy = k.center
+            dx = float(gaze_x - cx)
+            dy = float(gaze_y - cy)
+            d = (dx * dx + dy * dy) ** 0.5
+            s = exp(-0.5 * (d / sigma_px) ** 2) * float(k.weight) * rw
+            if k.hitbox.contains(p):
+                s *= hitbox_bonus
+            scored.append((k, float(s)))
+
+        total = sum(s for _, s in scored)
+        if total <= 1e-12:
+            return []
+        out = [
+            (k, s / total)
+            for k, s in scored
+        ]
+        out.sort(key=lambda t: t[1], reverse=True)
+        return out
+
+    def _clear_v2_focus(self) -> None:
+        if self._last_v2_focused_key_id is not None:
+            row = self._keys_by_id.get(self._last_v2_focused_key_id)
+            if row is not None:
+                self._set_key_gaze_style(row.button, False, 0.0)
+        self._last_v2_focused_key_id = None
+
+    def _apply_v2_focus(self, key_id: str | None, *, progress: float) -> None:
+        if key_id is None:
+            self._clear_v2_focus()
+            return
+        row = self._keys_by_id.get(key_id)
+        if row is None:
+            self._clear_v2_focus()
+            return
+        if self._last_v2_focused_key_id is not None and self._last_v2_focused_key_id != key_id:
+            prev = self._keys_by_id.get(self._last_v2_focused_key_id)
+            if prev is not None:
+                self._set_key_gaze_style(prev.button, False, 0.0)
+        self._last_v2_focused_key_id = key_id
+        dwelling = progress >= 0.7
+        focused = progress > 0.0
+        self._set_key_gaze_style(row.button, focused, progress, dwelling=dwelling)
+
+    def _log_runtime_row(
+        self,
+        eye_data,
+        *,
+        mapped_x: float | None,
+        mapped_y: float | None,
+        row_name: str = "",
+        row_confidence: float | None = None,
+    ) -> None:
+        # Throttle to ~10 Hz to avoid massive files during development.
+        now_ms = int(time.time() * 1000)
+        if now_ms - self._last_runtime_log_ms < 100:
+            return
+        self._last_runtime_log_ms = now_ms
+
+        features = FeatureExtractor.from_eye_data(eye_data, timestamp_ms=now_ms)
+
+        velocity_px_s = None
+        if mapped_x is not None and mapped_y is not None:
+            if self._last_mapped_x is not None and self._last_mapped_y is not None and self._last_mapped_t is not None:
+                dt_s = max(1e-6, (now_ms - self._last_mapped_t) / 1000.0)
+                dx = float(mapped_x - self._last_mapped_x)
+                dy = float(mapped_y - self._last_mapped_y)
+                velocity_px_s = (dx * dx + dy * dy) ** 0.5 / dt_s
+            self._last_mapped_x = float(mapped_x)
+            self._last_mapped_y = float(mapped_y)
+            self._last_mapped_t = now_ms
+
+        focused = self._gaze_focused_button
+        focused_key_id = ""
+        focused_key_label = ""
+        if focused is not None:
+            focused_key_label = focused.text()
+            # For Phase 0, we don't have a stable per-widget key_id here yet.
+            focused_key_id = focused_key_label
+
+        best_id = None
+        best_conf = 0.0
+        second_id = None
+        second_conf = 0.0
+        if mapped_x is not None and mapped_y is not None and self._intent_keys:
+            scored = score_keys(
+                keys=self._intent_keys,
+                gaze_x=mapped_x,
+                gaze_y=mapped_y,
+                sigma_px=48.0,
+                sigma_y_px=62.0,
+                focused_key_id=self._selection_policy._focused,
+                row_stickiness=1.5,
+                cross_row_penalty=0.5,
+            )
+            if scored:
+                best_id = scored[0].key_id
+                best_conf = float(scored[0].probability)
+            if len(scored) >= 2:
+                second_id = scored[1].key_id
+                second_conf = float(scored[1].probability)
+
+        self._runtime_logger.log(
+            RuntimeLogRow(
+                timestamp_ms=now_ms,
+                layout_version=self._layout_version,
+                calibration_version=6 if self._gaze_mapper_v2 is not None else 5,
+                mapper_type=getattr(self._gaze_mapper_v2, "mapper_type", getattr(self._gaze_mapper, "model_type", "unknown")),
+                blink=features.blink,
+                confidence=float(features.confidence),
+                Lh=features.Lh,
+                Lv=features.Lv,
+                Rh=features.Rh,
+                Rv=features.Rv,
+                avg_h=features.avg_h,
+                avg_v=features.avg_v,
+                eye_box_w=features.eye_box_w,
+                eye_box_h=features.eye_box_h,
+                face_x=features.face_x,
+                face_y=features.face_y,
+                mapped_x=mapped_x,
+                mapped_y=mapped_y,
+                mapped_quality=None,
+                row_name=str(row_name or ""),
+                row_confidence=row_confidence,
+                focused_key_id=focused_key_id,
+                focused_key_label=focused_key_label,
+                focused_confidence=1.0 if focused is not None else 0.0,
+                challenger_key_id=second_id or "",
+                challenger_confidence=float(second_conf),
+                switch_allowed=True,
+                fixation_state="dwell_v1",
+                dwell_progress=float(focused.property("dwellProgress") or 0.0) if focused is not None else 0.0,
+                activated_key_id="",
+                velocity_px_s=velocity_px_s,
+                stability_score=None,
+            )
+        )
 
     def _on_gaze_focus_key(self, button, progress: float) -> None:
         if button is None:
@@ -912,6 +2375,7 @@ class VirtualKeyboard(QWidget):
         keyboard_layout.addLayout(new_layout)
         self.current_layout = layout_type
         self._gaze_typing_controller.mark_keyboard_dirty()
+        self._schedule_layout_export()
     
     def clear_layout(self, layout):
         """Recursively clear a layout and its children"""
