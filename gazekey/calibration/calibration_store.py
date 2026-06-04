@@ -10,7 +10,7 @@ from gazekey.calibration.affine_mapper import AffineGazeMapper
 from gazekey.calibration.gaze_mapper import GazeMapper, InterpolationGazeMapper
 
 CALIBRATION_VERSION = 5
-DEFAULT_CALIBRATION_PATH = Path(__file__).resolve().parents[2] / "calibration_data.json"
+DEFAULT_CALIBRATION_PATH = Path(__file__).resolve().parents[2] / "calibration_v1.json"
 
 
 @dataclass

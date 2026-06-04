@@ -1,11 +1,1 @@
 calibration_version,session_id,record_type,target_id,target_label,target_screen_x,target_screen_y,n_seen,n_accepted,n_rejected,quality_score,estimated_error_px,mapper_type,calibration_mode
-6,69556f95117e,target,T01,top_left,134.4,118.2,36,36,0,568.9122539607505,28.676092079461846,poly12_ridge_split_decoupled_y,keyboard9
-6,69556f95117e,target,T02,top,640.0,118.2,35,35,0,553.571309934524,44.747800029076124,poly12_ridge_split_decoupled_y,keyboard9
-6,69556f95117e,target,T03,top_right,1145.6,118.2,36,36,0,354.84551504854215,12.518276023323551,poly12_ridge_split_decoupled_y,keyboard9
-6,69556f95117e,target,T04,left,134.4,247.0,36,36,0,188.0182069869496,36.32811283748046,poly12_ridge_split_decoupled_y,keyboard9
-6,69556f95117e,target,T05,center,640.0,247.0,36,36,0,351.80348453626766,28.8165735978186,poly12_ridge_split_decoupled_y,keyboard9
-6,69556f95117e,target,T06,right,1145.6,247.0,36,36,0,183.5800531339663,44.39183300563836,poly12_ridge_split_decoupled_y,keyboard9
-6,69556f95117e,target,T07,bottom_left,134.4,375.8,35,35,0,171.20754152759991,39.8961432915764,poly12_ridge_split_decoupled_y,keyboard9
-6,69556f95117e,target,T08,bottom,640.0,375.8,36,36,0,529.5888972274073,21.672493757375868,poly12_ridge_split_decoupled_y,keyboard9
-6,69556f95117e,target,T09,bottom_right,1145.6,375.8,36,36,0,193.15069448079,57.78769016063396,poly12_ridge_split_decoupled_y,keyboard9
-6,69556f95117e,overall,,,,,322,322,0,,37.27222528929953,poly12_ridge_split_decoupled_y,keyboard9

@@ -85,7 +85,7 @@ Camera -> EyeData -> FeatureExtractor -> PcaFeatureSmoother (runtime)
 #### Where selection happens
 
 - **Fit**: `VirtualKeyboard._on_calibration_finished()` → `fit_calibration_mapper(...)` in `gazekey/mapping/ridge.py`.
-- **Load on startup**: `MapperStore.load()` if `calibration_v2.json` exists.
+- **Load on startup**: disabled — `calibration_v2.json` is write-only (inspection); calibrate every launch.
 
 #### What is fitted
 
@@ -170,7 +170,7 @@ Clip bounds for ridge predict: letter-keys region rect (`_calib_clip_rect`) in k
 
 ### 7) Legacy-only (do not modify; fallback)
 
-- `gazekey/calibration/*` — v1 session, affine/interpolation mappers, `calibration_store` / `calibration_data.json`.
+- `gazekey/calibration/*` — v1 session, affine/interpolation mappers, `calibration_store` / `calibration_v1.json` (legacy, not loaded at runtime).
 - Used only when v2 mapper is absent and v1 path is triggered in `_process_gaze_typing`.
 
 ### 8) Exact runtime flow (step-by-step)

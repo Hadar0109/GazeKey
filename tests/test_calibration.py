@@ -189,7 +189,7 @@ def test_store_roundtrip(tmp_path):
     pairs = list(zip(gaze_pts, targets))
     result = fit_gaze_mapper(pairs, 640, 480)
     assert result.success
-    store = CalibrationStore(tmp_path / "calibration_data.json")
+    store = CalibrationStore(tmp_path / "calibration_v1.json")
     assert store.save(result.mapper, targets, gaze_pts)
     loaded = store.load()
     assert loaded is not None

@@ -121,6 +121,20 @@ class CalibrationCsvLogger:
         self._wrote_samples_header = False
         self._summary_rows: List[CalibrationSummaryRow] = []
 
+    def begin_calibration_run(self) -> None:
+        """Truncate per-run debug CSVs so each calibration starts with fresh files."""
+        if not self.enabled:
+            return
+        self._summary_rows = []
+        self.samples_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.samples_path, "w", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=self.sample_fieldnames)
+            w.writeheader()
+            self._wrote_samples_header = True
+        with open(self.summary_path, "w", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=self.summary_fieldnames)
+            w.writeheader()
+
     @property
     def sample_fieldnames(self) -> list[str]:
         return [
@@ -183,13 +197,11 @@ class CalibrationCsvLogger:
     def log_sample(self, row: CalibrationSampleRow) -> None:
         if not self.enabled:
             return
+        if not self._wrote_samples_header:
+            self.begin_calibration_run()
         self.samples_path.parent.mkdir(parents=True, exist_ok=True)
-        file_exists = self.samples_path.is_file()
         with open(self.samples_path, "a", newline="", encoding="utf-8") as f:
             w = csv.DictWriter(f, fieldnames=self.sample_fieldnames)
-            if not file_exists and not self._wrote_samples_header:
-                w.writeheader()
-                self._wrote_samples_header = True
             w.writerow(row.__dict__)
 
     def log_summary(self, row: CalibrationSummaryRow) -> None:

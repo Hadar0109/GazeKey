@@ -19,12 +19,7 @@ from PySide6.QtCore import Qt, QTimer, QPoint, QRect
 from PySide6.QtGui import QFont, QPainter, QColor, QPen, QBrush
 from gazekey.ui.camera_preview_window import CameraPreviewWindow
 from gazekey.ui.calibration_overlay import CalibrationOverlay
-from gazekey.calibration import (
-    TrackingBridge,
-    CalibrationStore,
-    gaze_ratios,
-    compute_calibration_targets,
-)
+from gazekey.calibration import TrackingBridge
 from gazekey.calibration2.calibration_csv import CalibrationCsvLogger
 from gazekey.calibration2.quality import (
     assess_fullscreen_feasibility,
@@ -33,11 +28,7 @@ from gazekey.calibration2.quality import (
 from gazekey.calibration2.mapper_store import MapperStore
 from gazekey.calibration2.session import CalibrationV2Result, CalibrationV2Session
 from gazekey.calibration2.geometry_diagnostics import print_geometric_diagnostics
-from gazekey.calibration2.targets import (
-    CalibrationTarget,
-    keyboard_geometry_targets,
-    keyboard_local_targets,
-)
+from gazekey.calibration2.targets import CalibrationTarget, keyboard_geometry_targets
 from gazekey.ui.calibration_geometry_overlay import CalibrationGeometryOverlay
 from gazekey.debug.runtime_key_confidence_logger import (
     RuntimeKeyConfidenceLogger,
@@ -48,7 +39,7 @@ from gazekey.features.feature_types import FrameFeatures
 from gazekey.mapping.base import MapperPrediction
 from gazekey.layout import KeyboardLayoutCsvExporter, inspect_keyboard_layout
 from gazekey.intent import score_keys
-from gazekey.mapping import IDWRatioMapper, RowAwareMapper, fit_calibration_mapper
+from gazekey.mapping import fit_calibration_mapper
 from gazekey.selection import SelectionPolicy
 from gazekey.typing import (
     GazeTypingController,
@@ -57,11 +48,7 @@ from gazekey.typing import (
 )
 from gazekey.typing.gaze_smoother import GazeSmoother
 from gazekey.features.feature_smoother import PcaFeatureSmoother
-from gazekey.typing.gaze_ui_mapper import (
-    letter_keys_region_rect,
-    map_gaze_to_typing_ui,
-    typing_region_rect,
-)
+from gazekey.typing.gaze_ui_mapper import letter_keys_region_rect, typing_region_rect
 
 
 class VirtualKeyboard(QWidget):
@@ -79,9 +66,7 @@ class VirtualKeyboard(QWidget):
         self.camera_preview_window = None
         self._tracking_bridge = TrackingBridge()
         self._tracking_bridge.eye_data_received.connect(self._on_eye_data_main_thread)
-        self._calibration_store = CalibrationStore()
         self._mapper_store = MapperStore()
-        self._gaze_mapper = None  # AffineGazeMapper when calibrated
         self._gaze_mapper_v2 = None  # Ridge calibration v2 mapper when calibrated
         self._calibration_overlay: CalibrationOverlay | None = None
         self._calibration_v2_session: CalibrationV2Session | None = None
@@ -764,11 +749,9 @@ class VirtualKeyboard(QWidget):
         print(f"Key pressed: {key}")
     
     def on_calibrate_clicked(self):
-        """Rerun full 5-point calibration from scratch."""
+        """Rerun full calibration v2 from scratch."""
         self._gaze_mapper_v2 = None
         self._calibration_v2_session = None
-        self._gaze_mapper = None
-        self._calibration_store.clear()
         self._reset_calibrate_button_style()
         if not self._ensure_tracking_started():
             return
@@ -812,7 +795,7 @@ class VirtualKeyboard(QWidget):
 
     def on_app_started(self) -> None:
         """Called from main() after show(); backup for first-run calibration."""
-        if self._gaze_mapper is None and not self._is_calibrating:
+        if self._gaze_mapper_v2 is None and not self._is_calibrating:
             if self._needs_first_calibration:
                 self._needs_first_calibration = False
                 QTimer.singleShot(0, self._start_calibration_if_needed)
@@ -820,42 +803,17 @@ class VirtualKeyboard(QWidget):
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
         self._update_responsive_sizes()
-        if self._gaze_mapper is not None:
+        if self._gaze_mapper_v2 is not None:
             self._gaze_typing_controller.mark_keyboard_dirty()
         self._schedule_layout_export()
 
     def _init_calibration_on_startup(self) -> None:
-        """Load saved calibration or schedule first-run calibration overlay."""
-        v2 = self._mapper_store.load()
-        if v2 is not None:
-            model, cal_mode, mapper_mode = v2
-            self._gaze_mapper_v2 = model
-            self._calib2_mode = cal_mode
-            self._mapper_mode = mapper_mode
-            self._active_mapper = str(model.mapper_type)
-            self._needs_first_calibration = False
-            self._ensure_tracking_started()
-            print(
-                f"[calib2] loaded v2 mapper_type={model.mapper_type} "
-                f"mode={cal_mode} from {self._mapper_store.path}"
-            )
-            if str(cal_mode) not in {"keyboard15", "keyboard13"}:
-                print(
-                    f"[calib2] NOTE: saved calibration mode={cal_mode!r} is older than keyboard15 — "
-                    "recalibrate for dense key-aligned mapping"
-                )
-            return
-        stored = self._calibration_store.load()
-        if stored is not None:
-            self._gaze_mapper = stored.mapper
-            self._needs_first_calibration = False
-            self._ensure_tracking_started()
-            return
+        """Always calibrate on launch; calibration_v2.json is saved for inspection only."""
         self._needs_first_calibration = True
-        print("No valid calibration — starting calibration on launch.")
+        print("[calib2] calibration on launch (calibration_v2.json is not loaded).")
 
     def _start_calibration_if_needed(self) -> None:
-        if self._gaze_mapper_v2 is not None or self._gaze_mapper is not None or self._is_calibrating:
+        if self._gaze_mapper_v2 is not None or self._is_calibrating:
             return
         if not self._ensure_tracking_started():
             return
@@ -1019,6 +977,8 @@ class VirtualKeyboard(QWidget):
         self._calib2_v_ema = None
 
         csv_logger = CalibrationCsvLogger(enabled=True)
+        csv_logger.begin_calibration_run()
+        self._reset_calibration_debug_csvs()
         self._calibration_v2_session = CalibrationV2Session(
             targets=targets,
             csv_logger=csv_logger,
@@ -1383,6 +1343,17 @@ class VirtualKeyboard(QWidget):
         ov.show()
         ov.raise_()
         print("[calib2] geometry overlay shown (green=target blue=train orange=LOOCV)")
+
+    def _reset_calibration_debug_csvs(self) -> None:
+        """Remove prior-run debug CSVs; they are recreated when calibration finishes."""
+        root = Path(__file__).resolve().parents[2]
+        for name in ("calibration_debug.csv", "calibration_ratio_space.csv"):
+            path = root / name
+            try:
+                if path.is_file():
+                    path.unlink()
+            except OSError as e:
+                print(f"[calib2] could not reset {name}: {e}")
 
     def _write_calibration_debug_csv(self, *, ridge_fit, loocv_detail) -> None:
         if self._calibration_v2_session is None or ridge_fit is None or ridge_fit.model is None:
@@ -1766,7 +1737,7 @@ class VirtualKeyboard(QWidget):
                 status = f"📷 Connected ✓ | No Face | {detection_rate}"
                 color = "#F59E0B"
 
-            if self._gaze_mapper is not None and not self._is_calibrating:
+            if self._gaze_mapper_v2 is not None and not self._is_calibrating:
                 status = f"📷 Gaze active | {detection_rate}"
 
             self.camera_status_label.setText(status)
@@ -1836,7 +1807,7 @@ class VirtualKeyboard(QWidget):
         return (
             self.is_expanded
             and not self._is_calibrating
-            and (self._gaze_mapper_v2 is not None or self._gaze_mapper is not None)
+            and self._gaze_mapper_v2 is not None
         )
 
     def _clamp_v2_xy(self, x: float, y: float) -> Tuple[float, float]:
@@ -1891,7 +1862,7 @@ class VirtualKeyboard(QWidget):
                 if self._rt2_debug and self._rt2_debug_pred:
                     print(f"[rt2] pred x={mapped_x:.1f} y={mapped_y:.1f} q={mapped_quality:.2f}")
             else:
-                # Grace: avoid per-frame bouncing into v1 when v2 is active.
+                # Grace: hold last prediction briefly when a frame fails (blink, etc.).
                 grace_ms = 220
                 if (
                     self._last_v2_pred_x is not None
@@ -1907,20 +1878,10 @@ class VirtualKeyboard(QWidget):
                     self._gaze_typing_controller.tick(None, None, dt)
                     return
 
-        # Safe fallback to v1 path only when v2 is not active.
-        if self._gaze_mapper_v2 is None and (mapped_x is None or mapped_y is None):
-            gaze = gaze_ratios(eye_data)
-            if gaze is None:
-                self._clear_v2_focus()
-                self._gaze_typing_controller.tick(None, None, dt)
-                return
-            mapped_x, mapped_y = map_gaze_to_typing_ui(
-                gaze[0],
-                gaze[1],
-                self._gaze_mapper,
-                self.keyboard_widget,
-                self.calibrate_btn,
-            )
+        if mapped_x is None or mapped_y is None:
+            self._clear_v2_focus()
+            self._gaze_typing_controller.tick(None, None, dt)
+            return
 
         raw_global = None
         if self._last_raw_mapped_x is not None and self._last_raw_mapped_y is not None:
@@ -2206,8 +2167,8 @@ class VirtualKeyboard(QWidget):
             RuntimeLogRow(
                 timestamp_ms=now_ms,
                 layout_version=self._layout_version,
-                calibration_version=6 if self._gaze_mapper_v2 is not None else 5,
-                mapper_type=getattr(self._gaze_mapper_v2, "mapper_type", getattr(self._gaze_mapper, "model_type", "unknown")),
+                calibration_version=6,
+                mapper_type=getattr(self._gaze_mapper_v2, "mapper_type", "none"),
                 blink=features.blink,
                 confidence=float(features.confidence),
                 Lh=features.Lh,

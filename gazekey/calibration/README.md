@@ -31,7 +31,7 @@ flowchart TD
         M -->|no| I
         M -->|yes| N[validate_calibration_gaze]
         N --> O[fit_gaze_mapper]
-        O --> P[Save calibration_data.json v5]
+        O --> P[Save calibration_v1.json v5]
     end
 
     E --> K
@@ -201,7 +201,7 @@ Try `flip_x = false` and `true`:
 ## 7. Persistence logic
 
 **Module:** `calibration_store.py`  
-**File:** `calibration_data.json` (project root, usually gitignored)
+**File:** `calibration_v1.json` (project root, usually gitignored; legacy v1 only)
 
 | Field | Meaning |
 |-------|---------|

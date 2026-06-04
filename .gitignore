@@ -18,5 +18,15 @@ dist/
 *.swo
 
 # Project specific
-calibration_data.json
+calibration_v1.json
+calibration_v2.json
+
+calibration_debug.csv
+calibration_ratio_space.csv
+calibration_samples.csv
+calibration_summary.csv
+
+keyboard_layout.csv
+runtime_key_confidence.csv
+
 *.log
