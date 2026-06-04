@@ -1187,6 +1187,7 @@ class VirtualKeyboard(QWidget):
             max_target_loocv_px=110.0,
             max_off_screen_loocv=0,
             min_screen_y_avg_v_corr=0.55,
+            min_catastrophic_screen_y_avg_v_corr=0.15,
             max_single_target_train_px=55.0,
         )
         try:
@@ -1275,13 +1276,20 @@ class VirtualKeyboard(QWidget):
         """)
         print("[calib2] complete. Gaze typing now uses v2 mapper + intent + selection.")
         mapper_type = getattr(self._gaze_mapper_v2, "mapper_type", "unknown")
-        print(
+        runtime_line = (
             "[runtime] "
             f"mapper_mode={self._mapper_mode or self._calib2_mode} "
             f"active_mapper={self._active_mapper} "
             f"mapper_type={mapper_type} "
             f"LOOCV_RMS={quality.loocv_rms_px}"
         )
+        if quality.screen_y_avg_v_corr is not None:
+            runtime_line += f" corr(screen_y,avg_v)={float(quality.screen_y_avg_v_corr):.3f}"
+        if quality.warnings:
+            runtime_line += f" calibration_warnings={len(quality.warnings)}"
+        print(runtime_line)
+        for w in quality.warnings:
+            print(f"[runtime]   warning: {w}")
         # Default to preview mode right after calibration (only when quality passed).
         self._preview_mode = True
         if hasattr(self, "preview_btn"):

@@ -141,6 +141,7 @@ Clip bounds for ridge predict: letter-keys region rect (`_calib_clip_rect`) in k
 **Final acceptance** (`evaluate_calibration_quality`):
 
 - Additional checks (monotonicity, off-screen LOOCV, per-target train caps, etc.).
+- **Keyboard** `corr(screen_y, avg_v)`: hard fail if `r < 0.15` (catastrophic); `0.15 ≤ r < 0.55` is a **warning only** (typing still enabled if other gates pass). **Fullscreen** still hard-fails below `0.15`.
 - On failure: `_gaze_mapper_v2` cleared, recalibrate prompt; `calibration_debug.csv` written.
 
 ### 5) Known geometric issue (and mitigations)

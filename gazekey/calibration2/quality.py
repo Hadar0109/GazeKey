@@ -42,6 +42,7 @@ class MonotonicityReport:
 class CalibrationQualityResult:
     accepted: bool
     reasons: List[str] = field(default_factory=list)
+    warnings: List[str] = field(default_factory=list)
     monotonicity: List[MonotonicityReport] = field(default_factory=list)
     row_stats: List[VerticalRowStats] = field(default_factory=list)
     head_drift_warnings: List[str] = field(default_factory=list)
@@ -49,6 +50,7 @@ class CalibrationQualityResult:
     max_loocv_error_px: Optional[float] = None
     loocv_rms_px: Optional[float] = None
     validation_center_error_px: Optional[float] = None
+    screen_y_avg_v_corr: Optional[float] = None
     any_prediction_off_screen: bool = False
 
 
@@ -373,6 +375,7 @@ def evaluate_calibration_quality(
     min_vertical_separation: float = 0.008,
     min_within_row_pca_v_span: float = 0.015,
     min_screen_y_avg_v_corr: float = 0.55,
+    min_catastrophic_screen_y_avg_v_corr: float = 0.15,
     max_single_target_train_px: float = 55.0,
     require_avg_v_monotonic: bool = False,
     require_any_vertical_monotonic: bool = True,
@@ -382,6 +385,7 @@ def evaluate_calibration_quality(
     Run diagnostics and return whether calibration should be accepted.
     """
     reasons: List[str] = []
+    warnings: List[str] = []
     row_stats = analyze_vertical_features(samples=samples, targets=targets)
     head_warnings = analyze_head_pose_drift(samples=samples, targets=targets)
 
@@ -561,20 +565,47 @@ def evaluate_calibration_quality(
             reasons.append(f"pca_v span too small ({span_pca:.4f} < 0.04) for fullscreen mapping")
 
     # Y-axis orientation: screen_y should correlate positively with avg_v.
+    screen_y_avg_v_corr: Optional[float] = None
     ys = np.array([float(t.screen_y) for t in targets[: len(samples)]], dtype=np.float64)
     vs = np.array([float(s[0].avg_v) for s in samples if s[0].avg_v is not None], dtype=np.float64)
     if ys.size == vs.size and ys.size >= 3:
         corr = float(np.corrcoef(ys, vs)[0, 1]) if np.std(vs) > 1e-9 else 0.0
+        screen_y_avg_v_corr = float(corr)
         print(f"[calib2] corr(screen_y, avg_v)={corr:.3f} (expect positive)")
-        min_corr = 0.15 if is_fullscreen else float(min_screen_y_avg_v_corr)
-        if corr < min_corr:
-            reasons.append(
-                f"avg_v poorly correlated with screen Y (r={corr:.3f}, need >={min_corr:.2f})"
-            )
+        catastrophic = float(min_catastrophic_screen_y_avg_v_corr)
+        preferred = float(min_screen_y_avg_v_corr)
+        if is_fullscreen:
+            if corr < catastrophic:
+                reasons.append(
+                    f"avg_v poorly correlated with screen Y (r={corr:.3f}, need >={catastrophic:.2f})"
+                )
+        elif is_keyboard:
+            if corr < catastrophic:
+                reasons.append(
+                    f"avg_v poorly correlated with screen Y (r={corr:.3f}, "
+                    f"catastrophic threshold >={catastrophic:.2f})"
+                )
+            elif corr < preferred:
+                msg = (
+                    f"avg_v correlation below preferred {preferred:.2f} "
+                    f"(r={corr:.3f}) — typing enabled; region gates are primary"
+                )
+                warnings.append(msg)
+                print(f"[calib2]   quality (warning): {msg}")
+        else:
+            if corr < preferred:
+                reasons.append(
+                    f"avg_v poorly correlated with screen Y (r={corr:.3f}, need >={preferred:.2f})"
+                )
 
     accepted = len(reasons) == 0
     if accepted:
-        print("[calib2] quality gates: PASSED")
+        if warnings:
+            print(f"[calib2] quality gates: PASSED ({len(warnings)} warning(s))")
+            for w in warnings:
+                print(f"[calib2]   warning: {w}")
+        else:
+            print("[calib2] quality gates: PASSED")
     else:
         print("[calib2] quality gates: FAILED")
         for r in reasons:
@@ -583,6 +614,7 @@ def evaluate_calibration_quality(
     return CalibrationQualityResult(
         accepted=accepted,
         reasons=reasons,
+        warnings=warnings,
         monotonicity=list(mono_reports),
         row_stats=list(row_stats),
         head_drift_warnings=head_warnings,
@@ -590,6 +622,7 @@ def evaluate_calibration_quality(
         max_loocv_error_px=max_loocv,
         loocv_rms_px=loocv_rms,
         validation_center_error_px=center_err,
+        screen_y_avg_v_corr=screen_y_avg_v_corr,
         any_prediction_off_screen=off_screen,
     )
 
