@@ -38,6 +38,7 @@ from gazekey.debug.keyboard_accuracy import (
     print_accuracy_summary,
     resolve_sample_keys,
 )
+from gazekey.debug.keyboard_accuracy_mapper_diag import run_keyboard_accuracy_mapper_diagnostics
 from gazekey.debug.keyboard_accuracy_compare import (
     compare_mapper_candidates,
     default_compare_csv_path,
@@ -56,6 +57,35 @@ from gazekey.mapping.base import MapperPrediction
 from gazekey.layout import KeyboardLayoutCsvExporter, inspect_keyboard_layout
 from gazekey.intent import score_keys
 from gazekey.mapping import fit_calibration_mapper
+from gazekey.calibration2.fixation_gate import FixationGateConfig
+from gazekey.mapping.typing_candidate import (
+    CALIB_HEAD_DRIFT_EYE_H,
+    CALIB_HEAD_DRIFT_FACE_XY,
+    CALIBRATION_MODE,
+    FEATURE_SMOOTHER_ALPHA,
+    GAZE_SMOOTHER_ALPHA,
+    HALF_KEY_HEIGHT_PX,
+    INTENT_CROSS_ROW_PENALTY,
+    INTENT_ROW_STICKINESS,
+    INTENT_SIGMA_PX,
+    INTENT_SIGMA_Y_PX,
+    MAX_HEAD_DRIFT_EYE_H,
+    MAX_LOOCV_RMS_PX,
+    MAX_OFF_SCREEN_LOOCV,
+    MAX_SINGLE_TARGET_TRAIN_PX,
+    MAX_TARGET_LOOCV_PX,
+    MAX_TRAIN_ERROR_PX,
+    MAX_VALIDATION_ERROR_PX,
+    MIN_AVG_V_ROW_SEPARATION,
+    MIN_CATASTROPHIC_SCREEN_Y_AVG_V_CORR,
+    MIN_SCREEN_Y_AVG_V_CORR,
+    MIN_ALPHA,
+    SELECTION_CROSS_ROW_MIN_SWITCH_MS,
+    SELECTION_CROSS_ROW_SWITCH_MARGIN,
+    SELECTION_MIN_SWITCH_MS,
+    SELECTION_SWITCH_MARGIN,
+    TYPING_CANDIDATE_ID,
+)
 from gazekey.selection import SelectionPolicy
 from gazekey.typing import (
     GazeTypingController,
@@ -90,8 +120,8 @@ class VirtualKeyboard(QWidget):
         self._needs_first_calibration = False
         self._locked_frame_size = None
         self._gaze_focused_button = None
-        self._gaze_smoother = GazeSmoother(alpha=0.35)
-        self._feature_smoother = PcaFeatureSmoother(alpha=0.28)
+        self._gaze_smoother = GazeSmoother(alpha=GAZE_SMOOTHER_ALPHA)
+        self._feature_smoother = PcaFeatureSmoother(alpha=FEATURE_SMOOTHER_ALPHA)
         self._gaze_bias_x = 0.0
         self._gaze_bias_y = 0.0
         self._intent_keys = []
@@ -99,10 +129,10 @@ class VirtualKeyboard(QWidget):
         # Debug mode: chosen must equal best every frame.
         self._selection_policy = SelectionPolicy(
             debug_follow_best=os.environ.get("GAZEKEY_SELECTION_DEBUG", "0").strip() == "1",
-            switch_margin=0.10,
-            cross_row_switch_margin=0.20,
-            min_switch_ms=160.0,
-            cross_row_min_switch_ms=320.0,
+            switch_margin=SELECTION_SWITCH_MARGIN,
+            cross_row_switch_margin=SELECTION_CROSS_ROW_SWITCH_MARGIN,
+            min_switch_ms=SELECTION_MIN_SWITCH_MS,
+            cross_row_min_switch_ms=SELECTION_CROSS_ROW_MIN_SWITCH_MS,
         )
         self._last_tick_time = time.perf_counter()
         self._layout_exporter = KeyboardLayoutCsvExporter()
@@ -120,7 +150,7 @@ class VirtualKeyboard(QWidget):
         self._last_calib2_log_ms = 0
         self._preview_mode = False
         self._preview_dot = None
-        self._calib2_mode = "keyboard15"
+        self._calib2_mode = CALIBRATION_MODE
         # Persisted "what are we using right now?" runtime labels.
         # - mapper_mode: which calibration target set / session mode we ran (e.g. "row_aware", "precision13")
         # - active_mapper: which mapper implementation we chose after fitting (e.g. "pca_ridge", "row_aware")
@@ -1015,9 +1045,9 @@ class VirtualKeyboard(QWidget):
             targets = keyboard_geometry_targets(
                 keys=layout_keys,
                 typing_region_rect=region_rect,
-                mode="keyboard15",
+                mode=CALIBRATION_MODE,
             )
-            self._calib2_mode = "keyboard15"
+            self._calib2_mode = CALIBRATION_MODE
             calib_region = f"LETTER KEYS region {region_rect}"
 
         dot_targets = [(t.screen_x - screen.x(), t.screen_y - screen.y()) for t in targets]
@@ -1037,6 +1067,10 @@ class VirtualKeyboard(QWidget):
             csv_logger=csv_logger,
             calibration_version=6,
             calibration_mode=self._calib2_mode,
+            gate_cfg=FixationGateConfig(
+                max_head_drift_face_xy=CALIB_HEAD_DRIFT_FACE_XY,
+                max_head_drift_eye_h=CALIB_HEAD_DRIFT_EYE_H,
+            ),
             max_timeouts_per_target=1,
             on_timeout="retry",
         )
@@ -1131,11 +1165,11 @@ class VirtualKeyboard(QWidget):
             targets=self._calibration_v2_session.targets,
             calibration_mode=str(self._calib2_mode),
             screen_rect=screen_rect_fit,
-            min_alpha=1.0,
-            max_loocv_rms_px=95.0,
-            max_target_loocv_px=110.0,
-            max_train_error_px=60.0,
-            half_key_height_px=34.0,
+            min_alpha=MIN_ALPHA,
+            max_loocv_rms_px=MAX_LOOCV_RMS_PX,
+            max_target_loocv_px=MAX_TARGET_LOOCV_PX,
+            max_train_error_px=MAX_TRAIN_ERROR_PX,
+            half_key_height_px=HALF_KEY_HEIGHT_PX,
         )
         self._last_calib_samples = list(samples)
         self._last_mapper_candidate_reports = tuple(
@@ -1238,14 +1272,16 @@ class VirtualKeyboard(QWidget):
             screen_rect=screen_rect,
             calibration_mode=str(self._calib2_mode),
             loocv_detail=ridge_loocv_detail,
-            max_validation_error_px=80.0,
-            max_train_error_px=60.0,
-            max_loocv_rms_px=95.0,
-            max_target_loocv_px=110.0,
-            max_off_screen_loocv=0,
-            min_screen_y_avg_v_corr=0.55,
-            min_catastrophic_screen_y_avg_v_corr=0.15,
-            max_single_target_train_px=55.0,
+            max_validation_error_px=MAX_VALIDATION_ERROR_PX,
+            max_train_error_px=MAX_TRAIN_ERROR_PX,
+            max_loocv_rms_px=MAX_LOOCV_RMS_PX,
+            max_target_loocv_px=MAX_TARGET_LOOCV_PX,
+            max_off_screen_loocv=MAX_OFF_SCREEN_LOOCV,
+            min_screen_y_avg_v_corr=MIN_SCREEN_Y_AVG_V_CORR,
+            min_catastrophic_screen_y_avg_v_corr=MIN_CATASTROPHIC_SCREEN_Y_AVG_V_CORR,
+            max_single_target_train_px=MAX_SINGLE_TARGET_TRAIN_PX,
+            max_head_drift_eye_h=MAX_HEAD_DRIFT_EYE_H,
+            min_avg_v_row_separation=MIN_AVG_V_ROW_SEPARATION,
         )
         try:
             assess_fullscreen_feasibility(
@@ -1323,7 +1359,8 @@ class VirtualKeyboard(QWidget):
         QTimer.singleShot(150, self._gaze_typing_controller.mark_keyboard_dirty)
 
         self._reset_calibrate_button_style()
-        self.camera_status_label.setText("📷 Calibration v2 saved ✓")
+        status_suffix = " (best-effort)" if getattr(ridge_fit, "best_effort", False) else ""
+        self.camera_status_label.setText(f"📷 Calibration v2 saved ✓{status_suffix}")
         self.camera_status_label.setStyleSheet("""
             QLabel {
                 color: #10B981;
@@ -1331,10 +1368,15 @@ class VirtualKeyboard(QWidget):
                 font-weight: bold;
             }
         """)
-        print("[calib2] complete. Gaze typing now uses v2 mapper + intent + selection.")
+        print(
+            f"[calib2] complete. Gaze typing enabled ({TYPING_CANDIDATE_ID}: "
+            f"{self._active_mapper} + intent + selection)."
+        )
+        print("[typing] Look at keys and dwell to type. Click Preview to show gaze dot without activation.")
         mapper_type = getattr(self._gaze_mapper_v2, "mapper_type", "unknown")
         runtime_line = (
             "[runtime] "
+            f"typing_candidate={TYPING_CANDIDATE_ID} "
             f"mapper_mode={self._mapper_mode or self._calib2_mode} "
             f"active_mapper={self._active_mapper} "
             f"mapper_type={mapper_type} "
@@ -1347,10 +1389,10 @@ class VirtualKeyboard(QWidget):
         print(runtime_line)
         for w in quality.warnings:
             print(f"[runtime]   warning: {w}")
-        # Default to preview mode right after calibration (only when quality passed).
-        self._preview_mode = True
+        # Typing mode by default; Preview toggles gaze dot without key activation.
+        self._preview_mode = False
         if hasattr(self, "preview_btn"):
-            self.preview_btn.setProperty("active", "true")
+            self.preview_btn.setProperty("active", "false")
             self.preview_btn.style().unpolish(self.preview_btn)
             self.preview_btn.style().polish(self.preview_btn)
             self.preview_btn.update()
@@ -1687,6 +1729,18 @@ class VirtualKeyboard(QWidget):
         except Exception as e:
             print(f"[key_accuracy] CSV write failed: {e}")
         print_accuracy_summary(rows)
+        if session.recorded_gaze and self._last_calib_samples and self._calibration_v2_session is not None:
+            run_keyboard_accuracy_mapper_diagnostics(
+                recorded=session.recorded_gaze,
+                keys=self._intent_keys,
+                model=self._gaze_mapper_v2,
+                calib_samples=self._last_calib_samples,
+                calib_targets=self._calibration_v2_session.targets,
+                gaze_bias_x=float(self._gaze_bias_x),
+                gaze_bias_y=float(self._gaze_bias_y),
+                clamp_xy=self._clamp_v2_xy,
+                feature_smoother_alpha=float(self._feature_smoother.alpha),
+            )
         if self._keyboard_accuracy_compare and session.recorded_gaze:
             self._run_keyboard_accuracy_mapper_compare(session)
         self._keyboard_accuracy_session = None
@@ -2217,11 +2271,11 @@ class VirtualKeyboard(QWidget):
                 keys=self._intent_keys,
                 gaze_x=mapped_x,
                 gaze_y=mapped_y,
-                sigma_px=48.0,
-                sigma_y_px=62.0,
+                sigma_px=INTENT_SIGMA_PX,
+                sigma_y_px=INTENT_SIGMA_Y_PX,
                 focused_key_id=self._selection_policy._focused,
-                row_stickiness=1.5,
-                cross_row_penalty=0.5,
+                row_stickiness=INTENT_ROW_STICKINESS,
+                cross_row_penalty=INTENT_CROSS_ROW_PENALTY,
             )
             if scored:
                 best_id = scored[0].key_id
@@ -2438,11 +2492,11 @@ class VirtualKeyboard(QWidget):
                 keys=self._intent_keys,
                 gaze_x=mapped_x,
                 gaze_y=mapped_y,
-                sigma_px=48.0,
-                sigma_y_px=62.0,
+                sigma_px=INTENT_SIGMA_PX,
+                sigma_y_px=INTENT_SIGMA_Y_PX,
                 focused_key_id=self._selection_policy._focused,
-                row_stickiness=1.5,
-                cross_row_penalty=0.5,
+                row_stickiness=INTENT_ROW_STICKINESS,
+                cross_row_penalty=INTENT_CROSS_ROW_PENALTY,
             )
             if scored:
                 best_id = scored[0].key_id

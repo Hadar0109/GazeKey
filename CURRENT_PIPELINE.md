@@ -89,15 +89,11 @@ Camera -> EyeData -> FeatureExtractor -> PcaFeatureSmoother (runtime)
 
 #### What is fitted
 
-`fit_calibration_mapper` fits all ridge candidates, ranks by:
+`fit_calibration_mapper` fits **only** the frozen typing candidate (`pca4_baseline`; see `TYPING_CANDIDATE.md` and `gazekey/mapping/typing_candidate.py`). Multi-candidate LOOCV ranking (poly12, decoupled, etc.) is disabled on the active path.
 
-1. Region gate pass (keyboard: train + LOOCV row/col match vs calibration grid).
-2. LOOCV RMS, worst LOOCV, max train error.
-3. Simplicity tie-break among similar LOOCV.
+Then attaches **row Y bias** and **local X-interpolated Y correction** on the fitted model.
 
-Then attaches **row Y bias** and **local X-interpolated Y correction** on the winner.
-
-Typical winner under horizontal–vertical coupling: `poly12_ridge` or `poly12_ridge_split` / `poly12_ridge_split_decoupled_y`.
+Typical metrics on passing keyboard15 runs: LOOCV RMS ~45–67 px, corr(screen_y, avg_v) ~0.63–0.82.
 
 #### What is NOT used in the default v2 path
 
@@ -108,12 +104,13 @@ Typical winner under horizontal–vertical coupling: `poly12_ridge` or `poly12_r
 
 - `VirtualKeyboard._gaze_mapper_v2` — active model (may be wrapped: `MapperWithLocalYCorrection` → `MapperWithRowBias` → core ridge).
 - `VirtualKeyboard._calib2_mode` / `_mapper_mode` — e.g. `keyboard15`.
-- `VirtualKeyboard._active_mapper` — `mapper_type` string from the fitted core (e.g. `poly12_ridge`).
+- `VirtualKeyboard._active_mapper` — `mapper_type` string from the fitted core (e.g. `pca4_baseline`).
 
 #### Console line after calibration
 
 ```
-[runtime] mapper_mode=keyboard15 active_mapper=poly12_ridge mapper_type=poly12_ridge LOOCV_RMS=...
+[runtime] typing_candidate=pca4_baseline_v1 mapper_mode=keyboard15 active_mapper=pca4_baseline ...
+[typing] Look at keys and dwell to type. Click Preview to show gaze dot without activation.
 ```
 
 - **mapper_mode**: calibration target set used (`keyboard15`, `fullscreen9`, etc.).
@@ -221,7 +218,8 @@ Clip bounds for ridge predict: letter-keys region rect (`_calib_clip_rect`) in k
 ### Quick checklist
 
 - Calibration: **v2** + **keyboard15** (15 key-aligned points)
-- Fit: **LOOCV mapper selection** + **region gates** + **row bias** + **local Y correction**
+- Fit: **frozen pca4_baseline** + **region gates** + **row bias** + **local Y correction**
+- Typing candidate doc: **`TYPING_CANDIDATE.md`**
 - Persist: **`calibration_v2.json`** via `MapperStore`
 - Runtime: **smoothed PCA features** → **v2 mapper** → **row-stable intent** → **hysteresis selection**
 - Legacy `gazekey/calibration/`: **not used** on successful v2 path

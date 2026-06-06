@@ -380,6 +380,8 @@ def evaluate_calibration_quality(
     require_avg_v_monotonic: bool = False,
     require_any_vertical_monotonic: bool = True,
     half_key_height_px: float = 34.0,
+    max_head_drift_eye_h: Optional[float] = None,
+    min_avg_v_row_separation: Optional[float] = None,
 ) -> CalibrationQualityResult:
     """
     Run diagnostics and return whether calibration should be accepted.
@@ -388,6 +390,13 @@ def evaluate_calibration_quality(
     warnings: List[str] = []
     row_stats = analyze_vertical_features(samples=samples, targets=targets)
     head_warnings = analyze_head_pose_drift(samples=samples, targets=targets)
+    if max_head_drift_eye_h is not None:
+        for msg in head_warnings:
+            if "eye_box" in msg:
+                reasons.append(msg)
+            else:
+                warnings.append(msg)
+                print(f"[calib2]   quality (warning): {msg}")
 
     mono_reports = [
         check_vertical_monotonicity(row_stats, feature_attr="avg_v", min_separation=min_vertical_separation),
@@ -404,6 +413,18 @@ def evaluate_calibration_quality(
         pca_ok = any(r.valid for r in mono_reports[1:4])
         if not pca_ok:
             reasons.append("no pca_v / pca_vL / pca_vR row monotonicity (vertical gaze signal weak)")
+
+    if min_avg_v_row_separation is not None:
+        rs = {r.name: r for r in row_stats}
+        top_v = rs.get("top").mean_avg_v if rs.get("top") else None
+        bot_v = rs.get("bottom").mean_avg_v if rs.get("bottom") else None
+        if top_v is not None and bot_v is not None:
+            sep = float(bot_v) - float(top_v)
+            print(f"[calib2] avg_v row separation (bottom-top): {sep:.4f}")
+            if sep < float(min_avg_v_row_separation):
+                reasons.append(
+                    f"avg_v row separation too weak ({sep:.4f} < {min_avg_v_row_separation:.4f})"
+                )
 
     for issue in check_within_row_vertical_spread(
         samples,

@@ -274,11 +274,16 @@ class CalibrationOverlay(QWidget):
                 f"uR={features.pca_uR} vR={features.pca_vR} "
                 f"avg_v={features.avg_v}"
             )
+        else:
+            self._update_v2_status_hint()
 
         res = self._session_v2.process(features, dt_ms=float(dt_ms))
         if res is not None:
             self._show_result(res)
             return
+
+        if os.environ.get("GAZEKEY_CALIB_DEBUG", "0").strip() != "1":
+            self._update_v2_status_hint()
 
         # If we advanced targets, update the dot/label.
         if int(self._session_v2.target_index) != idx:
@@ -325,6 +330,30 @@ class CalibrationOverlay(QWidget):
             except Exception:
                 pass
             self._prepare_timer.start(PREPARE_MS)
+
+    def _update_v2_status_hint(self) -> None:
+        if self._session_v2 is None:
+            return
+        idx = int(self._session_v2.target_index)
+        if idx >= len(self._dot_targets):
+            return
+        point_count = len(self._dot_targets)
+        name = self._session_v2.targets[idx].label if idx < len(self._session_v2.targets) else f"T{idx+1:02d}"
+        gate = self._session_v2.gate.debug_metrics()
+        state = str(gate.get("state", ""))
+        reason = str(self._session_v2.last_reject_reason or "")
+        if reason == "head_drift":
+            detail = "Head moved — keep still and look at the dot"
+        elif reason in {"unstable", "jump_ratio", "jump_pca", "jump"}:
+            detail = "Hold steady on the dot"
+        elif state == "WAIT_LOCK" or reason.startswith("locking"):
+            detail = "Hold your gaze on the dot…"
+        elif state == "LOCKED_COLLECTING":
+            detail = "Collecting — keep head still, eyes on dot"
+        else:
+            detail = "Look at the dot — move your eyes only; keep your head still."
+        self.status_label.setStyleSheet("color: #CCCCCC; background: transparent;")
+        self.status_label.setText(f"Point {idx + 1} of {point_count} ({name})\n{detail}")
 
     def _start_collect(self) -> None:
         if self._session_v2 is None:

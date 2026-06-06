@@ -30,16 +30,23 @@ from gazekey.calibration2.region_quality import (
 from gazekey.mapping.base import MapperFitResult, MapperPrediction
 from gazekey.mapping.local_y_correction import MapperWithLocalYCorrection, attach_local_y_correction
 from gazekey.mapping.row_bias import MapperWithRowBias, attach_row_y_bias
+from gazekey.mapping.typing_candidate import (
+    ACTIVE_MAPPER,
+    ALPHA_GRID as _TC_ALPHA_GRID,
+    ALPHA_SELECT_LOOCV_TOL_PX as _TC_ALPHA_SELECT_LOOCV_TOL_PX,
+    APPLY_LOCAL_Y_CORRECTION,
+    APPLY_ROW_Y_BIAS,
+)
 
 if False:  # TYPE_CHECKING
     from gazekey.calibration2.targets import CalibrationTarget
 
-ALPHA_GRID: Tuple[float, ...] = (1.0, 10.0, 50.0, 100.0, 200.0, 400.0)
+ALPHA_GRID: Tuple[float, ...] = _TC_ALPHA_GRID
 # Among alphas with LOOCV RMS within this band of the grid minimum, pick the largest alpha.
-ALPHA_SELECT_LOOCV_TOL_PX = 5.0
+ALPHA_SELECT_LOOCV_TOL_PX = _TC_ALPHA_SELECT_LOOCV_TOL_PX
 LOOCV_TIE_TOL_PX = 2.0
 # Active runtime freeze: calibration always fits/selects this mapper only.
-FROZEN_ACTIVE_MAPPER = "pca4_baseline"
+FROZEN_ACTIVE_MAPPER = ACTIVE_MAPPER
 MAPPER_SIMPLICITY: Tuple[str, ...] = (
     "pca4_baseline",
     "pca4_decoupled_split",
@@ -845,17 +852,21 @@ def _keyboard_assessment_model(
     targets: Sequence["CalibrationTarget"],
     verbose: bool = False,
 ) -> RidgeCalibrationMapper:
-    """Apply row Y bias + local Y correction for region-gate evaluation (same as runtime)."""
+    """Apply frozen correction layers for region-gate evaluation (same as runtime)."""
     core = _unwrap_ridge_core(model)
-    row_centers, row_bias = compute_row_y_residuals(
-        model=core, samples=samples, targets=targets
-    )
-    wrapped: RidgeCalibrationMapper = attach_row_y_bias(
-        core,
-        row_y_centers=row_centers,
-        row_y_bias=row_bias,
-    )
-    return attach_local_y_correction(wrapped, samples=samples, verbose=verbose)
+    wrapped: RidgeCalibrationMapper = core
+    if APPLY_ROW_Y_BIAS:
+        row_centers, row_bias = compute_row_y_residuals(
+            model=core, samples=samples, targets=targets
+        )
+        wrapped = attach_row_y_bias(
+            core,
+            row_y_centers=row_centers,
+            row_y_bias=row_bias,
+        )
+    if APPLY_LOCAL_Y_CORRECTION:
+        return attach_local_y_correction(wrapped, samples=samples, verbose=verbose)
+    return wrapped
 
 
 def _evaluate_candidate(
@@ -1096,25 +1107,7 @@ def fit_calibration_mapper(
         (r for r in reports if r.success and r.model is not None and r.quality_gates_passed is True),
         None,
     )
-    if winner is None or winner.model is None:
-        # Best-effort: accept frozen mapper when region gates are close enough (keyboard only).
-        ok_reports = [r for r in reports if r.success and r.model is not None and r.loocv_rms_px is not None]
-        if ok_reports and targets is not None and str(calibration_mode).lower().startswith("keyboard"):
-            _n, _mt, max_loocv = region_gate_limits(targets, calibration_mode=calibration_mode)
-            ok_reports.sort(
-                key=lambda r: (
-                    int(r.region_loocv_wrong),
-                    int(r.region_train_wrong),
-                    float(r.loocv_rms_px or 1e9),
-                )
-            )
-            best = ok_reports[0]
-            if int(best.region_loocv_wrong) <= max_loocv and int(best.region_train_wrong) <= _mt:
-                print(
-                    f"[calib2] region gates: using best-effort {FROZEN_ACTIVE_MAPPER} "
-                    f"(loocv_region_wrong={best.region_loocv_wrong} train_region_wrong={best.region_train_wrong})"
-                )
-                winner = best
+    best_effort = False
 
     if winner is None or winner.model is None:
         gated = [r for r in reports if r.success and r.quality_gates_passed is False]
@@ -1167,10 +1160,15 @@ def fit_calibration_mapper(
     )
     return MapperFitResult(
         success=True,
-        message=f"Selected {FROZEN_ACTIVE_MAPPER} (LOOCV={winner.loocv_rms_px:.1f}px).",
+        message=(
+            f"Selected {FROZEN_ACTIVE_MAPPER} (LOOCV={winner.loocv_rms_px:.1f}px, best-effort)."
+            if best_effort
+            else f"Selected {FROZEN_ACTIVE_MAPPER} (LOOCV={winner.loocv_rms_px:.1f}px)."
+        ),
         model=final_model,
         rms_px=winner.train_rms_px,
         candidate_reports=tuple(reports),
+        best_effort=best_effort,
     )
 
 

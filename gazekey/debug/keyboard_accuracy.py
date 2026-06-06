@@ -14,8 +14,9 @@ from PySide6.QtCore import QPoint, QRect
 from gazekey.features.feature_smoother import PcaFeatureSmoother
 from gazekey.features.feature_types import FrameFeatures
 from gazekey.layout.layout_inspector import KeyGeometryRow
+from gazekey.mapping.typing_candidate import FEATURE_SMOOTHER_ALPHA
 
-DEFAULT_FEATURE_SMOOTHER_ALPHA = 0.28
+DEFAULT_FEATURE_SMOOTHER_ALPHA = FEATURE_SMOOTHER_ALPHA
 
 
 def mean_frame_features(frames: Sequence[FrameFeatures]) -> Optional[FrameFeatures]:

@@ -23,6 +23,10 @@ class PcaFeatureSmoother:
         self._u_r: Optional[float] = None
         self._v_r: Optional[float] = None
 
+    @property
+    def alpha(self) -> float:
+        return float(self._alpha)
+
     def reset(self) -> None:
         self._u_l = self._v_l = self._u_r = self._v_r = None
 

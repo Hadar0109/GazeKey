@@ -23,6 +23,8 @@ class MapperFitResult:
     rms_px: Optional[float] = None
     # Ridge selection only: all fitted candidates from the same calibration session.
     candidate_reports: Tuple[object, ...] = ()
+    # True when mapper is returned despite failing quality gates (typing evaluation mode).
+    best_effort: bool = False
 
 
 class Mapper(Protocol):

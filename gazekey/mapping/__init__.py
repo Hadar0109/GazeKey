@@ -9,6 +9,7 @@ from gazekey.mapping.ridge import (
     fit_calibration_mapper,
 )
 from gazekey.mapping.row_aware import RowAwareMapper
+from gazekey.mapping.typing_candidate import ACTIVE_MAPPER, TYPING_CANDIDATE_ID
 
 __all__ = [
     "Mapper",
@@ -20,5 +21,7 @@ __all__ = [
     "RidgeCalibrationMapper",
     "fit_calibration_mapper",
     "RowAwareMapper",
+    "ACTIVE_MAPPER",
+    "TYPING_CANDIDATE_ID",
 ]
 

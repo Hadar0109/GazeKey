@@ -26,7 +26,7 @@ class FixationState(str, Enum):
 @dataclass(frozen=True)
 class FixationGateConfig:
     lock_on_ms: float = 420.0
-    complete_ms: float = 1200.0
+    complete_ms: float = 1400.0
     point_timeout_ms: float = 12000.0
     min_samples: int = 28
 
@@ -36,6 +36,10 @@ class FixationGateConfig:
     jump_threshold_ratio: float = 0.07
     jump_threshold_pca: float = 0.10
     enable_jump_reset: bool = True
+
+    enable_head_drift_gate: bool = True
+    max_head_drift_face_xy: float = 0.008
+    max_head_drift_eye_h: float = 0.003
 
 
 def _pca_uv_mean(features: FrameFeatures) -> Optional[Tuple[float, float]]:
@@ -61,6 +65,7 @@ class FixationGate:
     _ratio_window: Deque[Tuple[float, float]] = field(default_factory=deque)
     _pca_window: Deque[Tuple[float, float]] = field(default_factory=deque)
     _window_ms: float = 0.0
+    _head_baseline: Optional[dict[str, float]] = None
 
     def reset_point(self) -> None:
         self._state = FixationState.WAIT_LOCK
@@ -69,6 +74,29 @@ class FixationGate:
         self._ratio_window.clear()
         self._pca_window.clear()
         self._window_ms = 0.0
+        self._head_baseline = None
+
+    def _capture_head_baseline(self, features: FrameFeatures) -> None:
+        baseline: dict[str, float] = {}
+        for attr in ("face_x", "face_y", "eye_box_w", "eye_box_h"):
+            v = getattr(features, attr, None)
+            if v is not None and np.isfinite(float(v)):
+                baseline[attr] = float(v)
+        self._head_baseline = baseline if baseline else None
+
+    def _head_drift_exceeded(self, features: FrameFeatures) -> bool:
+        if not self.cfg.enable_head_drift_gate or self._head_baseline is None:
+            return False
+        thr_xy = float(self.cfg.max_head_drift_face_xy)
+        thr_h = float(self.cfg.max_head_drift_eye_h)
+        for attr, thr in (("face_x", thr_xy), ("face_y", thr_xy), ("eye_box_w", thr_xy), ("eye_box_h", thr_h)):
+            base = self._head_baseline.get(attr)
+            cur = getattr(features, attr, None)
+            if base is None or cur is None:
+                continue
+            if abs(float(cur) - float(base)) > thr:
+                return True
+        return False
 
     @property
     def state(self) -> FixationState:
@@ -118,6 +146,7 @@ class FixationGate:
             if self._window_ms >= self.cfg.lock_on_ms and stable:
                 self._state = FixationState.COLLECTING
                 self._elapsed_collect_ms = 0.0
+                self._capture_head_baseline(features)
             reason = self._locking_reason(stable=stable)
             return self._state, False, reason
 
@@ -130,6 +159,9 @@ class FixationGate:
         if not self._is_stable():
             self.reset_point()
             return FixationState.WAIT_LOCK, False, "unstable"
+        if self._head_drift_exceeded(features):
+            self.reset_point()
+            return FixationState.WAIT_LOCK, False, "head_drift"
 
         return self._state, True, ""
 
