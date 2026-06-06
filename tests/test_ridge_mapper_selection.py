@@ -98,15 +98,13 @@ def test_poly12_joint_loocv_finite():
     assert all(np.isfinite(d["err"]) for d in detail)
 
 
-def test_coupled_synthetic_selects_non_baseline_mapper():
+def test_frozen_active_mapper_is_pca4_baseline():
     samples = _grid_samples_with_horizontal_v_coupling()
     fit = fit_calibration_mapper(samples=samples, min_alpha=1.0)
     assert fit.success and fit.model is not None
-    assert fit.model.mapper_type != "pca4_baseline"
-    detail = fit.model.leave_one_out_detail_px()
-    worst = max(float(d["err"]) for d in detail)
-    # Raw [vL,vR] baseline LOOCV worst ~113px on corners; decoupled/poly12 should be far lower.
-    assert worst < 50.0
+    assert fit.model.mapper_type == "pca4_baseline"
+    assert len(fit.candidate_reports) == 1
+    assert fit.candidate_reports[0].mapper_type == "pca4_baseline"
 
 
 def test_auto_alpha_prefers_higher_when_loocv_near_tied():

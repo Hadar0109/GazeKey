@@ -25,7 +25,6 @@ from gazekey.features.vertical_decouple import (
 from gazekey.calibration2.region_quality import (
     assess_region_gates,
     compute_row_y_residuals,
-    raw_v_mean_u_corr,
     region_gate_limits,
 )
 from gazekey.mapping.base import MapperFitResult, MapperPrediction
@@ -39,6 +38,8 @@ ALPHA_GRID: Tuple[float, ...] = (1.0, 10.0, 50.0, 100.0, 200.0, 400.0)
 # Among alphas with LOOCV RMS within this band of the grid minimum, pick the largest alpha.
 ALPHA_SELECT_LOOCV_TOL_PX = 5.0
 LOOCV_TIE_TOL_PX = 2.0
+# Active runtime freeze: calibration always fits/selects this mapper only.
+FROZEN_ACTIVE_MAPPER = "pca4_baseline"
 MAPPER_SIMPLICITY: Tuple[str, ...] = (
     "pca4_baseline",
     "pca4_decoupled_split",
@@ -1046,14 +1047,20 @@ def fit_calibration_mapper(
     half_key_height_px: float = 34.0,
 ) -> MapperFitResult:
     """
-    Fit all mapper candidates, select best by LOOCV with tie-breakers, return winner.
+    Fit the frozen active mapper (pca4_baseline) and return it when quality gates pass.
+
+    Other ridge candidates (decoupled, poly12, etc.) remain in this module but are not
+    evaluated on the active calibration path while FROZEN_ACTIVE_MAPPER is set.
     """
+    print(
+        f"[calib2] mapper freeze: active path locked to {FROZEN_ACTIVE_MAPPER} "
+        f"(LOOCV candidate ranking disabled)"
+    )
     extracted = extract_uv_arrays(samples)
     if extracted is None:
         return MapperFitResult(success=False, message="Need at least 5 samples with PCA u/v for Ridge.")
     u_l, u_r, v_l, v_r, Y = extracted
     clip_bounds = _bounds_from_screen_rect(screen_rect)
-    v_u_corr = raw_v_mean_u_corr(samples)
     gate_kw = dict(
         targets=targets,
         calibration_mode=calibration_mode,
@@ -1071,76 +1078,26 @@ def fit_calibration_mapper(
         )
 
     a_base = alpha_for(
-        "pca4_baseline",
+        FROZEN_ACTIVE_MAPPER,
         lambda a: _loocv_pca4_baseline(u_l, u_r, v_l, v_r, Y, alpha=a, clip_bounds=clip_bounds),
-    )
-    a_dec = alpha_for(
-        "pca4_decoupled_split",
-        lambda a: _loocv_pca4_decoupled(u_l, u_r, v_l, v_r, Y, alpha=a, clip_bounds=clip_bounds),
-    )
-    a_poly_joint = alpha_for(
-        "poly12_ridge",
-        lambda a: _loocv_poly12_joint(u_l, u_r, v_l, v_r, Y, alpha=a, clip_bounds=clip_bounds),
-    )
-    a_poly_probe = alpha_for(
-        "poly12_ridge_split_y_probe",
-        lambda a: _loocv_poly12_split(
-            u_l, u_r, v_l, v_r, Y, alpha=a, y_mode="poly12", clip_bounds=clip_bounds
-        ),
-    )
-    y_mode = _pick_poly12_y_mode(u_l, u_r, v_l, v_r, Y, alpha=a_poly_probe, clip_bounds=clip_bounds)
-    a_poly = alpha_for(
-        f"poly12_ridge_split_{y_mode}",
-        lambda a: _loocv_poly12_split(
-            u_l, u_r, v_l, v_r, Y, alpha=a, y_mode=y_mode, clip_bounds=clip_bounds
-        ),
     )
 
     reports: List[MapperCandidateReport] = []
     try:
         m_base = _fit_pca4_baseline(u_l, u_r, v_l, v_r, Y, alpha=a_base, clip_bounds=clip_bounds)
-        reports.append(_evaluate_candidate("pca4_baseline", m_base, samples, **gate_kw))
+        reports.append(_evaluate_candidate(FROZEN_ACTIVE_MAPPER, m_base, samples, **gate_kw))
     except Exception as e:
         reports.append(
-            MapperCandidateReport("pca4_baseline", False, str(e), None, None, None, None, None, ())
-        )
-
-    try:
-        m_dec = _fit_pca4_decoupled(
-            u_l, u_r, v_l, v_r, Y, alpha=a_dec, clip_bounds=clip_bounds, log_coupling=True
-        )
-        reports.append(_evaluate_candidate("pca4_decoupled_split", m_dec, samples, **gate_kw))
-    except Exception as e:
-        reports.append(
-            MapperCandidateReport("pca4_decoupled_split", False, str(e), None, None, None, None, None, ())
-        )
-
-    try:
-        m_joint = _fit_poly12_joint(u_l, u_r, v_l, v_r, Y, alpha=a_poly_joint, clip_bounds=clip_bounds)
-        reports.append(_evaluate_candidate("poly12_ridge", m_joint, samples, **gate_kw))
-    except Exception as e:
-        reports.append(
-            MapperCandidateReport("poly12_ridge", False, str(e), None, None, None, None, None, ())
-        )
-
-    try:
-        m_poly = _fit_poly12_split(
-            u_l, u_r, v_l, v_r, Y, alpha=a_poly, y_mode=y_mode, clip_bounds=clip_bounds
-        )
-        reports.append(_evaluate_candidate(m_poly.mapper_type, m_poly, samples, **gate_kw))
-    except Exception as e:
-        reports.append(
-            MapperCandidateReport("poly12_ridge_split", False, str(e), None, None, None, None, None, ())
+            MapperCandidateReport(FROZEN_ACTIVE_MAPPER, False, str(e), None, None, None, None, None, ())
         )
 
     print_mapper_candidate_reports(reports)
-    ranked = _rank_candidates(reports, v_u_corr=v_u_corr)
     winner = next(
-        (r for r in ranked if r.success and r.model is not None and r.quality_gates_passed is True),
+        (r for r in reports if r.success and r.model is not None and r.quality_gates_passed is True),
         None,
     )
     if winner is None or winner.model is None:
-        # Best-effort: pick lowest LOOCV region errors on correction-wrapped assessment.
+        # Best-effort: accept frozen mapper when region gates are close enough (keyboard only).
         ok_reports = [r for r in reports if r.success and r.model is not None and r.loocv_rms_px is not None]
         if ok_reports and targets is not None and str(calibration_mode).lower().startswith("keyboard"):
             _n, _mt, max_loocv = region_gate_limits(targets, calibration_mode=calibration_mode)
@@ -1154,7 +1111,7 @@ def fit_calibration_mapper(
             best = ok_reports[0]
             if int(best.region_loocv_wrong) <= max_loocv and int(best.region_train_wrong) <= _mt:
                 print(
-                    f"[calib2] region gates: using best-effort {best.mapper_type} "
+                    f"[calib2] region gates: using best-effort {FROZEN_ACTIVE_MAPPER} "
                     f"(loocv_region_wrong={best.region_loocv_wrong} train_region_wrong={best.region_train_wrong})"
                 )
                 winner = best
@@ -1167,9 +1124,15 @@ def fit_calibration_mapper(
             )
             return MapperFitResult(
                 success=False,
-                message=f"No mapper passed quality gates ({reasons}). Recalibrate with steadier fixation.",
+                message=(
+                    f"{FROZEN_ACTIVE_MAPPER} did not pass quality gates ({reasons}). "
+                    f"Recalibrate with steadier fixation."
+                ),
             )
-        return MapperFitResult(success=False, message="All ridge mapper candidates failed to fit.")
+        return MapperFitResult(
+            success=False,
+            message=f"{FROZEN_ACTIVE_MAPPER} failed to fit.",
+        )
 
     final_model: RidgeCalibrationMapper = winner.model
     if targets is not None and len(targets) >= len(samples):
@@ -1193,7 +1156,8 @@ def fit_calibration_mapper(
             )
 
     print(
-        f"[calib2] SELECTED mapper_type={final_model.mapper_type} "
+        f"[calib2] SELECTED mapper_type={FROZEN_ACTIVE_MAPPER} "
+        f"(frozen active mapper; inner_type={final_model.mapper_type}) "
         f"LOOCV_RMS={_fmt_px(winner.loocv_rms_px)} "
         f"worst_LOOCV={_fmt_px(winner.worst_loocv_px)} "
         f"worst_train={winner.worst_train_label or 'n/a'} "
@@ -1203,7 +1167,7 @@ def fit_calibration_mapper(
     )
     return MapperFitResult(
         success=True,
-        message=f"Selected {final_model.mapper_type} (LOOCV={winner.loocv_rms_px:.1f}px).",
+        message=f"Selected {FROZEN_ACTIVE_MAPPER} (LOOCV={winner.loocv_rms_px:.1f}px).",
         model=final_model,
         rms_px=winner.train_rms_px,
         candidate_reports=tuple(reports),
