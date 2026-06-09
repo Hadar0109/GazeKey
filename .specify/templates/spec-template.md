@@ -93,6 +93,13 @@
 - **FR-004**: System MUST [data requirement, e.g., "persist user preferences"]
 - **FR-005**: System MUST [behavior, e.g., "log all security events"]
 
+*GazeKey calibration/mapping features — constitution-aligned examples:*
+
+- **FR-00X**: Calibration fixation UI MUST show only target dot and optional simple progress; no metrics or debug text during fixation (Principle XI)
+- **FR-00X**: Each calibration/benchmark run MUST produce a simple pass/fail summary with primary metrics (Principles VII & X)
+- **FR-00X**: Normal runs MUST keep terminal output minimal; optional verbose flag for investigation — no logging framework (Principle X)
+- **FR-00X**: First MVP MUST clarify the active path; targeted cleanup only where legacy, experimental, or placeholder code causes confusion (Principle IX)
+
 *Example of marking unclear requirements:*
 
 - **FR-006**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
@@ -106,16 +113,32 @@
 ## Success Criteria *(mandatory)*
 
 <!--
-  ACTION REQUIRED: Define measurable success criteria.
-  These must be technology-agnostic and measurable.
+  ACTION REQUIRED: Define measurable success criteria per GazeKey Constitution
+  Principle II (Measurable Progress Only). For calibration/mapping features,
+  MUST include: key-hit accuracy (primary), pixel error, row accuracy, and
+  repeatability across sessions. Internal model metrics (LOOCV, RMS) may
+  supplement but MUST NOT be sole acceptance criteria.
 -->
 
 ### Measurable Outcomes
 
-- **SC-001**: [Measurable metric, e.g., "Users can complete account creation in under 2 minutes"]
-- **SC-002**: [Measurable metric, e.g., "System handles 1000 concurrent users without degradation"]
-- **SC-003**: [User satisfaction metric, e.g., "90% of users successfully complete primary task on first attempt"]
-- **SC-004**: [Business metric, e.g., "Reduce support tickets related to [X] by 50%"]
+- **SC-001**: [Key-hit accuracy target, e.g., "≥ X% correct keys on 15-key benchmark"]
+- **SC-002**: [Pixel error target, e.g., "median gaze-to-target error ≤ X px"]
+- **SC-003**: [Row accuracy target, e.g., "≥ X% correct row on benchmark keys"]
+- **SC-004**: [Session repeatability, e.g., "accuracy variance ≤ X% across N sessions"]
+
+## MVP Scope *(mandatory for GazeKey)*
+
+<!--
+  ACTION REQUIRED: Confirm scope aligns with Constitution Principle V.
+  Explicitly list in-scope and out-of-scope items for this feature.
+-->
+
+**In scope**: [calibration, mapping, benchmark tooling, minimum UI/instrumentation]
+
+**Out of scope** (deferred until mapping is stable): predictive text, Hebrew/English
+switching, OS-level typing injection, personalization, multi-monitor support,
+advanced accessibility polish
 
 ## Assumptions
 
@@ -125,7 +148,7 @@
   chosen when the feature description did not specify certain details.
 -->
 
-- [Assumption about target users, e.g., "Users have stable internet connectivity"]
-- [Assumption about scope boundaries, e.g., "Mobile support is out of scope for v1"]
-- [Assumption about data/environment, e.g., "Existing authentication system will be reused"]
-- [Dependency on existing system/service, e.g., "Requires access to the existing user profile API"]
+- [Assumption about target users, e.g., "Single monitor, fixed keyboard layout"]
+- [Assumption about scope boundaries, e.g., "In-app text buffer only; no OS injection"]
+- [Assumption about data/environment, e.g., "Webcam at 640×480; existing MediaPipe pipeline"]
+- [Dependency on existing system/service, e.g., "Reuses gazekey/ tracking and calibration modules"]

@@ -11,6 +11,18 @@ description: "Task list template for feature implementation"
 
 **Tests**: The examples below include test tasks. Tests are OPTIONAL - only include them if explicitly requested in the feature specification.
 
+**Benchmarks** (Principle II): Calibration/mapping changes MUST include a
+benchmark task with pass/fail and primary metrics recorded in a simple run
+summary — not a new diagnostics system.
+
+**Targeted cleanup** (Principle IX): First-MVP tasks SHOULD clarify the active
+path (e.g., retire duplicate calibration paths, remove placeholder UI from the
+flow). Clean only what causes confusion. Each deletion or archive = separate
+approved task.
+
+**Logging & calibration UI** (Principles X & XI): Quiet normal runs; optional
+verbose when needed. Fixation UI = dot + optional progress only.
+
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
 ## Format: `[ID] [P?] [Story] Description`
@@ -147,15 +159,38 @@ Examples of foundational tasks (adjust based on your project):
 
 ---
 
-## Phase N: Polish & Cross-Cutting Concerns
+## Phase N: Benchmark & Evaluation (GazeKey — calibration/mapping features)
+
+**Purpose**: Objective validation with simple run summary (Principles II & VII)
+
+- [ ] TXXX Run 15-key benchmark; record key-hit accuracy, pixel error, row accuracy
+- [ ] TXXX Write pass/fail + metrics to one run summary (reuse existing CSV/log if present)
+- [ ] TXXX Compare against baseline session; document improved / unchanged / regressed
+- [ ] TXXX Verify repeatability across at least N sessions (if spec requires)
+
+**Checkpoint**: Benchmark meets spec success criteria or block merge
+
+---
+
+## Phase N+1: Targeted Cleanup (GazeKey — first MVP, only where needed)
+
+**Purpose**: Unambiguous active path per Principle IX (each deletion = approved task)
+
+- [ ] TXXX Label modules: active MVP / infrastructure / legacy / experimental / future
+- [ ] TXXX [P] Resolve [specific confusion point] — e.g., single calibration path, remove placeholder from flow
+- [ ] TXXX Skip broad archival unless it blocks MVP clarity
+
+**Checkpoint**: Active calibration/mapping path is obvious; no undeclared deletions
+
+---
+
+## Phase N+2: Polish & Cross-Cutting Concerns
 
 **Purpose**: Improvements that affect multiple user stories
 
 - [ ] TXXX [P] Documentation updates in docs/
-- [ ] TXXX Code cleanup and refactoring
-- [ ] TXXX Performance optimization across all stories
+- [ ] TXXX Refactoring within testable-architecture boundaries (no scope creep)
 - [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
-- [ ] TXXX Security hardening
 - [ ] TXXX Run quickstart.md validation
 
 ---

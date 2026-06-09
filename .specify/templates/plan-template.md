@@ -40,7 +40,23 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+Reference: `.specify/memory/constitution.md` (GazeKey v1.2.0)
+
+| Gate | Requirement | Pass? |
+|------|-------------|-------|
+| Accuracy First | Feature scope is calibration/mapping reliability only; no dwell, prediction, language, or OS injection work | ☐ |
+| Measurable Progress | Success criteria include key-hit accuracy, pixel error, row accuracy, and session repeatability | ☐ |
+| Simple Pipeline | Design follows `tracking → features → calibration → mapping → preview → benchmark`; new layers justified by benchmark | ☐ |
+| Spec Before Code | `spec.md`, clarifications, `plan.md`, and `tasks.md` approved before implementation | ☐ |
+| MVP Scope Control | No predictive text, Hebrew/English switching, OS injection, personalization, multi-monitor, or accessibility polish | ☐ |
+| Testable Architecture | Tracking, calibration, mapping, evaluation, and UI feedback are separable modules/interfaces | ☐ |
+| Run Clarity | Each run answers pass/fail + key metrics via simple summary; no diagnostics platform or artifact sprawl | ☐ |
+| Documentation Hierarchy | Spec Kit docs are source of truth for this phase; PDF is long-term vision only | ☐ |
+| Targeted Cleanup | Active path unambiguous; first-MVP cleanup only where legacy/placeholder/experimental causes confusion; approved tasks for deletions | ☐ |
+| Simple Logging | Readable logs; quiet normal runs; optional verbose flag — no multi-mode logging framework | ☐ |
+| Minimal Calibration UI | Fixation screen shows only dot + optional progress; detail off-screen; pass/fail only after session ends | ☐ |
+
+If any gate fails, STOP and revise the spec/plan or document a justified violation in Complexity Tracking below.
 
 ## Project Structure
 
