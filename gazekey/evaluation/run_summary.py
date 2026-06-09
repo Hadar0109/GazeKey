@@ -48,8 +48,11 @@ class RunSummary:
 
 
 class RunSummaryWriter:
+    """One console line and one file record per calibration or benchmark run (FR-014, SC-005)."""
+
     def __init__(self, runs_dir: Optional[Path] = None) -> None:
         self.runs_dir = runs_dir or (_repo_root() / "runs")
+        self._written: set[tuple[str, str]] = set()
 
     def format_console(self, summary: RunSummary) -> str:
         tag = summary.run_type
@@ -81,6 +84,11 @@ class RunSummaryWriter:
         return line
 
     def write(self, summary: RunSummary, *, append_text: Optional[str] = None) -> Path:
+        key = (summary.run_type, summary.session_id)
+        if key in self._written:
+            return self.runs_dir / f"{summary.run_type}_{summary.session_id}.txt"
+        self._written.add(key)
+
         line = self.format_console(summary)
         print(line)
         self.runs_dir.mkdir(parents=True, exist_ok=True)

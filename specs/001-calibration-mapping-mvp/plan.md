@@ -27,7 +27,7 @@ read-only preview, a **separate** benchmark validation set, and lightweight run 
    proves it helps — not by re-comparing all historical mapper variants.
 4. **Calibration layout** — may adjust target count/placement (9 / 13 / 15) based on
    benchmark evidence; dense `keyboard15` is a suspect, not a locked default.
-5. **MVP user flow** — launch → calibrate → **preview-only** → **manual** benchmark →
+5. **MVP user flow** — launch → calibrate → **preview-only** → optional **dev-flag** benchmark →
    pass/fail summary. Dwell/intent/typing disabled in the normal flow.
 6. **Targeted cleanup** — one reachable calibration/mapping path first; **delete or
    archive** unused code once the active path is proven (dedicated tasks per removal).
@@ -69,7 +69,7 @@ not multi-user or OS injection
 |----|----------|----------------------|
 | **CQ-1** | Use spec **initial success thresholds** as binding for this MVP; do not tighten yet | Benchmark pass/fail: ≥67% key-hit (10/15), ≤55 px median error, ≥80% row accuracy, ≥53% floor / ≤20 pt spread across 3 sessions |
 | **CQ-2** | **Per-session calibration only** | Calibrate every launch; do not load `calibration_v2.json` on startup |
-| **CQ-3** | **Preview-first**; benchmark started **manually** | After calibration pass → read-only preview; user triggers benchmark via button/menu |
+| **CQ-3** | **Preview-first**; benchmark **dev-flag only** (`GAZEKEY_DEV_BENCHMARK=1`) | After calibration pass → read-only preview; benchmark auto-starts only when dev flag set — no UI button |
 | **CQ-4** | Camera preview behavior differs by mode | **Calibration/fixation**: optional, **hidden/off by default**; must not appear on top of or interfere with fixation overlay. **Post-calibration preview / normal UI**: preview window **available/open** as part of active system UI (user may close it) |
 
 ## Constitution Check
@@ -303,7 +303,7 @@ by LOOCV alone. Ship one layout in the active path at a time.
 All of the following MUST be true before Cleanup Phase B (delete/archive):
 
 1. **End-to-end baseline completed** — Phase 7 saved summary in `runs/`
-2. **Single reachable user flow** — calibrate (v2) → preview (read-only) → manual benchmark; PCA4 only; no v1/experimental mapper in path
+2. **Single reachable user flow** — calibrate (v2) → preview (read-only) → dev-flag benchmark (`GAZEKEY_DEV_BENCHMARK=1`); PCA4 only; no v1/experimental mapper in path
 3. **Flow stability** — three consecutive manual runs complete without crash or blocked step (calibration pass → preview → benchmark finish)
 4. **Documented failure analysis** — at least one benchmark produced per-key failure detail in run summary
 

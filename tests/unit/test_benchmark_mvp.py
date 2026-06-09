@@ -42,6 +42,7 @@ def _bare_keyboard():
     kb._keyboard_accuracy_session = None
     kb._benchmark_mvp_run = False
     kb._preview_mode = False
+    kb._verbose = False
     return kb
 
 

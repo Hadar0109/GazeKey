@@ -72,7 +72,7 @@
 
 **Goal**: User-initiated 15-key benchmark; pass/fail vs CQ-1 thresholds; failure analysis after each run.
 
-**Independent test**: Manual benchmark button runs test; summary shows key-hit, row accuracy, median error, pass/fail.
+**Independent test**: Dev-flag benchmark (`GAZEKEY_DEV_BENCHMARK=1`) auto-starts after preview; summary shows key-hit, row accuracy, median error, pass/fail.
 
 - [x] T021 [US3] Dev-only benchmark trigger (`GAZEKEY_DEV_BENCHMARK=1`) in `gazekey/ui/virtual_keyboard.py` — auto-start after preview; no visible UI control (FR-010, CQ-3)
 - [x] T022 [US3] Integrate `gazekey/evaluation/benchmark_runner.py` with UI flow; block if calibration not passed
@@ -87,12 +87,12 @@
 
 **Goal**: Quiet normal runs; optional verbose; one summary per run.
 
-**Independent test**: Calibration + benchmark produce readable pass/fail without log spam.
+**Independent test**: Normal runs stay quiet; `GAZEKEY_VERBOSE=1` exposes detail; calibration + dev benchmark each produce one summary line.
 
-- [ ] T025 [US4] Consolidate quiet default logging in `gazekey/ui/virtual_keyboard.py`; remove per-frame spam (FR-015)
-- [ ] T026 [US4] Add single `GAZEKEY_VERBOSE=1` flag handling for extra detail; default off (FR-015, FR-016)
-- [ ] T027 [US4] Ensure one summary record per calibration and per benchmark in `gazekey/evaluation/run_summary.py` (FR-014, SC-005)
-- [ ] T028 [P] Add integration test in `tests/integration/test_mvp_pipeline.py` — calibrate → read-only preview → manual benchmark → run summary (FR-017); include **manual on-screen geometry sanity check** (visible key centers vs layout snapshot) before T029 baseline
+- [x] T025 [US4] Consolidate quiet default logging in `gazekey/ui/virtual_keyboard.py`; remove per-frame spam (FR-015)
+- [x] T026 [US4] Add single `GAZEKEY_VERBOSE=1` flag handling for extra detail; default off (FR-015, FR-016)
+- [x] T027 [US4] Ensure one summary record per calibration and per benchmark in `gazekey/evaluation/run_summary.py` (FR-014, SC-005)
+- [x] T028 [P] Add integration test in `tests/integration/test_mvp_pipeline.py` — calibrate → read-only preview; dev-flag benchmark (`GAZEKEY_DEV_BENCHMARK=1`) auto-start + summary; include **on-screen geometry sanity check** (visible key centers vs layout snapshot) before T029 baseline
 
 **Checkpoint**: US4 complete; full MVP flow covered by integration test.
 
@@ -102,7 +102,7 @@
 
 **Purpose**: Establish comparison baseline per FR-022. **Phase 8 is blocked** until this completes end-to-end.
 
-- [ ] T029 Run end-to-end baseline: calibrate → preview → manual benchmark; save summary to `runs/baseline_pca4_summary.txt` (FR-022)
+- [ ] T029 Run end-to-end baseline: calibrate → preview → dev-flag benchmark (`GAZEKEY_DEV_BENCHMARK=1`); save summary to `runs/baseline_pca4_summary.txt` (FR-022)
 - [ ] T030 Document baseline metrics (key-hit, row accuracy, median error) and failure analysis note in `runs/baseline_pca4_summary.txt` (FR-023)
 - [ ] T031 If T029 **cannot** complete end-to-end, fix blocking flow issues in Phases 3–6 (crash, calibration won't pass, preview/benchmark won't start) — **do not** enter Phase 8 until T029 succeeds
 
@@ -144,7 +144,7 @@ until benchmark evidence supports it.
 
 **Gate**: Complete T040–T041 before T042–T044. See `plan.md` §Definition: active PCA4 path proven.
 
-- [ ] T040 Run 3 stable end-to-end flows (calibrate → preview → manual benchmark); record per-run metrics and pass/fail in `runs/active_path_proven.txt`
+- [ ] T040 Run 3 stable end-to-end flows (calibrate → preview → dev-flag benchmark); record per-run metrics and pass/fail in `runs/active_path_proven.txt`
 - [ ] T041 Verify **active PCA4 path proven** checklist in `plan.md` (baseline saved, single flow, failure analysis documented); confirm `runs/active_path_proven.txt` from T040 is complete
 - [ ] T042 Archive or remove unused v1 calibration entry points in `gazekey/calibration/` (dedicated task, FR-019)
 - [ ] T043 Archive or remove poly12/multi-candidate dead wiring in `gazekey/mapping/ridge.py` (dedicated task, FR-019)

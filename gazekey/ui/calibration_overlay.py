@@ -443,8 +443,11 @@ class CalibrationOverlay(QWidget):
         self._emit_finished_and_close()
 
     def _emit_finished_and_close(self) -> None:
-        if self._result is not None:
-            self._on_finished(self._result)
+        """Hide overlay before the finish callback (mapper fit can take seconds)."""
+        result = self._result
+        self.hide()
+        if result is not None:
+            self._on_finished(result)
         self.close()
 
     def restart_from_scratch(self) -> None:

@@ -40,11 +40,16 @@ After calibration pass:
 
 **Must NOT happen**: Key selection, dwell activation, text buffer changes from gaze.
 
-## 4. Benchmark (manual start)
+## 4. Benchmark (developer flag only)
 
-1. Start benchmark via button/menu (CQ-3 — not automatic).
-2. Look at each of 15 prompted test keys.
-3. Record from summary: key-hit accuracy, row accuracy, median error, PASS/FAIL.
+Benchmark is **not** exposed in the normal UI. To run the 15-key validation set during development:
+
+```bash
+set GAZEKEY_DEV_BENCHMARK=1
+python main.py
+```
+
+After calibration pass and preview ready, the benchmark auto-starts. Record from summary: key-hit accuracy, row accuracy, median error, PASS/FAIL.
 
 **Pass thresholds** (CQ-1 — initial, not tightened):
 

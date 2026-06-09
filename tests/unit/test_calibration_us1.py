@@ -115,6 +115,36 @@ def test_calibration_run_summary_format(tmp_path):
     assert "quality_warnings=1" in text
 
 
+def test_calibration_overlay_hides_before_finish_callback(qapp):
+    """Mapper fit runs in on_finished; overlay must not stay fullscreen during that work."""
+    visibility = []
+
+    def on_finished(_res):
+        visibility.append(overlay.isVisible())
+
+    dots = [(100.0, 200.0)]
+    session = CalibrationV2Session(
+        targets=_targets(1),
+        csv_logger=CalibrationCsvLogger(enabled=False),
+    )
+    overlay = CalibrationOverlay(
+        dot_targets=dots,
+        screen_targets=dots,
+        on_finished=on_finished,
+        session_v2=session,
+        minimal_fixation_ui=True,
+    )
+    overlay.show()
+    qapp.processEvents()
+
+    overlay._show_result(
+        CalibrationV2Result(success=True, message="Target collection complete.", targets=_targets(1))
+    )
+    qapp.processEvents()
+
+    assert visibility == [False]
+
+
 def test_calibration_controller_starts_session(qapp):
     root = QWidget()
     root.setGeometry(0, 0, 800, 400)
