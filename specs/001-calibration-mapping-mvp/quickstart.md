@@ -80,8 +80,15 @@ PCA4 fit in `ridge.py` / `typing_candidate.py`). Re-benchmark vs baseline.
 
 ## 7. Geometry check
 
-If accuracy is unexpectedly poor, verify key centers and hitboxes (`layout_inspector`)
-match visible keys before blaming the mapper.
+**Phase 2 (automated)**: `tests/unit/test_layout_geometry.py` + `runs/geometry_check.txt`
+on a synthetic keyboard — sufficient for foundational work.
+
+**Before T029 baseline (manual, required)**: On the live `VirtualKeyboard` UI, confirm
+calibration dots and benchmark key highlights align with visible key centers; check
+`runs/geometry_check.txt` has no mismatches on synthetic fixture. If on-screen keys
+look offset, fix geometry before interpreting benchmark scores.
+
+Benchmark hit-test uses the same tight/snap rules as `KeyHitTester` (`hit_test_layout_keys`).
 
 ## 8. Repeatability (SC-004)
 

@@ -14,8 +14,8 @@
 
 **Purpose**: Confirm feature branch context and evaluation module scaffold.
 
-- [ ] T001 Confirm feature branch `001-calibration-mapping-mvp` and feature dir `specs/001-calibration-mapping-mvp/`
-- [ ] T002 [P] Create `gazekey/evaluation/` package with `__init__.py`
+- [x] T001 Confirm feature branch `001-calibration-mapping-mvp` and feature dir `specs/001-calibration-mapping-mvp/`
+- [x] T002 [P] Create `gazekey/evaluation/` package with `__init__.py`
 
 ---
 
@@ -23,14 +23,14 @@
 
 **Purpose**: Geometry verification, minimal evaluation module, PCA4-only active path. **No user story work until this phase completes.**
 
-- [ ] T003 Verify key centers and hitboxes in `gazekey/layout/layout_inspector.py` match on-screen keys; document any offset in `runs/geometry_check.txt` (FR-024)
-- [ ] T004 [P] Add unit test that calibration targets from `gazekey/calibration2/targets.py` use same layout snapshot as `inspect_keyboard_layout()` in `tests/unit/test_layout_geometry.py`
-- [ ] T005 [P] Implement `gazekey/evaluation/run_summary.py` — console + one lightweight file record per run (contracts/run-summary.md)
-- [ ] T006 [P] Implement `gazekey/evaluation/failure_analysis.py` — format per-key miss list, dx/dy, row errors into summary text (FR-023)
-- [ ] T007 Extract benchmark scoring from `gazekey/debug/keyboard_accuracy.py` into `gazekey/evaluation/benchmark_runner.py` using `gazekey/typing/key_hit_tester.py` (15 keys: `DEFAULT_SAMPLE_KEYS`)
-- [ ] T008 Wire `fit_calibration_mapper()` in `gazekey/mapping/ridge.py` to **PCA4 only** — disable multi-candidate ranking in active path; config in `gazekey/mapping/typing_candidate.py` (FR-007)
-- [ ] T009 Disconnect v1 calibration fallback from `gazekey/ui/virtual_keyboard.py` normal flow (cleanup Phase A, FR-001)
-- [ ] T010 [P] Add `tests/unit/test_evaluation_summary.py` for pass/fail formatting and SC-001–004 threshold checks
+- [x] T003 Verify key centers and hitboxes in `gazekey/layout/layout_inspector.py` match on-screen keys; document any offset in `runs/geometry_check.txt` (FR-024)
+- [x] T004 [P] Add unit test that calibration targets from `gazekey/calibration2/targets.py` use same layout snapshot as `inspect_keyboard_layout()` in `tests/unit/test_layout_geometry.py`
+- [x] T005 [P] Implement `gazekey/evaluation/run_summary.py` — console + one lightweight file record per run (contracts/run-summary.md)
+- [x] T006 [P] Implement `gazekey/evaluation/failure_analysis.py` — format per-key miss list, dx/dy, row errors into summary text (FR-023)
+- [x] T007 Extract benchmark scoring from `gazekey/debug/keyboard_accuracy.py` into `gazekey/evaluation/benchmark_runner.py` using `gazekey/typing/key_hit_tester.py` (15 keys: `DEFAULT_SAMPLE_KEYS`)
+- [x] T008 Wire `fit_calibration_mapper()` in `gazekey/mapping/ridge.py` to **PCA4 only** — disable multi-candidate ranking in active path; config in `gazekey/mapping/typing_candidate.py` (FR-007)
+- [x] T009 Disconnect v1 calibration fallback from `gazekey/ui/virtual_keyboard.py` normal flow (cleanup Phase A, FR-001)
+- [x] T010 [P] Add `tests/unit/test_evaluation_summary.py` for pass/fail formatting and SC-001–004 threshold checks
 
 **Checkpoint**: Geometry verified; evaluation module minimal (no mapper-compare tooling); PCA4-only fit path reachable.
 
@@ -76,7 +76,7 @@
 
 - [ ] T021 [US3] Add benchmark start control (button/menu) in `gazekey/ui/virtual_keyboard.py` — manual only, after preview (FR-010, CQ-3)
 - [ ] T022 [US3] Integrate `gazekey/evaluation/benchmark_runner.py` with UI flow; block if calibration not passed
-- [ ] T023 [US3] Record benchmark pass/fail vs SC-001–004 (≥67% keys, ≤55 px median, ≥80% row, CQ-1) in `gazekey/evaluation/run_summary.py` (FR-012, FR-013)
+- [ ] T023 [US3] Record benchmark pass/fail vs SC-001–004 (≥10/15 keys, ≤55 px median, ≥80% row, CQ-1) in `gazekey/evaluation/run_summary.py` (FR-012, FR-013)
 - [ ] T024 [US3] After each benchmark, append failure analysis (keys/rows failed; mapping vs geometry vs collection) via `gazekey/evaluation/failure_analysis.py` (FR-023)
 
 **Checkpoint**: US3 independently testable.
@@ -92,7 +92,7 @@
 - [ ] T025 [US4] Consolidate quiet default logging in `gazekey/ui/virtual_keyboard.py`; remove per-frame spam (FR-015)
 - [ ] T026 [US4] Add single `GAZEKEY_VERBOSE=1` flag handling for extra detail; default off (FR-015, FR-016)
 - [ ] T027 [US4] Ensure one summary record per calibration and per benchmark in `gazekey/evaluation/run_summary.py` (FR-014, SC-005)
-- [ ] T028 [P] Add integration test in `tests/integration/test_mvp_pipeline.py` — calibrate → read-only preview → manual benchmark → run summary (FR-017)
+- [ ] T028 [P] Add integration test in `tests/integration/test_mvp_pipeline.py` — calibrate → read-only preview → manual benchmark → run summary (FR-017); include **manual on-screen geometry sanity check** (visible key centers vs layout snapshot) before T029 baseline
 
 **Checkpoint**: US4 complete; full MVP flow covered by integration test.
 

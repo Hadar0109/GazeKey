@@ -3,16 +3,25 @@
 from __future__ import annotations
 
 import csv
-import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, List, Optional, Sequence, Tuple
 
 import numpy as np
-from PySide6.QtCore import QPoint, QRect
 
 from gazekey.features.feature_smoother import PcaFeatureSmoother
 from gazekey.features.feature_types import FrameFeatures
+from gazekey.evaluation.benchmark_runner import (
+    COLLECT_MS,
+    DEFAULT_SAMPLE_KEYS,
+    SETTLE_MS,
+    KeyAccuracyResultRow,
+    build_result_row,
+    display_key_name,
+    evaluate_key_accuracy_from_frames,
+    predict_key_at,
+    resolve_sample_keys,
+)
 from gazekey.layout.layout_inspector import KeyGeometryRow
 from gazekey.mapping.typing_candidate import FEATURE_SMOOTHER_ALPHA
 
@@ -56,28 +65,6 @@ def mean_frame_features(frames: Sequence[FrameFeatures]) -> Optional[FrameFeatur
         pca_vR=mean_opt("pca_vR"),
     )
 
-# Default sample: left/center/right, top/mid/bottom, edges, space.
-DEFAULT_SAMPLE_KEYS: Tuple[str, ...] = (
-    "Q",
-    "E",
-    "T",
-    "U",
-    "P",
-    "A",
-    "D",
-    "G",
-    "J",
-    "L",
-    "Z",
-    "C",
-    "B",
-    "M",
-    "Space",
-)
-
-SETTLE_MS = 1200
-COLLECT_MS = 2500
-
 CSV_FIELDNAMES = (
     "target_key",
     "target_center_x",
@@ -98,97 +85,6 @@ def _repo_root() -> Path:
 
 def default_key_accuracy_debug_path() -> Path:
     return _repo_root() / "key_accuracy_debug.csv"
-
-
-def _normalize_match_token(label: str) -> str:
-    s = str(label).strip()
-    if s.lower() == "space":
-        return " "
-    if len(s) == 1:
-        return s.lower()
-    return s.lower()
-
-
-def resolve_sample_keys(
-    keys: Sequence[KeyGeometryRow],
-    sample_labels: Sequence[str] = DEFAULT_SAMPLE_KEYS,
-) -> List[Tuple[str, KeyGeometryRow]]:
-    """
-    Map human-readable sample labels (e.g. 'Q', 'Space') to layout keys.
-
-    Raises ValueError if any sample cannot be resolved uniquely.
-    """
-    by_action: dict[str, List[KeyGeometryRow]] = {}
-    by_label: dict[str, List[KeyGeometryRow]] = {}
-    for k in keys:
-        act = _normalize_match_token(k.key_action)
-        lab = str(k.key_label).strip().lower()
-        by_action.setdefault(act, []).append(k)
-        by_label.setdefault(lab, []).append(k)
-
-    out: List[Tuple[str, KeyGeometryRow]] = []
-    for sample in sample_labels:
-        token = _normalize_match_token(sample)
-        candidates = by_action.get(token) or by_label.get(str(sample).strip().lower())
-        if not candidates:
-            raise ValueError(f"Keyboard accuracy: no key found for sample '{sample}'")
-        if len(candidates) > 1:
-            # Prefer letter keys over duplicates (e.g. symbols layout hidden).
-            letter = [c for c in candidates if len(c.key_action) == 1 and not c.is_special_key]
-            pick = letter[0] if letter else candidates[0]
-        else:
-            pick = candidates[0]
-        out.append((str(sample), pick))
-    return out
-
-
-def predict_key_at(
-    screen_x: float,
-    screen_y: float,
-    keys: Sequence[KeyGeometryRow],
-) -> KeyGeometryRow:
-    """
-    Hit-test gaze point against key rects; if none contain the point, pick nearest center.
-    """
-    if not keys:
-        raise ValueError("predict_key_at requires at least one key")
-    point = QPoint(int(screen_x), int(screen_y))
-    containing = [k for k in keys if k.rect.contains(point)]
-    if containing:
-        containing.sort(key=lambda k: k.rect.width() * k.rect.height())
-        return containing[0]
-
-    best = keys[0]
-    best_d = float("inf")
-    for k in keys:
-        cx, cy = k.center
-        d = math.hypot(screen_x - cx, screen_y - cy)
-        if d < best_d:
-            best_d = d
-            best = k
-    return best
-
-
-def display_key_name(row: KeyGeometryRow) -> str:
-    if row.key_action == " ":
-        return "Space"
-    if len(row.key_action) == 1:
-        return row.key_action.upper()
-    return str(row.key_label)
-
-
-@dataclass(frozen=True)
-class KeyAccuracyResultRow:
-    target_key: str
-    target_center_x: float
-    target_center_y: float
-    predicted_x: float
-    predicted_y: float
-    predicted_key: str
-    error_px: float
-    dx: float
-    dy: float
-    is_correct: bool
 
 
 def predict_key_accuracy_screen_xy(
@@ -213,69 +109,6 @@ def predict_key_accuracy_screen_xy(
     if clamp_xy is not None:
         px, py = clamp_xy(px, py)
     return px, py
-
-
-def evaluate_key_accuracy_from_frames(
-    *,
-    target_label: str,
-    target: KeyGeometryRow,
-    frames: Sequence[FrameFeatures],
-    keys: Sequence[KeyGeometryRow],
-    predict_screen_xy: Callable[[FrameFeatures], Optional[Tuple[float, float]]],
-) -> KeyAccuracyResultRow:
-    """
-    Mean of per-frame screen predictions over the collect window, then full-key hit-test.
-
-    Uses the same aggregation recipe for live keyboard accuracy and compare replay.
-    """
-    preds: List[Tuple[float, float]] = []
-    for feat in frames:
-        xy = predict_screen_xy(feat)
-        if xy is not None:
-            preds.append((float(xy[0]), float(xy[1])))
-    if not preds:
-        px = float(target.center[0])
-        py = float(target.center[1])
-    else:
-        px = float(sum(p[0] for p in preds) / len(preds))
-        py = float(sum(p[1] for p in preds) / len(preds))
-    predicted = predict_key_at(px, py, keys)
-    return build_result_row(
-        target_label=target_label,
-        target=target,
-        predicted_x=px,
-        predicted_y=py,
-        predicted=predicted,
-    )
-
-
-def build_result_row(
-    *,
-    target_label: str,
-    target: KeyGeometryRow,
-    predicted_x: float,
-    predicted_y: float,
-    predicted: KeyGeometryRow,
-) -> KeyAccuracyResultRow:
-    tcx, tcy = target.center
-    pcx, pcy = predicted.center
-    err = float(math.hypot(predicted_x - tcx, predicted_y - tcy))
-    pred_name = display_key_name(predicted)
-    is_correct = pred_name.upper() == str(target_label).upper() or (
-        str(target_label).lower() == "space" and pred_name == "Space"
-    )
-    return KeyAccuracyResultRow(
-        target_key=str(target_label),
-        target_center_x=float(tcx),
-        target_center_y=float(tcy),
-        predicted_x=float(predicted_x),
-        predicted_y=float(predicted_y),
-        predicted_key=pred_name,
-        error_px=err,
-        dx=float(predicted_x - tcx),
-        dy=float(predicted_y - tcy),
-        is_correct=bool(is_correct),
-    )
 
 
 @dataclass(frozen=True)

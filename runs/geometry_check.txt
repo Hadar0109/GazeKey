@@ -1,0 +1,6 @@
+geometry_check
+keys_inspected: 25
+mismatches: 0
+status: layout_inspector tight rects align with KeyHitTester
+note: benchmark hit-test uses KeyHitTester tight/snap (margin=4px); layout_inspector hitbox (margin=6px) is for intent scoring only
+manual: before T029 baseline, verify live VirtualKeyboard key alignment on-screen

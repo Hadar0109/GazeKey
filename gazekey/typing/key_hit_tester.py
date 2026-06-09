@@ -2,7 +2,7 @@
 
 import math
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Sequence
 
 from PySide6.QtCore import QPoint, QRect
 from PySide6.QtWidgets import QPushButton, QWidget
@@ -136,6 +136,56 @@ class KeyHitTester:
     @property
     def regions(self) -> List[KeyRegion]:
         return list(self._regions)
+
+
+def hit_test_layout_keys(
+    keys: Sequence,
+    screen_x: float,
+    screen_y: float,
+    *,
+    hit_margin_px: int = HIT_MARGIN_PX,
+    snap_distance_px: float = SNAP_DISTANCE_PX,
+) -> Optional[int]:
+    """
+    Hit-test over layout_inspector rows using the same tight/snap rules as KeyHitTester.
+
+    Uses each key's tight ``rect`` for containment and ``rect`` expanded by
+    ``hit_margin_px`` for edge snap — matching the active keyboard path.
+    """
+    if not keys:
+        return None
+
+    point = QPoint(int(screen_x), int(screen_y))
+    containing: List[int] = []
+    for i, k in enumerate(keys):
+        if k.rect.contains(point):
+            containing.append(i)
+    if containing:
+        if len(containing) == 1:
+            return containing[0]
+        containing.sort(
+            key=lambda i: KeyHitTester._distance_to_center(screen_x, screen_y, keys[i].rect)
+        )
+        return containing[0]
+
+    best_idx: Optional[int] = None
+    best_dist = float("inf")
+    second_dist = float("inf")
+    for i, k in enumerate(keys):
+        snap = k.rect.adjusted(-hit_margin_px, -hit_margin_px, hit_margin_px, hit_margin_px)
+        dist = KeyHitTester._distance_to_rect(screen_x, screen_y, snap)
+        if dist < best_dist:
+            second_dist = best_dist
+            best_dist = dist
+            best_idx = i
+        elif dist < second_dist:
+            second_dist = dist
+
+    if best_idx is None or best_dist > snap_distance_px:
+        return None
+    if second_dist - best_dist < 4.0:
+        return None
+    return best_idx
 
 
 def hit_test_rects(

@@ -1,6 +1,8 @@
 """Frozen typing-candidate configuration (pca4_baseline).
 
 Single source of truth for the mapper stack used after calibration v2.
+MVP baseline (T029): clean PCA4 ridge only — correction layers off until Phase 8
+benchmark analysis justifies one layer.
 Evidence and rationale: TYPING_CANDIDATE.md at repo root.
 """
 
@@ -20,9 +22,10 @@ ALPHA_GRID: tuple[float, ...] = (1.0, 10.0, 50.0, 100.0, 200.0, 400.0)
 ALPHA_SELECT_LOOCV_TOL_PX = 5.0
 MIN_ALPHA = 1.0
 
-# Post-fit correction layers (row Y bias + X-interpolated local Y; both kept at runtime).
-APPLY_ROW_Y_BIAS = True
-APPLY_LOCAL_Y_CORRECTION = True
+# Post-fit correction layers — disabled for clean PCA4 baseline (MVP T029).
+# Re-enable only via Phase 8 after benchmark failure analysis justifies one layer.
+APPLY_ROW_Y_BIAS = False
+APPLY_LOCAL_Y_CORRECTION = False
 
 # Runtime smoothing (matches keyboard-accuracy eval pipeline).
 FEATURE_SMOOTHER_ALPHA = 0.28

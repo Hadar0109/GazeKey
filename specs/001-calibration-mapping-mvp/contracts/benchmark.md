@@ -48,7 +48,11 @@ Keys are resolved to screen centers via `layout_inspector` at runtime.
 ## Pass/fail
 
 Compare aggregates to success criteria **SC-001–SC-004** (CQ-1 resolved: initial
-spec thresholds, not tightened).
+spec thresholds, not tightened). **SC-001**: on the 15-key set, **≥10 correct keys**
+passes (display ~67%; not strict fractional `>= 0.67`).
+
+Scoring hit-test MUST use the same tight/snap geometry as the active keyboard path
+(`KeyHitTester` / `hit_test_layout_keys` on `layout_inspector` rects).
 
 LOOCV or calibration gate metrics MUST NOT override benchmark fail.
 

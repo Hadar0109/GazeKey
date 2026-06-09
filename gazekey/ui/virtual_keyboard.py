@@ -989,66 +989,22 @@ class VirtualKeyboard(QWidget):
             pass
 
         screen = QApplication.primaryScreen().geometry()
-        use_fullscreen = os.environ.get("GAZEKEY_CALIB_FULLSCREEN", "0").strip() == "1"
-        if use_fullscreen:
-            margin = 80
-            left = int(screen.left() + margin)
-            right = int(screen.right() - margin)
-            top = int(screen.top() + margin)
-            bottom = int(screen.bottom() - margin)
-            cx = int((left + right) / 2)
-            cy = int((top + bottom) / 2)
-            pts = [
-                (left, top),
-                (cx, top),
-                (right, top),
-                (left, cy),
-                (cx, cy),
-                (right, cy),
-                (left, bottom),
-                (cx, bottom),
-                (right, bottom),
-            ]
-            labels = [
-                "top_left",
-                "top",
-                "top_right",
-                "left",
-                "center",
-                "right",
-                "bottom_left",
-                "bottom",
-                "bottom_right",
-            ]
-            targets = [
-                CalibrationTarget(
-                    target_id=f"T{i+1:02d}",
-                    label=labels[i],
-                    key_id="",
-                    screen_x=float(pts[i][0]),
-                    screen_y=float(pts[i][1]),
-                )
-                for i in range(9)
-            ]
-            self._calib2_mode = "fullscreen9"
-            calib_region = f"FULLSCREEN {screen} margin={margin}px"
-        else:
-            # Calibrate on letter-key area so dots align with where you look while typing.
-            region_rect = letter_keys_region_rect(self.keyboard_widget)
-            self._calib_clip_rect = (
-                float(region_rect.x()),
-                float(region_rect.y()),
-                float(region_rect.width()),
-                float(region_rect.height()),
-            )
-            layout_keys = inspect_keyboard_layout(self.keyboard_widget)
-            targets = keyboard_geometry_targets(
-                keys=layout_keys,
-                typing_region_rect=region_rect,
-                mode=CALIBRATION_MODE,
-            )
-            self._calib2_mode = CALIBRATION_MODE
-            calib_region = f"LETTER KEYS region {region_rect}"
+        # MVP active path: keyboard-aligned calibration only (no fullscreen9 / v1 fallback).
+        region_rect = letter_keys_region_rect(self.keyboard_widget)
+        self._calib_clip_rect = (
+            float(region_rect.x()),
+            float(region_rect.y()),
+            float(region_rect.width()),
+            float(region_rect.height()),
+        )
+        layout_keys = inspect_keyboard_layout(self.keyboard_widget)
+        targets = keyboard_geometry_targets(
+            keys=layout_keys,
+            typing_region_rect=region_rect,
+            mode=CALIBRATION_MODE,
+        )
+        self._calib2_mode = CALIBRATION_MODE
+        calib_region = f"LETTER KEYS region {region_rect}"
 
         dot_targets = [(t.screen_x - screen.x(), t.screen_y - screen.y()) for t in targets]
 
