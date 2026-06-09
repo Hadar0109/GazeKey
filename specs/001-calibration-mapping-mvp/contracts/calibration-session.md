@@ -39,8 +39,10 @@ CalibrationSessionResult
 - Pass/fail result
 - Option to recalibrate
 
-**Camera preview** (CQ-4): Floating webcam window MUST NOT appear on the
-fixation overlay. App-level camera preview is optional and hidden by default.
+**Camera preview** (CQ-4): During fixation, floating webcam window MUST be
+off by default (user may opt in) and MUST NOT appear on top of or interfere with
+the fixation overlay. After calibration, camera preview is available/open in
+normal UI.
 
 ## Pass/fail rules (research R-4)
 

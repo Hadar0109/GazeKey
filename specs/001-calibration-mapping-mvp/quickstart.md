@@ -63,16 +63,20 @@ Before any major calibration, geometry, or PCA4 change:
 
 ## 6. Result-driven iteration
 
-When benchmark fails, use **per-key failure detail** in the run summary:
+**Prerequisite**: Baseline run (§5) must complete end-to-end. If not, fix blocking
+flow issues first — do not start accuracy iterations.
 
-- Which rows/keys miss consistently?
-- Is error mostly vertical (row) or horizontal (within-row)?
+When benchmark fails, use **per-key failure detail** and `plan.md` decision guide:
 
-Apply **one** targeted fix within the PCA4 pipeline (calibration layout,
-collection, fit params, or one benchmark-justified layer). Re-benchmark and
-compare summaries.
+- Wrong row / large `dy` → PCA4 fit or calibration layout (pick one)
+- Wrong column / `dx` → geometry or PCA4 u-fit or layout (pick one)
+- Erratic misses → fixation/collection
+- Preview OK, benchmark wrong → geometry/hitboxes first
 
-**Do not**: Re-run poly12/decoupled/IDW comparisons or multi-mapper matrices.
+Apply **exactly one** change per iteration (layout, collection, geometry, or
+PCA4 fit in `ridge.py` / `typing_candidate.py`). Re-benchmark vs baseline.
+
+**Do not**: Combine multiple fixes in one iteration; re-run mapper variant matrices.
 
 ## 7. Geometry check
 

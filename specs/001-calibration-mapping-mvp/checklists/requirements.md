@@ -4,7 +4,7 @@
 
 **Created**: 2026-06-09
 
-**Revised**: 2026-06-09
+**Revised**: 2026-06-09 (spec aligned with plan; tasks.md generated)
 
 **Feature**: [spec.md](../spec.md)
 

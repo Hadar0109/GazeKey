@@ -1,6 +1,6 @@
 # Implementation Plan: Calibration & Gaze Mapping MVP
 
-**Branch**: `001-calibration-mapping-mvp` | **Date**: 2026-06-09 (revised 2) | **Spec**: [spec.md](./spec.md)
+**Branch**: `001-calibration-mapping-mvp` | **Date**: 2026-06-09 (revised 3) | **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `specs/001-calibration-mapping-mvp/spec.md`
 
@@ -70,7 +70,7 @@ not multi-user or OS injection
 | **CQ-1** | Use spec **initial success thresholds** as binding for this MVP; do not tighten yet | Benchmark pass/fail: ≥67% key-hit (10/15), ≤55 px median error, ≥80% row accuracy, ≥53% floor / ≤20 pt spread across 3 sessions |
 | **CQ-2** | **Per-session calibration only** | Calibrate every launch; do not load `calibration_v2.json` on startup |
 | **CQ-3** | **Preview-first**; benchmark started **manually** | After calibration pass → read-only preview; user triggers benchmark via button/menu |
-| **CQ-4** | Camera preview **optional, hidden by default** | Floating preview window off unless user enables; **must not appear on calibration fixation overlay** |
+| **CQ-4** | Camera preview behavior differs by mode | **Calibration/fixation**: optional, **hidden/off by default**; must not appear on top of or interfere with fixation overlay. **Post-calibration preview / normal UI**: preview window **available/open** as part of active system UI (user may close it) |
 
 ## Constitution Check
 
@@ -83,7 +83,7 @@ Reference: `.specify/memory/constitution.md` (GazeKey v1.2.0)
 | Accuracy First | Scope limited to calibration/mapping; dwell/typing not optimized | ✅ |
 | Measurable Progress | Benchmark key-hit, pixel error, row accuracy, repeatability in SC + plan | ✅ |
 | Simple Pipeline | `tracking → features → calibration → mapping → preview → benchmark` | ✅ |
-| Spec Before Code | spec.md approved; plan.md (this); tasks.md pending | ✅ |
+| Spec Before Code | spec.md approved; plan.md (this); tasks.md complete | ✅ |
 | MVP Scope Control | No prediction, language, OS injection, personalization, multi-monitor | ✅ |
 | Testable Architecture | Module boundaries defined below; orchestrator split planned | ✅ |
 | Run Clarity | Reuse summary CSV + console; no artifact sprawl | ✅ |
@@ -201,6 +201,21 @@ calibrate → preview → benchmark → read per-key failures (row, dx/dy patter
 Do **not** reopen a broad mapper comparison matrix. Benchmark answers *what* fails;
 implementation changes target *that* failure within the PCA4 pipeline.
 
+### Benchmark failure pattern → allowed fix (decision guide)
+
+Use failure analysis (per-key `dx`/`dy`, row accuracy, miss clusters) to pick the
+most likely fix area. Per-iteration sequencing (at most one change per cycle) is
+enforced in `tasks.md` Phase 8 only.
+
+| Failure pattern | Likely cause | Allowed fix area | Not allowed |
+|-----------------|--------------|----------------------------------------|-------------|
+| Wrong row on many keys; large consistent `dy` | Mapping Y scale/bias or calibration row coverage | PCA4 fit path (`ridge.py`, ridge α, feature smoothing) **or** calibration layout | Mapper variant swap; row_bias/local_y without analysis note |
+| Keys correct row but wrong column; `dx` dominant | Horizontal mapping or geometry | Geometry/hitboxes **or** PCA4 fit (u features) **or** calibration layout | Multiple areas at once |
+| Erratic per-key misses; preview also poor | Collection noise, head drift, fixation | Fixation/collection (`fixation_gate.py`, sample gates) | Layout change before collection stable |
+| Preview OK but benchmark misses only | Hitbox/key center mismatch | Geometry/hitboxes (`layout_inspector.py`, `key_hit_tester.py`) | PCA4 refit before geometry verified |
+| Accuracy varies wildly between targets | Dense calibration / head travel | Calibration layout (reduce to 9/13) | Adding post-fit layers |
+| End-to-end flow cannot complete | Blocking bug, not mapping | **Flow fix only** (UI, crash, benchmark won't start) | Accuracy iteration (Phase 8) |
+
 ### Result-driven work discipline (required in `tasks.md`)
 
 Every accuracy improvement cycle in `tasks.md` MUST follow this pattern:
@@ -208,9 +223,14 @@ Every accuracy improvement cycle in `tasks.md` MUST follow this pattern:
 ```text
 1. Baseline PCA4 run   — calibrate → preview → benchmark → save run summary
 2. Failure analysis    — read per-key misses, row errors, dx/dy from summary
-3. One focused change  — calibration, geometry, collection, or PCA4 fit only
+3. One focused change  — calibration, geometry, collection, or PCA4 fit only (see `tasks.md` Phase 8 for iteration sequencing)
 4. Re-benchmark        — compare to baseline summary (improved / unchanged / worse)
 ```
+
+**Baseline gate**: Phase 7 MUST complete end-to-end (calibrate → preview → manual
+benchmark → saved summary). If the baseline run **cannot** finish, fix blocking
+flow issues first (Phases 3–6, geometry, crashes, benchmark UI). **Do not** start
+Phase 8 accuracy iterations until an end-to-end baseline exists.
 
 **Mandatory task categories** (for `/speckit-tasks`):
 
@@ -267,15 +287,28 @@ by LOOCV alone. Ship one layout in the active path at a time.
 | Placeholder suggestion bar, language toggle | Hidden from active flow |
 | Experimental mappers | Not selectable at runtime |
 | Multi-mode env toggles | Debug-only; not in user flow |
+| Camera preview during calibration | Hidden/off by default; never on fixation overlay (CQ-4) |
 
-**Phase B — delete or archive** (after baseline PCA4 run + active path proven):
+**Phase B — delete or archive** (only after **active PCA4 path proven** — see below):
 
 | Item | Action | Prerequisite |
 |------|--------|--------------|
-| Unused v1 calibration entry points | Delete or move to `archive/` | v2-only path verified |
-| Unused mapper wiring (poly12 ranking, etc.) | Delete or archive dead code paths | PCA4-only fit confirmed in tasks |
-| Disconnected dwell/intent hooks in orchestrator | Remove dead branches | Preview+benchmark flow stable |
+| Unused v1 calibration entry points | Delete or move to `archive/` | Active path proven |
+| Unused mapper wiring (poly12 ranking, etc.) | Delete or archive dead code paths | Active path proven |
+| Disconnected dwell/intent hooks in orchestrator | Remove dead branches | Active path proven |
 | Row bias + local Y | Delete/archive **or** keep dormant | Only if benchmark never adopts them |
+
+#### Definition: “active PCA4 path proven”
+
+All of the following MUST be true before Cleanup Phase B (delete/archive):
+
+1. **End-to-end baseline completed** — Phase 7 saved summary in `runs/`
+2. **Single reachable user flow** — calibrate (v2) → preview (read-only) → manual benchmark; PCA4 only; no v1/experimental mapper in path
+3. **Flow stability** — three consecutive manual runs complete without crash or blocked step (calibration pass → preview → benchmark finish)
+4. **Documented failure analysis** — at least one benchmark produced per-key failure detail in run summary
+
+Accuracy targets (SC-001–SC-004) do **not** need to be met for cleanup Phase B —
+proven *flow* and *path*, not final accuracy, unlock delete/archive.
 
 Each Phase B item = **one dedicated approved task** (constitution IX). Disconnect
 alone is insufficient for final MVP cleanup — the goal is an unambiguous codebase,
@@ -317,17 +350,14 @@ or compare tooling in the MVP module.
 
 1. **Geometry verification** — confirm layout inspector centers/hitboxes vs on-screen keys; align calibration targets and benchmark hit tests
 2. **Foundation** — minimal `evaluation/` (benchmark + summary + failure fields); contract tests
-3. **Baseline PCA4 run** — wire PCA4-only path end-to-end; run benchmark; **save baseline summary** before further changes
+3. **Baseline PCA4 run** — wire PCA4-only path end-to-end; run benchmark; **save baseline summary**; if blocked, fix flow before iteration
 4. **Calibration UX** — minimal overlay (no camera preview on fixation); sanity-only pass/fail
-5. **Preview** — read-only default post-calibration; camera preview hidden by default (CQ-4)
+5. **Preview** — read-only default post-calibration; camera preview **open/available** in normal UI (CQ-4); hidden during calibration only
 6. **Benchmark + failure analysis** — manual-start benchmark; per-key failure in summary; **analysis task** after each run
-7. **Iterate** — one change per cycle (layout, collection, PCA4 fit); re-benchmark vs baseline; no mapper variant hunts
+7. **Iterate** — result-driven accuracy work per decision guide; re-benchmark vs baseline (`tasks.md` Phase 8 defines iteration sequencing)
 8. **Cleanup phase A** — disconnect legacy paths from user flow
-9. **Cleanup phase B** — delete/archive unused code (dedicated tasks per removal) after active path proven
+9. **Cleanup phase B** — delete/archive after **active PCA4 path proven** (see definition)
 10. **Acceptance** — 3-session repeatability vs SC-001–SC-004 (CQ-1 thresholds)
-
-Each iteration phase (7) MUST include: baseline comparison → failure analysis →
-single change → re-benchmark → recorded outcome.
 
 ## Post-Design Constitution Re-check
 

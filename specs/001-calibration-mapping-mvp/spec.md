@@ -4,7 +4,7 @@
 
 **Created**: 2026-06-09
 
-**Status**: Draft (revised)
+**Status**: Draft (aligned with plan)
 
 **Input**: First practical MVP for the GazeKey redesign — a simple, reliable
 calibration and gaze-to-key mapping flow that answers whether the user's gaze
@@ -103,9 +103,10 @@ gaze-to-target error, and overall pass/fail.
 
 **Acceptance Scenarios**:
 
-1. **Given** calibration has passed, **When** the user starts the benchmark,
-   **Then** the system prompts gaze at each benchmark test key in sequence and
-   records whether the mapped position hits the correct key.
+1. **Given** calibration has passed and preview is available, **When** the user
+   **manually starts** the benchmark (button/menu — not automatic), **Then** the
+   system prompts gaze at each benchmark test key in sequence and records whether
+   the mapped position hits the correct key.
 2. **Given** a benchmark completes, **When** results are available, **Then** a
    run summary states pass or fail, key-hit accuracy, row accuracy, and
    median gaze-to-target error.
@@ -192,13 +193,19 @@ pass/fail and primary metrics.
   calibration session ends.
 - **FR-006**: System MUST require calibration at application start before
   preview or benchmark are available (per-session calibration for this MVP).
+- **FR-006a**: During calibration/fixation, the floating camera preview MUST be
+  **off by default** (user may opt in). It MUST NOT appear on top of or interfere
+  with the fixation target overlay. During normal preview/typing UI after
+  calibration, the camera preview remains **available** as part of the active
+  system UI (open by default in that mode unless user closes it).
 
 **Gaze mapping**
 
-- **FR-007**: At runtime the MVP MUST use **one active mapping approach** —
-  not a stack of undocumented correction layers. **Which** approach becomes
-  active is chosen during **planning** after evaluating candidates against
-  benchmark results; this spec does not lock the model before that evaluation.
+- **FR-007**: At runtime the MVP MUST use **one active mapping approach**:
+  **PCA4 ridge (`pca4_baseline`)** on PCA u/v eye features. No mapper variant
+  selection, multi-candidate ranking, or undocumented correction layers in the
+  active user path. Post-fit layers MAY be added only when a benchmark proves a
+  specific failure mode they fix (one layer at a time).
 - **FR-008**: System MUST provide **read-only gaze preview** after successful
   calibration: a position indicator only. Preview MUST NOT trigger key
   selection, dwell activation, text buffer updates, or typing.
@@ -210,9 +217,10 @@ pass/fail and primary metrics.
 
 - **FR-010**: System MUST provide a structured **benchmark** separate from
   calibration that tests whether mapped gaze hits the correct key for each
-  **benchmark test key**. Benchmark keys are for validation; they are defined
-  independently of calibration targets (may partially overlap, but serve a
-  different purpose).
+  **benchmark test key**. The benchmark is **started manually** by the user
+  after preview (not auto-run after calibration). Benchmark keys are for
+  validation; they are defined independently of calibration targets (may
+  partially overlap, but serve a different purpose).
 - **FR-011**: Benchmark test key count and placement are **planning decisions**.
   The repository's historical 15-key evaluation is a useful baseline reference;
   the plan SHOULD justify the chosen benchmark set (coverage across rows/columns,
@@ -245,6 +253,25 @@ pass/fail and primary metrics.
 - **FR-019**: Any file deletion or archival MUST be a dedicated approved task;
   no undeclared removals.
 
+**Result-driven accuracy work**
+
+- **FR-022**: Before any **major change** to calibration, geometry, or PCA4
+  mapping, the team MUST run an end-to-end **baseline PCA4 run** (calibrate →
+  preview → manual benchmark) and save a run summary for comparison. If the
+  baseline cannot complete end-to-end, **blocking flow issues** MUST be fixed
+  before accuracy iterations begin.
+- **FR-022a**: Each accuracy iteration MUST apply **at most one** change among
+  calibration layout, collection, geometry/hitboxes, or PCA4 fit path — per the
+  failure-pattern guide in `plan.md`.
+- **FR-023**: After each benchmark run, failure analysis MUST document which
+  keys/rows failed and whether the likely cause is mapping, geometry/hitboxes,
+  or calibration collection — as a short written conclusion in the run summary
+  or linked note, not a new diagnostics framework.
+- **FR-024**: Keyboard **geometry and hitboxes** MUST be verified so key centers
+  and hit test regions (`layout_inspector`, `key_hit_tester`) match on-screen
+  keys; calibration targets and benchmark scoring MUST use the same layout
+  snapshot.
+
 **Explicitly out of scope**
 
 - **FR-020**: System MUST NOT include predictive text, language switching,
@@ -272,17 +299,23 @@ pass/fail and primary metrics.
   benchmark run — pass/fail, primary metrics, brief failure reason when needed.
   Lightweight by design; format not fixed in this spec.
 
-### Deferred to planning and clarification
+### Resolved decisions (see plan.md)
 
-The following are intentionally **not locked** in this spec:
+| Topic | Resolution |
+|-------|------------|
+| Active mapping model | **PCA4 (`pca4_baseline`)** — chosen MVP direction |
+| Benchmark start | **Manual** after preview (CQ-3) |
+| Success thresholds | **Binding** initial targets (CQ-1); 80% key-hit is stretch only |
+| Per-session calibration | Yes (CQ-2) |
+| Camera preview | Off by default during calibration; available in post-calibration UI (CQ-4) |
+
+### Deferred to planning (tasks)
 
 | Topic | Spec stance |
 |-------|-------------|
-| Calibration target count and placement | Planning evaluates options; current 15-point layout is reference only |
-| Benchmark test key count and placement | Separate from calibration; planning defines validation set |
-| Active mapping model | One at runtime; choice made after planning compares candidates |
-| Run summary format | Simple and readable; no required file structure |
-| Numeric success thresholds | Initial targets below; refine in `/speckit-clarify` if needed |
+| Calibration target count and placement | Evaluate 9/13/15 from benchmark evidence; not locked here |
+| Benchmark test key set | 15 keys per plan (`DEFAULT_SAMPLE_KEYS`) |
+| Run summary file format | Simple and readable; no prescribed structure |
 
 ## Success Criteria *(mandatory)*
 
@@ -290,15 +323,14 @@ Historical baseline (repository evidence): archived **15-key benchmark** session
 showed **20%–60%** key-hit accuracy, high session-to-session variance, and poor
 correlation between internal quality gates and real key-hit accuracy.
 
-The numeric targets below are **initial MVP goals** for `/speckit-clarify` and
-planning. They MAY be tightened or adjusted with documented rationale before
-implementation — but key-hit benchmark accuracy remains the primary gate.
+The numeric targets below are **binding for this MVP** (CQ-1 resolved). They are
+not tightened further at this stage. Key-hit benchmark accuracy remains the
+primary gate. **≥ 80% key-hit is a non-binding stretch goal only.**
 
 ### Measurable Outcomes
 
-- **SC-001**: **Key-hit accuracy** — On a single benchmark run immediately
-  after calibration, **initial target: ≥ 67% correct keys** (e.g., 10 of 15 if
-  the benchmark uses 15 test keys). Stretch direction: ≥ 80%.
+- **SC-001**: **Key-hit accuracy** — On a single benchmark run, **≥ 67%
+  correct keys** (e.g., 10 of 15). Stretch (non-gating): ≥ 80%.
 - **SC-002**: **Pixel error** — **Initial target: median gaze-to-target error
   ≤ 55 pixels** on the benchmark set (repository best ~47 px mean error on
   passing sessions).
@@ -307,7 +339,7 @@ implementation — but key-hit benchmark accuracy remains the primary gate.
 - **SC-004**: **Session repeatability** — Across **3 calibration+benchmark
   sessions** on the same setup: every session meets a **minimum floor** (initial
   target: ≥ 53% key-hit accuracy) and the spread between best and worst session
-  is **≤ 20 percentage points**. Exact floor refinable in clarification.
+  is **≤ 20 percentage points**.
 - **SC-005**: **Run clarity** — After each calibration and benchmark, a user or
   tester can state pass/fail and primary metrics without reading verbose logs or
   many files.
@@ -323,7 +355,7 @@ implementation — but key-hit benchmark accuracy remains the primary gate.
 
 - Webcam-based eye tracking (reuse existing pipeline)
 - Virtual keyboard shell with calibration targets at defined screen positions
-- One active calibration path and one active mapping approach (chosen in plan)
+- One active calibration path and **PCA4** mapping (`pca4_baseline`)
 - Minimal calibration UI (dot + optional progress; pass/fail after session)
 - Read-only gaze preview after calibration
 - Separate benchmark flow to validate mapping accuracy
@@ -357,8 +389,11 @@ implementation — but key-hit benchmark accuracy remains the primary gate.
   rows and columns — exact sets decided in planning.
 - **Calibration vs benchmark**: Calibration teaches mapping; benchmark tests it.
   They are separate concerns and may use different point sets.
-- **Per-session calibration**: User calibrates at each application launch for
-  this MVP; persistence across launches may be addressed in a later spec.
+- **Per-session calibration** (CQ-2): User calibrates at each application launch;
+  no loading saved calibration on startup.
+- **Camera preview** (CQ-4): Hidden/off by default during calibration fixation;
+  must not overlap the fixation overlay. Available in post-calibration preview/
+  normal UI as an active system component.
 - **Head movement**: Small natural movement is expected; excessive head drift
   during a target invalidates that target or the session.
 - **Validation priority**: Key-hit benchmark is the primary acceptance test;

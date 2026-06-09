@@ -124,14 +124,16 @@ proves extraction is the bottleneck.
 
 **Decision**: `tasks.md` MUST enforce practical, result-driven work:
 
-1. **Baseline PCA4 run** before any major change (saved summary in `runs/`)
-2. **Failure analysis** after every benchmark (which keys/rows; mapping vs geometry)
-3. **Keyboard geometry verification** — hitboxes and centers aligned before trusting scores
-4. **Cleanup phase B** — delete/archive unused code after active path proven (not disconnect-only)
-5. **Minimal `evaluation/`** — benchmark + summary + failure fields only
+1. **Baseline PCA4 run** before Phase 8 (saved summary in `runs/`); if blocked, fix flow first
+2. **One accuracy change per iteration** — T030–T033 are mutually exclusive picks from plan decision guide
+3. **Failure analysis** after every benchmark (which keys/rows; mapping vs geometry vs collection)
+4. **PCA4 fit iteration** (T033) allowed only when failure analysis justifies — not mapper variant hunts
+5. **Keyboard geometry verification** before trusting scores
+6. **Cleanup phase B** after **active PCA4 path proven** (plan definition) — delete/archive, not disconnect-only
+7. **Minimal `evaluation/`** — benchmark + summary + failure fields only
 
-**Rationale**: Prevents task lists that jump to refactors without measurable baselines
-or that grow evaluation into a diagnostics platform.
+**Rationale**: Prevents parallel accuracy changes, refactors without baselines, or
+evaluation sprawl into a diagnostics platform.
 
 ---
 

@@ -33,9 +33,11 @@ gazekey/evaluation/
 
 ## Task discipline
 
-1. **Baseline run** — record summary before major changes
-2. **Failure analysis** — document key/row failure patterns after each benchmark
-3. **Compare** — label re-runs as improved / unchanged / regressed vs baseline
+1. **Baseline run** — end-to-end required before Phase 8; fix flow if blocked
+2. **One change per iteration** — layout, collection, geometry, or PCA4 fit only
+3. **Failure analysis** — document patterns; use plan.md decision guide
+4. **Compare** — label re-runs as improved / unchanged / regressed vs baseline
+5. **No diagnostics framework** — no mapper compare, dashboards, or replay UI
 
 ## Acceptance
 
