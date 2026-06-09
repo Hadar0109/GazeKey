@@ -17,6 +17,7 @@ from gazekey.mapping.ridge import (
 )
 from gazekey.mapping.local_y_correction import MapperWithLocalYCorrection
 from gazekey.mapping.row_bias import MapperWithRowBias, attach_row_y_bias
+from gazekey.mvp_log import mvp_log
 
 CALIBRATION_V2_FILE_VERSION = 7
 DEFAULT_CALIBRATION_V2_PATH = Path(__file__).resolve().parents[2] / "calibration_v2.json"
@@ -183,7 +184,11 @@ def mapper_from_dict(data: dict[str, Any]) -> Optional[RidgeCalibrationMapper]:
     """Deserialize a ridge mapper; returns None if version/type unsupported."""
     version = int(data.get("file_version", 0))
     if version != CALIBRATION_V2_FILE_VERSION:
-        print(f"[calib2] calibration_v2.json version {version} unsupported (need {CALIBRATION_V2_FILE_VERSION})")
+        mvp_log(
+            f"[calib2] calibration_v2.json version {version} unsupported "
+            f"(need {CALIBRATION_V2_FILE_VERSION})",
+            always=True,
+        )
         return None
 
     n = int(data.get("train_n", 0))
@@ -278,7 +283,7 @@ def mapper_from_dict(data: dict[str, Any]) -> Optional[RidgeCalibrationMapper]:
         )
 
     if model is None:
-        print(f"[calib2] unknown mapper_type in calibration_v2.json: {mtype}")
+        mvp_log(f"[calib2] unknown mapper_type in calibration_v2.json: {mtype}", always=True)
         return None
     return _apply_wrappers_from_dict(model, data)
 
@@ -305,10 +310,10 @@ class MapperStore:
             )
             with open(self.path, "w", encoding="utf-8") as f:
                 json.dump(payload, f, indent=2)
-            print(f"[calib2] saved v2 mapper to {self.path}")
+            mvp_log(f"[calib2] saved v2 mapper to {self.path}")
             return True
         except (OSError, TypeError, ValueError) as e:
-            print(f"[calib2] failed to save v2 mapper: {e}")
+            mvp_log(f"[calib2] failed to save v2 mapper: {e}", always=True)
             return False
 
     def load(self) -> Optional[Tuple[RidgeCalibrationMapper, str, str]]:
@@ -319,7 +324,7 @@ class MapperStore:
             with open(self.path, "r", encoding="utf-8") as f:
                 data = json.load(f)
         except (OSError, json.JSONDecodeError) as e:
-            print(f"[calib2] failed to load v2 mapper: {e}")
+            mvp_log(f"[calib2] failed to load v2 mapper: {e}", always=True)
             return None
         model = mapper_from_dict(data)
         if model is None:

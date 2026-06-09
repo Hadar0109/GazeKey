@@ -16,6 +16,7 @@ from gazekey.calibration2.fixation_gate import FixationGate, FixationGateConfig,
 from gazekey.calibration2.outliers import check_target_mean_outlier
 from gazekey.calibration2.targets import CalibrationTarget
 from gazekey.features.feature_types import FrameFeatures
+from gazekey.mvp_log import mvp_log, mvp_verbose
 
 
 @dataclass(frozen=True)
@@ -205,9 +206,9 @@ class CalibrationV2Session:
             )
             if outlier_msg is not None:
                 self._outlier_retries[idx] += 1
-                print(f"[calib2] target outlier: {outlier_msg}")
+                mvp_log(f"[calib2] target outlier: {outlier_msg}")
                 if self._outlier_retries[idx] <= self.max_outlier_retries_per_target:
-                    print(
+                    mvp_log(
                         f"[calib2] recollecting target {self.targets[idx].label} "
                         f"(attempt {self._outlier_retries[idx]}/{self.max_outlier_retries_per_target})"
                     )
@@ -216,7 +217,7 @@ class CalibrationV2Session:
                     self._accepted_frames[idx].clear()
                     self.begin_target()
                     return
-                print(
+                mvp_log(
                     f"[calib2] outlier retries exhausted for {self.targets[idx].label} — "
                     "calibration will fail at end if quality gates reject fit"
                 )
@@ -328,8 +329,10 @@ class CalibrationV2Session:
 
     def print_training_means(self) -> None:
         """Log per-target mean features with horizontal and vertical signals separated."""
-        print("[calib2] --- per-target training means (u/v per eye) ---")
-        print(
+        if not mvp_verbose():
+            return
+        mvp_log("[calib2] --- per-target training means (u/v per eye) ---")
+        mvp_log(
             "[calib2] "
             f"{'id':<4} {'label':<14} {'screen':>12} "
             f"{'uL':>8} {'vL':>8} {'uR':>8} {'vR':>8} {'avg_v':>8}"
@@ -337,14 +340,14 @@ class CalibrationV2Session:
         for i, t in enumerate(self.targets):
             frames = self._accepted_features[i]
             if not frames:
-                print(f"[calib2] T{i+1:02d} {t.label:<14} (no mean)")
+                mvp_log(f"[calib2] T{i+1:02d} {t.label:<14} (no mean)")
                 continue
             f = frames[-1]
 
             def _f(v: Optional[float]) -> str:
                 return f"{float(v):8.4f}" if v is not None else "     n/a"
 
-            print(
+            mvp_log(
                 "[calib2] "
                 f"T{i+1:02d} {t.label:<14} "
                 f"({int(t.screen_x):4d},{int(t.screen_y):4d}) "

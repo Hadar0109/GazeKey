@@ -9,6 +9,7 @@ import numpy as np
 
 from gazekey.calibration2.targets import CalibrationTarget, calibration_row_groups
 from gazekey.features.feature_types import FrameFeatures
+from gazekey.mvp_log import mvp_log
 
 
 @dataclass(frozen=True)
@@ -188,11 +189,11 @@ def assess_region_gates(
         max_train_region_wrong = default_max_train
 
     if verbose:
-        print(
+        mvp_log(
             f"[calib2] region gate limits: graded={_n_graded} "
             f"max_train_wrong={max_train_region_wrong} max_loocv_wrong={max_loocv_region_wrong}"
         )
-        print("[calib2] --- calibration target region check (train) ---")
+        mvp_log("[calib2] --- calibration target region check (train) ---")
     for i, (feat, (tx, ty)) in enumerate(samples):
         if i >= len(targets) or not _is_graded_target(targets[i]):
             continue
@@ -219,7 +220,7 @@ def assess_region_gates(
             out.worst_train_label = row.label
         status = "OK" if row.region_ok else "WRONG_REGION"
         if verbose:
-            print(
+            mvp_log(
                 f"[calib2] train {row.target_id} {row.label}: "
                 f"expect={row.expected.row}/{row.expected.col} "
                 f"pred={row.predicted.row}/{row.predicted.col} "
@@ -228,7 +229,7 @@ def assess_region_gates(
 
     if loocv_detail:
         if verbose:
-            print("[calib2] --- calibration target region check (LOOCV) ---")
+            mvp_log("[calib2] --- calibration target region check (LOOCV) ---")
         for d in loocv_detail:
             i = int(d["i"])
             if i >= len(targets) or i >= len(samples) or not _is_graded_target(targets[i]):
@@ -253,7 +254,7 @@ def assess_region_gates(
                 out.worst_loocv_label = row.label
             status = "OK" if row.region_ok else "WRONG_REGION"
             if verbose:
-                print(
+                mvp_log(
                     f"[calib2] loocv {row.target_id} {row.label}: "
                     f"expect={row.expected.row}/{row.expected.col} "
                     f"pred={row.predicted.row}/{row.predicted.col} "
@@ -262,11 +263,11 @@ def assess_region_gates(
 
     if verbose:
         if out.worst_train_label:
-            print(
+            mvp_log(
                 f"[calib2] worst train: {out.worst_train_label} err={out.worst_train_err_px:.1f}px"
             )
         if out.worst_loocv_label:
-            print(
+            mvp_log(
                 f"[calib2] worst LOOCV: {out.worst_loocv_label} err={out.worst_loocv_err_px:.1f}px"
             )
 
@@ -301,7 +302,7 @@ def compute_row_y_residuals(
     groups = [("top", top_i), ("mid", mid_i), ("bottom", bot_i)]
     centers: List[float] = []
     biases: List[float] = []
-    print("[calib2] --- row-level Y residuals (train, before bias correction) ---")
+    mvp_log("[calib2] --- row-level Y residuals (train, before bias correction) ---")
     for row_name, indices in groups:
         ys: List[float] = []
         res: List[float] = []
@@ -318,7 +319,7 @@ def compute_row_y_residuals(
         bias = float(np.mean(res)) if res else 0.0
         centers.append(cy)
         biases.append(bias)
-        print(
+        mvp_log(
             f"[calib2] row {row_name}: n={len(res)} mean_target_y={cy:.1f} "
             f"mean_residual_dy={bias:+.1f}px"
         )

@@ -29,6 +29,7 @@ from gazekey.calibration.calibration_session import (
 )
 from gazekey.calibration2.session import CalibrationV2Result, CalibrationV2Session
 from gazekey.features.feature_types import FrameFeatures
+from gazekey.mvp_log import mvp_log
 
 
 class CalibrationDotWidget(QWidget):
@@ -400,7 +401,7 @@ class CalibrationOverlay(QWidget):
                 if idx < len(self._session_v2.targets)
                 else f"T{idx+1:02d}"
             )
-            print(
+            mvp_log(
                 f"[calib2] target {label}: collection enabled after {PREPARE_MS}ms prepare "
                 f"(fixation lock-on ~{self._session_v2.gate.cfg.lock_on_ms:.0f}ms before samples count)"
             )

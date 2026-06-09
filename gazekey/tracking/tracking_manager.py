@@ -5,6 +5,8 @@ Orchestrates video capture and eye detection in background thread
 
 import threading
 import time
+
+from gazekey.mvp_log import mvp_log
 from typing import Optional, Callable
 from gazekey.tracking.video_capture import VideoCapture
 from gazekey.tracking.eye_detector import EyeDetector, EyeData
@@ -57,12 +59,12 @@ class TrackingManager:
             bool: True if tracking started successfully
         """
         if self.is_tracking:
-            print("Tracking already running")
+            mvp_log("Tracking already running")
             return True
         
         # Start camera
         if not self.video_capture.start():
-            print("Failed to start camera")
+            mvp_log("Failed to start camera", always=True)
             return False
         
         self.callback = callback
@@ -72,7 +74,7 @@ class TrackingManager:
         self.tracking_thread = threading.Thread(target=self._tracking_loop, daemon=True)
         self.tracking_thread.start()
         
-        print("Eye tracking started")
+        mvp_log("Eye tracking started")
         return True
     
     def stop_tracking(self):
@@ -89,8 +91,10 @@ class TrackingManager:
         # Stop camera
         self.video_capture.stop()
         
-        print(f"Eye tracking stopped. Processed {self.frame_count} frames, "
-              f"detected face in {self.detection_count} frames")
+        mvp_log(
+            f"Eye tracking stopped. Processed {self.frame_count} frames, "
+            f"detected face in {self.detection_count} frames"
+        )
         
         # Reset statistics
         self.frame_count = 0
@@ -103,7 +107,7 @@ class TrackingManager:
         
         Continuously captures frames and detects eyes
         """
-        print("Tracking loop started")
+        mvp_log("Tracking loop started")
         
         while self.is_tracking:
             frame_start = time.perf_counter()
@@ -133,9 +137,10 @@ class TrackingManager:
             else:
                 self._no_face_frames += 1
                 if self._no_face_frames == 30:
-                    print(
+                    mvp_log(
                         f"WARNING: No face detected for {self._no_face_frames} "
-                        "consecutive frames."
+                        "consecutive frames.",
+                        always=True,
                     )
             
             # Call callback if provided (always call, even if no face detected)
@@ -143,12 +148,12 @@ class TrackingManager:
                 try:
                     self.callback(eye_data)
                 except Exception as e:
-                    print(f"Error in tracking callback: {e}")
+                    mvp_log(f"Error in tracking callback: {e}", always=True)
             
             elapsed = time.perf_counter() - frame_start
             time.sleep(max(0.0, self._frame_interval - elapsed))
         
-        print("Tracking loop ended")
+        mvp_log("Tracking loop ended")
     
     def get_statistics(self) -> dict:
         """

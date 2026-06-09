@@ -1,1 +1,0 @@
-[calibration] FAILED session=fcce219d73a6 layout=keyboard15 targets=15/15 reason=pca4_baseline did not pass quality gates (pca4_baseline: train region wrong on 4 target(s) (allowed 1), LOOCV region wrong on 4 target(s) (allowed 2), (warning) worst LOOCV 202.1px > 110.0px, (warning) max train error 162.3px > 60.0px). Recalibrate with steadier fixation.

@@ -12,6 +12,8 @@ from typing import Optional, Tuple
 
 import numpy as np
 
+from gazekey.mvp_log import mvp_log
+
 
 def _augment_u(u_l: np.ndarray, u_r: np.ndarray) -> np.ndarray:
     """Design matrix [1, uL, uR] for n samples."""
@@ -92,18 +94,18 @@ def coupling_report(
             return float("nan")
         return float(np.corrcoef(a, b)[0, 1])
 
-    print("[calib2] --- u–v coupling (horizontal vs vertical features) ---")
-    print(
+    mvp_log("[calib2] --- u–v coupling (horizontal vs vertical features) ---")
+    mvp_log(
         f"[calib2] raw corr(vL,uL)={corr(v_l, u_l):.3f} corr(vL,uR)={corr(v_l, u_r):.3f} "
         f"corr(vR,uR)={corr(v_r, u_r):.3f} corr(vR,uL)={corr(v_r, u_l):.3f}"
     )
-    print(
+    mvp_log(
         f"[calib2] raw corr(v_mean,u_mean)={corr(0.5 * (v_l + v_r), u_mean):.3f} "
         f"(high |r| => vertical conflated with horizontal)"
     )
     if beta_l is not None and beta_r is not None:
         vl_r, vr_r = apply_v_residualizers_batch(u_l, u_r, v_l, v_r, beta_l=beta_l, beta_r=beta_r)
-        print(
+        mvp_log(
             f"[calib2] decoupled corr(vL_res,u_mean)={corr(vl_r, u_mean):.3f} "
             f"corr(vR_res,u_mean)={corr(vr_r, u_mean):.3f}"
         )

@@ -12,6 +12,8 @@ import numpy as np
 from typing import Optional, List, Tuple
 from dataclasses import dataclass
 
+from gazekey.mvp_log import mvp_log
+
 
 @dataclass
 class EyeData:
@@ -83,9 +85,9 @@ class EyeDetector:
                 min_tracking_confidence=0.5
             )
             self.landmarker = vision.FaceLandmarker.create_from_options(options)
-            print(f"MediaPipe Face Landmarker initialized (model: {model_path})")
+            mvp_log(f"MediaPipe Face Landmarker initialized (model: {model_path})")
         except Exception as e:
-            print(f"ERROR: Failed to initialize MediaPipe Face Landmarker: {e}")
+            mvp_log(f"ERROR: Failed to initialize MediaPipe Face Landmarker: {e}", always=True)
             raise
     
     def detect(self, frame: np.ndarray, timestamp_ms: int) -> EyeData:
@@ -121,7 +123,7 @@ class EyeDetector:
             return eye_data
             
         except Exception as e:
-            print(f"Error detecting eyes: {e}")
+            mvp_log(f"Error detecting eyes: {e}", always=True)
             return EyeData(face_detected=False)
     
     def _landmark_xy(self, face_landmarks, index: int) -> Tuple[float, float]:
@@ -210,4 +212,4 @@ class EyeDetector:
         """Cleanup MediaPipe resources"""
         if self.landmarker:
             self.landmarker.close()
-            print("MediaPipe Face Landmarker closed")
+            mvp_log("MediaPipe Face Landmarker closed")

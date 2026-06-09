@@ -102,9 +102,9 @@
 
 **Purpose**: Establish comparison baseline per FR-022. **Phase 8 is blocked** until this completes end-to-end.
 
-- [ ] T029 Run end-to-end baseline: calibrate → preview → dev-flag benchmark (`GAZEKEY_DEV_BENCHMARK=1`); save summary to `runs/baseline_pca4_summary.txt` (FR-022)
-- [ ] T030 Document baseline metrics (key-hit, row accuracy, median error) and failure analysis note in `runs/baseline_pca4_summary.txt` (FR-023)
-- [ ] T031 If T029 **cannot** complete end-to-end, fix blocking flow issues in Phases 3–6 (crash, calibration won't pass, preview/benchmark won't start) — **do not** enter Phase 8 until T029 succeeds
+- [x] T029 Run end-to-end baseline: calibrate → preview → dev-flag benchmark (`GAZEKEY_DEV_BENCHMARK=1`); save summary to `runs/baseline_pca4_summary.txt` (FR-022)
+- [x] T030 Document baseline metrics (key-hit, row accuracy, median error) and failure analysis note in `runs/baseline_pca4_summary.txt` (FR-023)
+- [ ] T031 If T029 **cannot** complete end-to-end, fix blocking flow issues in Phases 3–6 (crash, calibration won't pass, preview/benchmark won't start) — **do not** enter Phase 8 until T029 succeeds (not required; T029 completed end-to-end)
 
 **Checkpoint**: Saved baseline summary exists. If not, fix flow only (no accuracy iterations).
 

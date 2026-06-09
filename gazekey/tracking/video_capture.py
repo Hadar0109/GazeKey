@@ -7,6 +7,8 @@ import cv2
 import numpy as np
 from typing import Optional, Tuple
 
+from gazekey.mvp_log import mvp_log
+
 
 class VideoCapture:
     """
@@ -38,7 +40,7 @@ class VideoCapture:
             self.cap = cv2.VideoCapture(self.camera_id)
             
             if not self.cap.isOpened():
-                print(f"Error: Could not open camera {self.camera_id}")
+                mvp_log(f"Error: Could not open camera {self.camera_id}", always=True)
                 return False
             
             # Set camera properties for optimal performance
@@ -47,7 +49,7 @@ class VideoCapture:
             self.cap.set(cv2.CAP_PROP_FPS, 30)
             
             self.is_running = True
-            print(f"Camera {self.camera_id} opened successfully")
+            mvp_log(f"Camera {self.camera_id} opened successfully")
             return True
             
         except Exception as e:

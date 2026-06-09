@@ -1,0 +1,161 @@
+# Baseline PCA4 — Phase 7 (T029–T030) + pre-Phase-8 verification
+# Feature: 001-calibration-mapping-mvp
+# Date: 2026-06-09
+# Mapper: pca4_baseline (PCA4-only active path; LOOCV candidate ranking disabled)
+# Launch: GAZEKEY_DEV_BENCHMARK=1, python main.py
+# Flow: calibrate → preview → auto benchmark → summary written (end-to-end OK)
+
+---
+
+## Session A — degraded / bad-session bound (official T029 record)
+
+**Calibration** (`c6f6b3214ccf`):
+[calibration] PASSED session=c6f6b3214ccf layout=keyboard15 targets=15/15 loocv_rms=77.4px (supplementary) quality_warnings=17
+
+Source: runs/calibration_c6f6b3214ccf.txt
+
+**Benchmark** (`c6f6b3214ccf-bench1781020958`):
+
+| Metric           | Result     | CQ-1 threshold | Status |
+|------------------|------------|----------------|--------|
+| Key-hit accuracy | 3/15 (20%) | ≥ 10/15 (~67%) | FAIL   |
+| Row accuracy     | 6/15 (40%) | ≥ 80%          | FAIL   |
+| Median error     | 85 px      | ≤ 55 px        | FAIL   |
+| Overall          | FAILED     | all three      | FAIL   |
+
+[benchmark] FAILED session=c6f6b3214ccf-bench1781020958 keys=3/15 (20%) row=6/15 median_err=85px reason=key-hit 3/15 (20%) < 10/15 (~67%); median_err 85.2px > 55px; row 6/15 (40%) < 80%
+
+Source: runs/benchmark_c6f6b3214ccf-bench1781020958.txt
+
+Keys correct (3/15): Q, E, U
+
+Failure analysis: likely_cause=mapping; keys_failed=12/15; rows_failed=9/15
+dx/dy pattern: mostly +dx (right), −dy (above row); large errors (74–157 px)
+
+Calibration quality signals (supplementary):
+- head drift: face_x span 0.0203, face_y span 0.0146 (both over limit)
+- avg_v monotonicity INVALID (row separation 0.0179)
+- corr(screen_y, avg_v)=0.310
+- region-wrong: 6 train / 6 LOOCV
+
+---
+
+## Session B — clean-session reference / pass (verification run)
+
+**Calibration** (`57f3b737923e`):
+[calibration] PASSED session=57f3b737923e layout=keyboard15 targets=15/15 loocv_rms=72.8px (supplementary) quality_warnings=11
+
+Source: runs/calibration_57f3b737923e.txt
+
+**Benchmark** (`57f3b737923e-bench1781021594`):
+
+| Metric           | Result      | CQ-1 threshold | Status |
+|------------------|-------------|----------------|--------|
+| Key-hit accuracy | 10/15 (67%) | ≥ 10/15 (~67%) | PASS   |
+| Row accuracy     | 12/15 (80%) | ≥ 80%          | PASS   |
+| Median error     | 44 px       | ≤ 55 px        | PASS   |
+| Overall          | PASSED      | all three      | PASS   |
+
+[benchmark] PASSED session=57f3b737923e-bench1781021594 keys=10/15 (67%) row=12/15 median_err=44px
+
+Source: runs/benchmark_57f3b737923e-bench1781021594.txt
+
+Keys correct (10/15): Q, E, T, U, A, J, Z, C, B, Space
+
+Failure analysis: likely_cause=none; keys_failed=5/15; rows_failed=3/15
+
+Per-key misses (session B only):
+  P -> O   dx=-71.1 dy=-29.9 err=77.1px
+  D -> X   dx=+10.6 dy=+44.0 err=45.3px
+  G -> H   dx=+63.8 dy=+13.5 err=65.2px
+  L -> I   dx=-92.5 dy=-36.6 err=99.1px
+  M -> K   dx=-37.0 dy=-79.7 err=87.8px
+
+Calibration quality signals (supplementary):
+- head drift: eye_box_h only (face_x/face_y within limits)
+- avg_v monotonicity VALID (row separation 0.0389)
+- corr(screen_y, avg_v)=0.568
+- region-wrong: 3 train / 4 LOOCV
+
+---
+
+## Session C — intermediate unstable run (pre-Phase-8)
+
+**Calibration** (`5ba1fec9869c`):
+[calibration] PASSED session=5ba1fec9869c layout=keyboard15 targets=15/15 loocv_rms=55.2px (supplementary) quality_warnings=6
+
+Source: runs/calibration_5ba1fec9869c.txt
+
+**Benchmark** (`5ba1fec9869c-bench1781022558`):
+
+| Metric           | Result     | CQ-1 threshold | Status |
+|------------------|------------|----------------|--------|
+| Key-hit accuracy | 6/15 (40%) | ≥ 10/15 (~67%) | FAIL   |
+| Row accuracy     | 6/15 (40%) | ≥ 80%          | FAIL   |
+| Median error     | 61 px      | ≤ 55 px        | FAIL   |
+| Overall          | FAILED     | all three      | FAIL   |
+
+[benchmark] FAILED session=5ba1fec9869c-bench1781022558 keys=6/15 (40%) row=6/15 median_err=61px reason=key-hit 6/15 (40%) < 10/15 (~67%); median_err 61.2px > 55px; row 6/15 (40%) < 80%
+
+Source: runs/benchmark_5ba1fec9869c-bench1781022558.txt
+
+Keys correct (6/15): Q, T, U, P, D, G
+
+Failure analysis: likely_cause=mapping; keys_failed=9/15; rows_failed=9/15
+
+Per-key misses (session C):
+  E -> S   dx=-25.6 dy=+68.6  err=73.3px
+  A -> Q   dx=-166.0 dy=-51.3 err=173.8px
+  J -> U   dx=-68.7 dy=-95.6  err=117.8px
+  L -> O   dx=-34.9 dy=-48.4  err=59.7px
+  Z -> A   dx=-107.0 dy=-36.4 err=113.0px
+  C -> F   dx=-21.0 dy=-34.6  err=40.5px
+  B -> Y   dx=-38.6 dy=-104.5 err=111.4px
+  M -> J   dx=-74.6 dy=-101.0 err=125.6px
+  Space -> V dx=-32.8 dy=-53.3 err=62.6px
+
+dx/dy pattern: mostly −dx (left), −dy (above row); mixed with one +dy on E miss
+
+Calibration quality signals (supplementary):
+- quality_warnings=6 (fewest of three sessions; LOOCV 55.2px best of three)
+- benchmark still failed — calibration pass + low LOOCV does not guarantee benchmark pass
+
+---
+
+## Cross-session comparison (all three runs)
+
+| Metric           | Session A (degraded) | Session B (clean) | Session C (intermediate) |
+|------------------|----------------------|-------------------|--------------------------|
+| Key-hit          | 3/15 (20%)           | 10/15 (67%)       | 6/15 (40%)               |
+| Row accuracy     | 6/15 (40%)           | 12/15 (80%)       | 6/15 (40%)               |
+| Median error     | 85 px                | 44 px             | 61 px                    |
+| LOOCV RMS        | 77.4 px              | 72.8 px           | 55.2 px                  |
+| Quality warnings | 17                   | 11                | 6                        |
+| Overall          | FAIL                 | PASS              | FAIL                     |
+
+**Key-hit range across sessions:** 20% → 67% (spread **47 pp**; SC-004 limit ≤ 20 pp)
+
+**Session C vs A:** +3 keys, same row (40%), −24 px median — better than A but far from B
+**Session C vs B:** −4 keys, −40 pp row, +17 px median — substantial regression from clean session
+
+Keys correct in all three: Q (3/3)
+Keys correct in B and C only: T, U, P, D, G
+Keys correct in A and B only: E
+Keys correct in A only: (none beyond Q, E, U overlap)
+
+---
+
+## Conclusion (before Phase 8)
+
+1. **PCA4 can pass SC-001–SC-003 in a clean session, but performance is not repeatable yet** — Session B meets all single-run MVP thresholds (10/15 keys, 80% row, 44 px median). Sessions A and C fail the same thresholds with no code changes between runs.
+
+2. **Current spread is 20% → 67% key-hit, which fails SC-004 repeatability** — Three manual runs span 47 percentage points on key-hit (20%, 40%, 67%), well above the 20 pp SC-004 limit. Row accuracy spans 40%–80%. Median error spans 44–85 px. Session C (6/15, 61 px) sits between the degraded floor and clean reference, confirming instability rather than a single bad outlier.
+
+3. **The next Phase 8 direction should consider repeatability / calibration collection / posture stability before aggressive mapper changes** — Session C had the best supplementary LOOCV (55.2 px) and fewest quality warnings (6) yet still scored 6/15 — benchmark outcome decouples from fit metrics when collection/posture varies. Prioritize fixation gates, head-drift enforcement, and collection consistency (T033 collection iteration) over PCA4/ridge tuning (T035) until key-hit spread narrows.
+
+**Phase 8 reference:**
+- **Capability bound:** Session B (10/15, 44 px)
+- **Degraded floor:** Session A (3/15, 85 px)
+- **Intermediate:** Session C (6/15, 61 px)
+
+**Checkpoint:** T029–T030 complete. Three-run baseline recorded. Phase 8 not started.

@@ -28,6 +28,7 @@ from gazekey.calibration2.region_quality import (
     region_gate_limits,
 )
 from gazekey.mapping.base import MapperFitResult, MapperPrediction
+from gazekey.mvp_log import mvp_log, mvp_verbose
 from gazekey.mapping.local_y_correction import MapperWithLocalYCorrection, attach_local_y_correction
 from gazekey.mapping.row_bias import MapperWithRowBias, attach_row_y_bias
 from gazekey.mapping.typing_candidate import (
@@ -161,7 +162,7 @@ def _auto_alpha(
             chosen_loocv = min(t[0] for t in near if t[1] == chosen_alpha)
             chosen_alpha = float(max(float(min_alpha), chosen_alpha))
             parts = " ".join(f"a={a:.0f}:{rms:.1f}px" for rms, a in sorted(scored, key=lambda t: t[1]))
-            print(
+            mvp_log(
                 f"[calib2] alpha grid {label}: {parts} "
                 f"-> selected {chosen_alpha:.1f} "
                 f"(best_loocv={best_loocv:.1f}px tol={tol:.1f}px "
@@ -169,7 +170,7 @@ def _auto_alpha(
             )
             return chosen_alpha
     except Exception as e:
-        print(f"[calib2] alpha grid {label}: failed ({e}), using min_alpha={min_alpha:.1f}")
+        mvp_log(f"[calib2] alpha grid {label}: failed ({e}), using min_alpha={min_alpha:.1f}")
     return float(min_alpha)
 
 
@@ -375,12 +376,12 @@ def _pick_poly12_y_mode(
     r_poly = _loocv_rms_from_detail(d_poly)
     r_dec = _loocv_rms_from_detail(d_dec)
     if r_dec < r_poly - 1e-6:
-        print(f"[calib2] poly12 Y-mode: decoupled_v LOOCV={r_dec:.1f}px beats poly12={r_poly:.1f}px")
+        mvp_log(f"[calib2] poly12 Y-mode: decoupled_v LOOCV={r_dec:.1f}px beats poly12={r_poly:.1f}px")
         return "decoupled_v"
     if r_poly < r_dec - 1e-6:
-        print(f"[calib2] poly12 Y-mode: poly12 LOOCV={r_poly:.1f}px beats decoupled_v={r_dec:.1f}px")
+        mvp_log(f"[calib2] poly12 Y-mode: poly12 LOOCV={r_poly:.1f}px beats decoupled_v={r_dec:.1f}px")
         return "poly12"
-    print(f"[calib2] poly12 Y-mode: tie ({r_poly:.1f}px) — using poly12")
+    mvp_log(f"[calib2] poly12 Y-mode: tie ({r_poly:.1f}px) — using poly12")
     return "poly12"
 
 
@@ -953,7 +954,9 @@ def _evaluate_candidate(
 
 
 def print_mapper_candidate_reports(reports: Sequence[MapperCandidateReport]) -> None:
-    print("[calib2] --- mapper candidate comparison (LOOCV refit per fold) ---")
+    if not mvp_verbose():
+        return
+    mvp_log("[calib2] --- mapper candidate comparison (LOOCV refit per fold) ---")
     for r in reports:
         alpha_s = f"{r.alpha:.1f}" if r.alpha is not None else "n/a"
         gates_s = (
@@ -961,7 +964,7 @@ def print_mapper_candidate_reports(reports: Sequence[MapperCandidateReport]) -> 
             if r.quality_gates_passed
             else ("FAILED" if r.quality_gates_passed is False else "n/a")
         )
-        print(
+        mvp_log(
             f"[calib2] candidate mapper_type={r.mapper_type} success={r.success} "
             f"train_RMS={_fmt_px(r.train_rms_px)} "
             f"LOOCV_RMS={_fmt_px(r.loocv_rms_px)} "
@@ -973,9 +976,9 @@ def print_mapper_candidate_reports(reports: Sequence[MapperCandidateReport]) -> 
         if r.quality_gate_reasons:
             for reason in r.quality_gate_reasons:
                 tag = "warning" if str(reason).startswith("(warning)") else "gate"
-                print(f"[calib2]   {tag}: {reason}")
+                mvp_log(f"[calib2]   {tag}: {reason}")
         if r.worst_train_label or r.region_train_wrong or r.region_loocv_wrong:
-            print(
+            mvp_log(
                 f"[calib2]   region: train_wrong={r.region_train_wrong} "
                 f"loocv_wrong={r.region_loocv_wrong} "
                 f"worst_train={r.worst_train_label or 'n/a'} "
@@ -1018,7 +1021,7 @@ def _rank_candidates(
     if prefer_poly12_on_coupling and abs(float(v_u_corr)) >= COUPLING_POLY12_THRESH:
         poly = [r for r in pool if _is_poly12_mapper(r.mapper_type)]
         if poly:
-            print(
+            mvp_log(
                 f"[calib2] mapper pool: high v–u coupling (r={v_u_corr:.3f}) — "
                 f"prefer poly12 candidates ({len(poly)}/{len(pool)})"
             )
@@ -1064,7 +1067,7 @@ def fit_calibration_mapper(
     Other ridge candidates (decoupled, poly12, etc.) remain in this module but are not
     evaluated on the active calibration path while FROZEN_ACTIVE_MAPPER is set.
     """
-    print(
+    mvp_log(
         f"[calib2] mapper freeze: active path locked to {FROZEN_ACTIVE_MAPPER} "
         f"(LOOCV candidate ranking disabled)"
     )
@@ -1115,7 +1118,7 @@ def fit_calibration_mapper(
 
     if winner.quality_gate_reasons:
         warn_preview = ", ".join(winner.quality_gate_reasons[:3])
-        print(
+        mvp_log(
             "[calib2] mapper fit usable for preview/benchmark "
             f"(supplementary quality warnings: {warn_preview})"
         )
@@ -1141,7 +1144,7 @@ def fit_calibration_mapper(
                 verbose=True,
             )
 
-    print(
+    mvp_log(
         f"[calib2] SELECTED mapper_type={FROZEN_ACTIVE_MAPPER} "
         f"(frozen active mapper; inner_type={final_model.mapper_type}) "
         f"LOOCV_RMS={_fmt_px(winner.loocv_rms_px)} "

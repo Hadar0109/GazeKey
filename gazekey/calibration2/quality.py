@@ -12,6 +12,7 @@ from gazekey.calibration2.targets import CalibrationTarget, calibration_row_grou
 from gazekey.features.feature_types import FrameFeatures
 from gazekey.features.vertical_decouple import apply_v_residualizers_batch, fit_v_residualizers
 from gazekey.mapping.ridge import RidgeCalibrationMapper
+from gazekey.mvp_log import mvp_log, mvp_verbose
 
 
 @dataclass(frozen=True)
@@ -79,8 +80,8 @@ def analyze_vertical_features(
     """Per-target vertical feature table + row aggregates."""
     top_i, mid_i, bot_i = calibration_row_groups(targets)
 
-    print("[calib2] --- per-target vertical features (training means) ---")
-    print(
+    mvp_log("[calib2] --- per-target vertical features (training means) ---")
+    mvp_log(
         "[calib2] "
         f"{'id':<4} {'label':<14} {'screen_y':>8} "
         f"{'avg_v':>8} {'pca_vL':>8} {'pca_vR':>8} {'pca_v':>8} "
@@ -140,7 +141,7 @@ def analyze_vertical_features(
             "eye_box_h": feat.eye_box_h,
         }
         per_target.append(row)
-        print(
+        mvp_log(
             "[calib2] "
             f"T{i+1:02d} {label:<14} {ty:8.0f} "
             f"{_fmt(feat.avg_v):>8} {_fmt(pca_vL):>8} {_fmt(pca_vR):>8} {_fmt(pca_v):>8} "
@@ -174,9 +175,9 @@ def analyze_vertical_features(
         row_stats("mid", mid_i),
         row_stats("bottom", bot_i),
     ]
-    print("[calib2] --- row means (vertical features) ---")
+    mvp_log("[calib2] --- row means (vertical features) ---")
     for rs in stats:
-        print(
+        mvp_log(
             "[calib2] "
             f"row {rs.name}: avg_v={_fmt(rs.mean_avg_v)} pca_v={_fmt(rs.mean_pca_v)} "
             f"pca_vL={_fmt(rs.mean_pca_vL)} pca_vR={_fmt(rs.mean_pca_vR)} "
@@ -188,9 +189,9 @@ def analyze_vertical_features(
         vals = [per_target[j][key] for j in indices if per_target[j].get(key) is not None]
         if len(vals) >= 2:
             span = float(max(vals) - min(vals))
-            print(f"[calib2] within-row {key} span ({row_name}): {span:.4f}")
+            mvp_log(f"[calib2] within-row {key} span ({row_name}): {span:.4f}")
 
-    print("[calib2] --- within-row vertical feature spread ---")
+    mvp_log("[calib2] --- within-row vertical feature spread ---")
     for row_name, indices in (("top", top_i), ("mid", mid_i), ("bottom", bot_i)):
         row_span("avg_v", row_name, indices)
         row_span("pca_v", row_name, indices)
@@ -268,10 +269,10 @@ def check_vertical_monotonicity(
 
 
 def print_monotonicity_reports(reports: Sequence[MonotonicityReport]) -> None:
-    print("[calib2] --- vertical monotonicity (top < mid < bottom) ---")
+    mvp_log("[calib2] --- vertical monotonicity (top < mid < bottom) ---")
     for r in reports:
         status = "VALID" if r.valid else "INVALID"
-        print(f"[calib2] {r.feature_name}: {status} — {r.message}")
+        mvp_log(f"[calib2] {r.feature_name}: {status} — {r.message}")
 
 
 def analyze_head_pose_drift(
@@ -286,13 +287,13 @@ def analyze_head_pose_drift(
     """Warn if face geometry shifts too much between calibration targets."""
     warnings: List[str] = []
     attrs = ("face_x", "face_y", "eye_box_w", "eye_box_h")
-    print("[calib2] --- head pose / face geometry per target ---")
-    print(f"[calib2] {'id':<4} {'label':<14} {'face_x':>8} {'face_y':>8} {'eye_w':>8} {'eye_h':>8}")
+    mvp_log("[calib2] --- head pose / face geometry per target ---")
+    mvp_log(f"[calib2] {'id':<4} {'label':<14} {'face_x':>8} {'face_y':>8} {'eye_w':>8} {'eye_h':>8}")
     vals: Dict[str, List[float]] = {a: [] for a in attrs}
     for i, (feat, _) in enumerate(samples):
         label = targets[i].label if i < len(targets) else "?"
         row = {a: getattr(feat, a, None) for a in attrs}
-        print(
+        mvp_log(
             "[calib2] "
             f"T{i+1:02d} {label:<14} "
             f"{_fmt(row['face_x']):>8} {_fmt(row['face_y']):>8} "
@@ -310,7 +311,7 @@ def analyze_head_pose_drift(
         "eye_box_w": warn_eye_w,
         "eye_box_h": warn_eye_h,
     }
-    print(
+    mvp_log(
         "[calib2] head geometry span: "
         + " ".join(f"{a}={spans[a]:.4f}" for a in attrs)
     )
@@ -318,9 +319,9 @@ def analyze_head_pose_drift(
         if spans[a] > thr:
             msg = f"head drift: {a} span {spans[a]:.4f} > {thr:.4f} across targets"
             warnings.append(msg)
-            print(f"[calib2] WARNING: {msg}")
+            mvp_log(f"[calib2] WARNING: {msg}")
     if not warnings:
-        print("[calib2] head pose drift: within thresholds")
+        mvp_log("[calib2] head pose drift: within thresholds")
     return warnings
 
 
@@ -363,12 +364,12 @@ def check_within_row_vertical_spread(
                 avg_vs.append(float(f.avg_v))
         if len(pca_vs) >= 2:
             span = float(max(pca_vs) - min(pca_vs))
-            print(f"[calib2] within-row pca_v span ({row_name}): {span:.4f} ({', '.join(labels)})")
+            mvp_log(f"[calib2] within-row pca_v span ({row_name}): {span:.4f} ({', '.join(labels)})")
             if span < min_pca_v_span:
                 issues.append(f"{row_name} row pca_v span {span:.4f} < {min_pca_v_span:.4f}")
         if len(avg_vs) >= 2:
             span_a = float(max(avg_vs) - min(avg_vs))
-            print(f"[calib2] within-row avg_v span ({row_name}): {span_a:.4f} ({', '.join(labels)})")
+            mvp_log(f"[calib2] within-row avg_v span ({row_name}): {span_a:.4f} ({', '.join(labels)})")
             if span_a < min_avg_v_span:
                 issues.append(f"{row_name} row avg_v span {span_a:.4f} < {min_avg_v_span:.4f}")
 
@@ -415,7 +416,7 @@ def evaluate_calibration_quality(
                 reasons.append(msg)
             else:
                 warnings.append(msg)
-                print(f"[calib2]   quality (warning): {msg}")
+                mvp_log(f"[calib2]   quality (warning): {msg}")
 
     mono_reports = [
         check_vertical_monotonicity(row_stats, feature_attr="avg_v", min_separation=min_vertical_separation),
@@ -439,7 +440,7 @@ def evaluate_calibration_quality(
         bot_v = rs.get("bottom").mean_avg_v if rs.get("bottom") else None
         if top_v is not None and bot_v is not None:
             sep = float(bot_v) - float(top_v)
-            print(f"[calib2] avg_v row separation (bottom-top): {sep:.4f}")
+            mvp_log(f"[calib2] avg_v row separation (bottom-top): {sep:.4f}")
             if sep < float(min_avg_v_row_separation):
                 reasons.append(
                     f"avg_v row separation too weak ({sep:.4f} < {min_avg_v_row_separation:.4f})"
@@ -456,7 +457,7 @@ def evaluate_calibration_quality(
     bounds = _screen_bounds(screen_rect)
     train_errs: List[float] = []
     off_screen = False
-    print("[calib2] --- training predictions (Y-axis check) ---")
+    mvp_log("[calib2] --- training predictions (Y-axis check) ---")
     for i, (feat, (tx, ty)) in enumerate(samples):
         pred = model.predict(feat)
         if pred is None:
@@ -472,7 +473,7 @@ def evaluate_calibration_quality(
                 f"bounds=({bounds[0]:.0f},{bounds[1]:.0f})-({bounds[2]:.0f},{bounds[3]:.0f})"
             )
         dy = float(pred.y) - float(ty)
-        print(
+        mvp_log(
             "[calib2] "
             f"T{i+1:02d} target_y={ty:.0f} pred_y={pred.y:.1f} dy={dy:+.0f}px err={err:.1f}px in_screen={in_bounds}"
         )
@@ -483,7 +484,7 @@ def evaluate_calibration_quality(
         targets[worst_train_i].label if 0 <= worst_train_i < len(targets) else ""
     )
     if worst_train_label:
-        print(f"[calib2] worst train target: {worst_train_label} err={max_train:.1f}px")
+        mvp_log(f"[calib2] worst train target: {worst_train_label} err={max_train:.1f}px")
 
     is_keyboard = str(calibration_mode).lower().startswith("keyboard")
     pixel_reasons: List[str] = []
@@ -498,7 +499,7 @@ def evaluate_calibration_quality(
     if is_keyboard:
         for pr in pixel_reasons:
             warnings.append(pr)
-            print(f"[calib2]   pixel (warning): {pr}")
+            mvp_log(f"[calib2]   pixel (warning): {pr}")
     else:
         reasons.extend(pixel_reasons)
 
@@ -517,7 +518,7 @@ def evaluate_calibration_quality(
                 off_screen_loocv.append(f"T{i+1:02d}=({px:.1f},{py:.1f})")
 
     if off_screen_loocv:
-        print(
+        mvp_log(
             f"[calib2] LOOCV off-screen ({len(off_screen_loocv)}): "
             + ", ".join(off_screen_loocv)
         )
@@ -534,7 +535,7 @@ def evaluate_calibration_quality(
         wi = int(max(range(len(loocv_errs)), key=lambda j: loocv_errs[j]))
         worst_loocv_label = targets[wi].label if wi < len(targets) else f"T{wi+1:02d}"
         if worst_loocv_label:
-            print(f"[calib2] worst LOOCV target: {worst_loocv_label} err={max_loocv:.1f}px")
+            mvp_log(f"[calib2] worst LOOCV target: {worst_loocv_label} err={max_loocv:.1f}px")
 
     loocv_pixel: List[str] = []
     if loocv_rms is not None and loocv_rms > max_loocv_rms_px:
@@ -544,7 +545,7 @@ def evaluate_calibration_quality(
     if is_keyboard:
         for pr in loocv_pixel:
             warnings.append(pr)
-            print(f"[calib2]   pixel (warning): {pr}")
+            mvp_log(f"[calib2]   pixel (warning): {pr}")
     else:
         reasons.extend(loocv_pixel)
 
@@ -561,12 +562,12 @@ def evaluate_calibration_quality(
         for rr in region.hard_fail_reasons:
             warnings.append(rr)
         if not region.passed:
-            print(
+            mvp_log(
                 "[calib2] keyboard region quality warning: wrong calibration region "
                 "(row/col) — supplementary; benchmark decides mapping acceptance"
             )
         elif pixel_reasons or loocv_pixel:
-            print(
+            mvp_log(
                 "[calib2] keyboard region OK — pixel thresholds exceeded "
                 "(supplementary warnings only)"
             )
@@ -592,7 +593,7 @@ def evaluate_calibration_quality(
     v_vals = [float(s[0].avg_v) for s in samples if s[0].avg_v is not None]
     if v_vals:
         span_v = float(max(v_vals) - min(v_vals))
-        print(f"[calib2] avg_v span across targets: {span_v:.4f}")
+        mvp_log(f"[calib2] avg_v span across targets: {span_v:.4f}")
         if is_fullscreen and span_v < 0.04:
             reasons.append(f"avg_v span too small ({span_v:.4f} < 0.04) for fullscreen mapping")
 
@@ -603,7 +604,7 @@ def evaluate_calibration_quality(
             pca_vs.append(0.5 * (float(f.pca_vL) + float(f.pca_vR)))
     if pca_vs:
         span_pca = float(max(pca_vs) - min(pca_vs))
-        print(f"[calib2] pca_v span across targets: {span_pca:.4f}")
+        mvp_log(f"[calib2] pca_v span across targets: {span_pca:.4f}")
         if is_fullscreen and span_pca < 0.04:
             reasons.append(f"pca_v span too small ({span_pca:.4f} < 0.04) for fullscreen mapping")
 
@@ -614,7 +615,7 @@ def evaluate_calibration_quality(
     if ys.size == vs.size and ys.size >= 3:
         corr = float(np.corrcoef(ys, vs)[0, 1]) if np.std(vs) > 1e-9 else 0.0
         screen_y_avg_v_corr = float(corr)
-        print(f"[calib2] corr(screen_y, avg_v)={corr:.3f} (expect positive)")
+        mvp_log(f"[calib2] corr(screen_y, avg_v)={corr:.3f} (expect positive)")
         catastrophic = float(min_catastrophic_screen_y_avg_v_corr)
         preferred = float(min_screen_y_avg_v_corr)
         if is_fullscreen:
@@ -634,7 +635,7 @@ def evaluate_calibration_quality(
                     f"(r={corr:.3f}) — typing enabled; region gates are primary"
                 )
                 warnings.append(msg)
-                print(f"[calib2]   quality (warning): {msg}")
+                mvp_log(f"[calib2]   quality (warning): {msg}")
         else:
             if corr < preferred:
                 reasons.append(
@@ -653,18 +654,19 @@ def evaluate_calibration_quality(
     usable = len(reasons) == 0
     if usable:
         if warnings:
-            print(
+            mvp_log(
                 f"[calib2] calibration usable for preview/benchmark "
-                f"({len(warnings)} quality warning(s); benchmark decides mapping acceptance)"
+                f"({len(warnings)} quality warning(s); benchmark decides mapping acceptance)",
+                always=True,
             )
             for w in warnings:
-                print(f"[calib2]   quality warning: {w}")
+                mvp_log(f"[calib2]   quality warning: {w}")
         else:
-            print("[calib2] calibration usable for preview/benchmark")
+            mvp_log("[calib2] calibration usable for preview/benchmark", always=True)
     else:
-        print("[calib2] calibration NOT usable (basic sanity / mapper failed)")
+        mvp_log("[calib2] calibration NOT usable (basic sanity / mapper failed)", always=True)
         for r in reasons:
-            print(f"[calib2]   - {r}")
+            mvp_log(f"[calib2]   - {r}", always=True)
 
     return CalibrationQualityResult(
         usable=usable,
@@ -690,6 +692,8 @@ def assess_fullscreen_feasibility(
     loocv_rms_px: Optional[float],
 ) -> None:
     """Print a short conclusion on whether fullscreen 9-point mapping is realistic."""
+    if not mvp_verbose():
+        return
     avg_v_mono = next((r for r in monotonicity if r.feature_name == "avg_v"), None)
     pca_mono = [r for r in monotonicity if r.feature_name.startswith("pca")]
     pca_any = any(r.valid for r in pca_mono)
@@ -699,21 +703,21 @@ def assess_fullscreen_feasibility(
     if rs.get("top") and rs.get("bottom") and rs["top"].mean_avg_v is not None and rs["bottom"].mean_avg_v is not None:
         sep_avg = float(rs["bottom"].mean_avg_v) - float(rs["top"].mean_avg_v)
 
-    print("[calib2] --- fullscreen mapping feasibility ---")
+    mvp_log("[calib2] --- fullscreen mapping feasibility ---")
     if sep_avg is not None:
-        print(f"[calib2] avg_v row separation (bottom-top): {sep_avg:.4f}")
+        mvp_log(f"[calib2] avg_v row separation (bottom-top): {sep_avg:.4f}")
     if avg_v_mono and avg_v_mono.valid:
-        print("[calib2] avg_v: row monotonicity OK (coarse vertical signal present)")
+        mvp_log("[calib2] avg_v: row monotonicity OK (coarse vertical signal present)")
     else:
-        print("[calib2] avg_v: row monotonicity weak or absent — vertical mapping unreliable")
+        mvp_log("[calib2] avg_v: row monotonicity weak or absent — vertical mapping unreliable")
     if pca_any:
-        print("[calib2] pca_v*: better row separation than avg_v alone — prefer ridge PCA features")
+        mvp_log("[calib2] pca_v*: better row separation than avg_v alone — prefer ridge PCA features")
     else:
-        print("[calib2] pca_v*: no clear row separation — webcam vertical signal likely insufficient for fullscreen")
+        mvp_log("[calib2] pca_v*: no clear row separation — webcam vertical signal likely insufficient for fullscreen")
     if loocv_rms_px is not None:
         if loocv_rms_px <= 120.0:
-            print(f"[calib2] LOOCV {loocv_rms_px:.1f}px: fullscreen mapping may be viable")
+            mvp_log(f"[calib2] LOOCV {loocv_rms_px:.1f}px: fullscreen mapping may be viable")
         elif loocv_rms_px <= 180.0:
-            print(f"[calib2] LOOCV {loocv_rms_px:.1f}px: marginal — keyboard-region calibration likely more stable")
+            mvp_log(f"[calib2] LOOCV {loocv_rms_px:.1f}px: marginal — keyboard-region calibration likely more stable")
         else:
-            print(f"[calib2] LOOCV {loocv_rms_px:.1f}px: poor — fullscreen mapping not realistic with current features")
+            mvp_log(f"[calib2] LOOCV {loocv_rms_px:.1f}px: poor — fullscreen mapping not realistic with current features")

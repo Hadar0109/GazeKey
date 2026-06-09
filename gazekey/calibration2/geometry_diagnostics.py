@@ -13,6 +13,7 @@ from gazekey.calibration2.region_quality import (
 from gazekey.calibration2.targets import CalibrationTarget
 from gazekey.features.feature_types import FrameFeatures
 from gazekey.layout.layout_inspector import KeyGeometryRow
+from gazekey.mvp_log import mvp_log, mvp_verbose
 
 
 def _nearest_key(
@@ -49,12 +50,14 @@ def print_geometric_diagnostics(
     keys: Optional[Sequence[KeyGeometryRow]] = None,
 ) -> None:
     """Log train + LOOCV row/col, nearest key, and dx/dy per calibration target."""
+    if not mvp_verbose():
+        return
     loocv_by_i = {}
     if loocv_detail:
         for d in loocv_detail:
             loocv_by_i[int(d["i"])] = d
 
-    print("[calib2] --- geometric diagnostics (train) ---")
+    mvp_log("[calib2] --- geometric diagnostics (train) ---")
     for i, (feat, (tx, ty)) in enumerate(samples):
         if i >= len(targets):
             break
@@ -62,7 +65,7 @@ def print_geometric_diagnostics(
         pred = model.predict(feat)
         exp_reg = _region_str(t)
         if pred is None:
-            print(f"[calib2] train {t.target_id} {t.label}: predict=None expect={exp_reg}")
+            mvp_log(f"[calib2] train {t.target_id} {t.label}: predict=None expect={exp_reg}")
             continue
         px, py = float(pred.x), float(pred.y)
         dx, dy = px - float(tx), py - float(ty)
@@ -72,7 +75,7 @@ def print_geometric_diagnostics(
         nk = _nearest_key(px, py, keys) if keys else None
         key_s = f"{nk.key_label}@{nk.row_index}" if nk is not None else "?"
         status = "OK" if exp_reg == pred_reg else "WRONG"
-        print(
+        mvp_log(
             f"[calib2] train {t.target_id} {t.label}: "
             f"expect={exp_reg} pred={pred_reg} {status} "
             f"nearest_key={key_s} "
@@ -82,7 +85,7 @@ def print_geometric_diagnostics(
     if not loocv_detail:
         return
 
-    print("[calib2] --- geometric diagnostics (LOOCV) ---")
+    mvp_log("[calib2] --- geometric diagnostics (LOOCV) ---")
     for d in loocv_detail:
         i = int(d["i"])
         if i >= len(targets) or i >= len(samples):
@@ -98,7 +101,7 @@ def print_geometric_diagnostics(
         nk = _nearest_key(px, py, keys) if keys else None
         key_s = f"{nk.key_label}@{nk.row_index}" if nk is not None else "?"
         status = "OK" if exp_reg == pred_reg else "WRONG"
-        print(
+        mvp_log(
             f"[calib2] loocv {t.target_id} {t.label}: "
             f"expect={exp_reg} pred={pred_reg} {status} "
             f"nearest_key={key_s} "

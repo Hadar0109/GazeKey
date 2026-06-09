@@ -24,6 +24,7 @@ from gazekey.ui.gaze_preview import GazePreviewController
 from gazekey.evaluation.benchmark_runner import build_benchmark_run, evaluate_benchmark_pass
 from gazekey.evaluation.failure_analysis import format_failure_analysis, infer_likely_cause
 from gazekey.evaluation.run_summary import RunSummaryWriter
+from gazekey.mvp_log import mvp_log
 from gazekey.calibration import TrackingBridge
 from gazekey.calibration2.calibration_csv import CalibrationCsvLogger
 from gazekey.calibration2.quality import (
@@ -112,8 +113,7 @@ class VirtualKeyboard(QWidget):
         return os.environ.get("GAZEKEY_VERBOSE", "0").strip() == "1"
 
     def _log_verbose(self, message: str) -> None:
-        if getattr(self, "_verbose", False):
-            print(message)
+        mvp_log(message)
 
     def __init__(self):
         super().__init__()
@@ -1287,7 +1287,10 @@ class VirtualKeyboard(QWidget):
                 self._log_verbose(f"[calib2] geometry overlay failed: {e}")
 
         if not quality.usable:
-            self._log_verbose("[calib2] RECALIBRATE: calibration not usable — preview/benchmark blocked")
+            mvp_log(
+                "[calib2] RECALIBRATE: calibration not usable — preview/benchmark blocked",
+                always=True,
+            )
             gate_reason = "; ".join(quality.reasons[:3]) if quality.reasons else "calibration_not_usable"
             for reason in quality.reasons:
                 self._log_verbose(f"[calib2]   reason: {reason}")
