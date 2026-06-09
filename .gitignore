@@ -30,3 +30,5 @@ keyboard_layout.csv
 runtime_key_confidence.csv
 
 *.log
+
+.cursor/
