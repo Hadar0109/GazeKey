@@ -923,9 +923,10 @@ def _evaluate_candidate(
         region_loocv_wrong = region.loocv_region_wrong
         worst_train_label = region.worst_train_label
         worst_loocv_label = region.worst_loocv_label
-        gate_reasons.extend(region.hard_fail_reasons)
+        gate_reasons.extend(f"(warning) {r}" for r in region.hard_fail_reasons)
         gate_reasons.extend(f"(warning) {w}" for w in pixel_warn)
-        gates_ok = bool(region.passed)
+        # Keyboard MVP: region/LOOCV/train gates are supplementary warnings only.
+        gates_ok = True
     else:
         gate_reasons.extend(pixel_hard)
         gate_reasons.extend(f"(warning) {w}" for w in pixel_warn)
@@ -1103,28 +1104,20 @@ def fit_calibration_mapper(
         )
 
     print_mapper_candidate_reports(reports)
-    winner = next(
-        (r for r in reports if r.success and r.model is not None and r.quality_gates_passed is True),
-        None,
-    )
+    winner = next((r for r in reports if r.success and r.model is not None), None)
     best_effort = False
 
     if winner is None or winner.model is None:
-        gated = [r for r in reports if r.success and r.quality_gates_passed is False]
-        if gated:
-            reasons = "; ".join(
-                f"{r.mapper_type}: {', '.join(r.quality_gate_reasons)}" for r in gated[:2]
-            )
-            return MapperFitResult(
-                success=False,
-                message=(
-                    f"{FROZEN_ACTIVE_MAPPER} did not pass quality gates ({reasons}). "
-                    f"Recalibrate with steadier fixation."
-                ),
-            )
         return MapperFitResult(
             success=False,
             message=f"{FROZEN_ACTIVE_MAPPER} failed to fit.",
+        )
+
+    if winner.quality_gate_reasons:
+        warn_preview = ", ".join(winner.quality_gate_reasons[:3])
+        print(
+            "[calib2] mapper fit usable for preview/benchmark "
+            f"(supplementary quality warnings: {warn_preview})"
         )
 
     final_model: RidgeCalibrationMapper = winner.model

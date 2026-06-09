@@ -42,12 +42,12 @@
 
 **Independent test**: Complete calibration; dot + progress only on overlay; pass/fail after session; no camera window on fixation overlay.
 
-- [ ] T011 [US1] Strip debug/metrics text from `gazekey/ui/calibration_overlay.py` during fixation (FR-003, FR-004, SC-006)
-- [ ] T012 [US1] Ensure `gazekey/calibration2/session.py` reports pass/fail only after session ends; LOOCV supplementary in summary only (FR-005, FR-009)
-- [ ] T013 [US1] Hide floating camera preview in `gazekey/ui/camera_preview_window.py` during calibration; default off; never z-order above fixation overlay (FR-006a, CQ-4)
-- [ ] T014 [US1] Require calibration at app start before preview/benchmark in `gazekey/ui/virtual_keyboard.py` (FR-006, CQ-2)
-- [ ] T015 [US1] Write calibration run summary via `gazekey/evaluation/run_summary.py` from `gazekey/calibration2/calibration_csv.py` / session finish path (FR-014)
-- [ ] T016 [US1] Extract minimal `CalibrationController` boundary from `gazekey/ui/virtual_keyboard.py` — start/finish session, pass/fail callback, summary trigger; keep full app orchestration in `virtual_keyboard.py` (FR-017)
+- [x] T011 [US1] Strip debug/metrics text from `gazekey/ui/calibration_overlay.py` during fixation (FR-003, FR-004, SC-006)
+- [x] T012 [US1] Ensure `gazekey/calibration2/session.py` reports pass/fail only after session ends; LOOCV supplementary in summary only (FR-005, FR-009)
+- [x] T013 [US1] Hide floating camera preview in `gazekey/ui/camera_preview_window.py` during calibration; default off; never z-order above fixation overlay (FR-006a, CQ-4)
+- [x] T014 [US1] Require calibration at app start before preview/benchmark in `gazekey/ui/virtual_keyboard.py` (FR-006, CQ-2)
+- [x] T015 [US1] Write calibration run summary via `gazekey/evaluation/run_summary.py` from `gazekey/calibration2/calibration_csv.py` / session finish path (FR-014)
+- [x] T016 [US1] Extract minimal `CalibrationController` boundary from `gazekey/ui/virtual_keyboard.py` — start/finish session, pass/fail callback, summary trigger; keep full app orchestration in `virtual_keyboard.py` (FR-017)
 
 **Checkpoint**: US1 independently testable.
 
@@ -59,10 +59,10 @@
 
 **Independent test**: After calibration, preview tracks gaze; text buffer unchanged; camera preview open in normal UI.
 
-- [ ] T017 [P] [US2] Extract read-only preview dot logic into `gazekey/ui/gaze_preview.py` from `gazekey/ui/virtual_keyboard.py`
-- [ ] T018 [US2] Default to preview mode after calibration pass; disable dwell typing / intent / selection in MVP gaze loop in `gazekey/ui/virtual_keyboard.py` (FR-008, FR-021, SC-007)
-- [ ] T019 [US2] Show camera preview window after calibration completes (user may close); not shown during fixation (FR-006a, CQ-4)
-- [ ] T020 [P] [US2] Add test in `tests/unit/test_preview_readonly.py` — gaze on key does not update text buffer (SC-007)
+- [x] T017 [P] [US2] Extract read-only preview dot logic into `gazekey/ui/gaze_preview.py` from `gazekey/ui/virtual_keyboard.py`
+- [x] T018 [US2] Default to preview mode after calibration pass; disable dwell typing / intent / selection in MVP gaze loop in `gazekey/ui/virtual_keyboard.py` (FR-008, FR-021, SC-007)
+- [x] T019 [US2] Show camera preview window after calibration completes (user may close); not shown during fixation (FR-006a, CQ-4)
+- [x] T020 [P] [US2] Add test in `tests/unit/test_preview_readonly.py` — gaze on key does not update text buffer (SC-007)
 
 **Checkpoint**: US2 independently testable.
 
@@ -74,10 +74,10 @@
 
 **Independent test**: Manual benchmark button runs test; summary shows key-hit, row accuracy, median error, pass/fail.
 
-- [ ] T021 [US3] Add benchmark start control (button/menu) in `gazekey/ui/virtual_keyboard.py` — manual only, after preview (FR-010, CQ-3)
-- [ ] T022 [US3] Integrate `gazekey/evaluation/benchmark_runner.py` with UI flow; block if calibration not passed
-- [ ] T023 [US3] Record benchmark pass/fail vs SC-001–004 (≥10/15 keys, ≤55 px median, ≥80% row, CQ-1) in `gazekey/evaluation/run_summary.py` (FR-012, FR-013)
-- [ ] T024 [US3] After each benchmark, append failure analysis (keys/rows failed; mapping vs geometry vs collection) via `gazekey/evaluation/failure_analysis.py` (FR-023)
+- [x] T021 [US3] Dev-only benchmark trigger (`GAZEKEY_DEV_BENCHMARK=1`) in `gazekey/ui/virtual_keyboard.py` — auto-start after preview; no visible UI control (FR-010, CQ-3)
+- [x] T022 [US3] Integrate `gazekey/evaluation/benchmark_runner.py` with UI flow; block if calibration not passed
+- [x] T023 [US3] Record benchmark pass/fail vs SC-001–004 (≥10/15 keys, ≤55 px median, ≥80% row, CQ-1) in `gazekey/evaluation/run_summary.py` (FR-012, FR-013)
+- [x] T024 [US3] After each benchmark, append failure analysis (keys/rows failed; mapping vs geometry vs collection) via `gazekey/evaluation/failure_analysis.py` (FR-023)
 
 **Checkpoint**: US3 independently testable.
 

@@ -168,7 +168,7 @@ class CalibrationV2Session:
                 means = self._compute_means()
                 return CalibrationV2Result(
                     success=True,
-                    message="Calibration v2 complete.",
+                    message="Target collection complete.",
                     targets=self.targets,
                     feature_means=means,
                 )
@@ -184,7 +184,7 @@ class CalibrationV2Session:
             means = self._compute_means()
             return CalibrationV2Result(
                 success=True,
-                message="Calibration v2 complete.",
+                message="Target collection complete.",
                 targets=self.targets,
                 feature_means=means,
             )
@@ -372,7 +372,7 @@ class CalibrationV2Session:
         per_target_error_px: Optional[List[Optional[float]]] = None,
         overall_rms_px: Optional[float] = None,
     ) -> None:
-        """Write calibration summary after mapper fit (so we can store error metrics)."""
+        """Write CSV calibration summary after session ends (mapper fit metrics supplementary)."""
         per_target_error_px = per_target_error_px or [None for _ in self.targets]
         # Per-target rows.
         for i, t in enumerate(self.targets):
@@ -406,7 +406,7 @@ class CalibrationV2Session:
                 )
             )
 
-        # Overall row.
+        # Overall row — LOOCV RMS stored as supplementary estimated_error_px (not pass/fail gate).
         self.csv.log_summary(
             CalibrationSummaryRow(
                 calibration_version=self.calibration_version,

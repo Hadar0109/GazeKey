@@ -18,7 +18,12 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QTimer, QPoint, QRect
 from PySide6.QtGui import QFont, QPainter, QColor, QPen, QBrush
 from gazekey.ui.camera_preview_window import CameraPreviewWindow
+from gazekey.ui.calibration_controller import CalibrationController
 from gazekey.ui.calibration_overlay import CalibrationOverlay
+from gazekey.ui.gaze_preview import GazePreviewController
+from gazekey.evaluation.benchmark_runner import build_benchmark_run, evaluate_benchmark_pass
+from gazekey.evaluation.failure_analysis import format_failure_analysis, infer_likely_cause
+from gazekey.evaluation.run_summary import RunSummaryWriter
 from gazekey.calibration import TrackingBridge
 from gazekey.calibration2.calibration_csv import CalibrationCsvLogger
 from gazekey.calibration2.quality import (
@@ -114,6 +119,8 @@ class VirtualKeyboard(QWidget):
         self._tracking_bridge.eye_data_received.connect(self._on_eye_data_main_thread)
         self._mapper_store = MapperStore()
         self._gaze_mapper_v2 = None  # Ridge calibration v2 mapper when calibrated
+        self._calibration_controller = CalibrationController()
+        self._run_summary_writer = RunSummaryWriter()
         self._calibration_overlay: CalibrationOverlay | None = None
         self._calibration_v2_session: CalibrationV2Session | None = None
         self._is_calibrating = False
@@ -149,7 +156,7 @@ class VirtualKeyboard(QWidget):
         self._last_v2_focused_key_id = None
         self._last_calib2_log_ms = 0
         self._preview_mode = False
-        self._preview_dot = None
+        self._gaze_preview: GazePreviewController | None = None
         self._calib2_mode = CALIBRATION_MODE
         # Persisted "what are we using right now?" runtime labels.
         # - mapper_mode: which calibration target set / session mode we ran (e.g. "row_aware", "precision13")
@@ -163,7 +170,7 @@ class VirtualKeyboard(QWidget):
         # New experimental path: PCA geometric features + ridge regression (recommended default).
         self._use_ridge_mapper = True
         # Runtime debug (GAZEKEY_GAZE_DEBUG=1 shows raw + smoothed gaze on preview).
-        self._rt2_debug = os.environ.get("GAZEKEY_GAZE_DEBUG", "1").strip() == "1"
+        self._rt2_debug = os.environ.get("GAZEKEY_GAZE_DEBUG", "0").strip() == "1"
         self._rt2_debug_pred = self._rt2_debug or os.environ.get("GAZEKEY_GAZE_DEBUG_PRED", "0").strip() == "1"
         self._rt2_debug_selection = os.environ.get("GAZEKEY_GAZE_DEBUG_SELECTION", "0").strip() == "1"
         self._calib_debug = os.environ.get("GAZEKEY_CALIB_DEBUG", "0").strip() == "1"
@@ -176,6 +183,7 @@ class VirtualKeyboard(QWidget):
         self._last_mapper_candidate_reports: tuple[MapperCandidateReport, ...] = ()
         self._last_calib_samples = []
         self._keyboard_accuracy_session: KeyboardAccuracyEvalSession | None = None
+        self._benchmark_mvp_run = False
         self._keyboard_accuracy_banner: QLabel | None = None
         self._keyboard_accuracy_highlight_btn = None
         self._last_raw_mapped_x: float | None = None
@@ -195,6 +203,7 @@ class VirtualKeyboard(QWidget):
         self._key_semantic_row = {}
         self.init_ui()
         self._text_buffer = TextBufferController(self.text_display)
+        self._gaze_preview = GazePreviewController(self.keyboard_widget)
         self._gaze_typing_controller = GazeTypingController(
             self.main_content_widget,
             on_focus_key=self._on_gaze_focus_key,
@@ -342,6 +351,7 @@ class VirtualKeyboard(QWidget):
             }
         """)
         self.preview_btn.clicked.connect(self.on_preview_clicked)
+        self.preview_btn.setEnabled(False)
         layout.addWidget(self.preview_btn)
         layout.addStretch()
         
@@ -420,7 +430,41 @@ class VirtualKeyboard(QWidget):
         
         return layout
 
+    def _calibration_usable(self) -> bool:
+        return self._gaze_mapper_v2 is not None
+
+    def _set_post_calibration_controls(self, enabled: bool) -> None:
+        if hasattr(self, "preview_btn"):
+            self.preview_btn.setEnabled(enabled and not self._keyboard_accuracy_active())
+
+    @staticmethod
+    def _dev_benchmark_enabled() -> bool:
+        return os.environ.get("GAZEKEY_DEV_BENCHMARK", "0").strip() == "1"
+
+    def _maybe_start_dev_benchmark(self) -> None:
+        """Developer-only: auto-start MVP benchmark after calibration + preview (no UI click)."""
+        if not self._dev_benchmark_enabled():
+            return
+        if not self._calibration_usable():
+            print("[benchmark] dev auto-start blocked — calibration not usable")
+            return
+        if self._is_calibrating:
+            print("[benchmark] dev auto-start blocked — calibration in progress")
+            return
+        if self._keyboard_accuracy_active():
+            print("[benchmark] dev auto-start blocked — another run active")
+            return
+        if not self._preview_mode:
+            print("[benchmark] dev auto-start blocked — preview not ready")
+            return
+        self._start_mvp_benchmark()
+
     def on_preview_clicked(self) -> None:
+        if not self._calibration_usable():
+            print("[preview] blocked — calibration required before preview (CQ-2)")
+            return
+        if self._is_calibrating or self._keyboard_accuracy_active():
+            return
         self._preview_mode = not bool(self._preview_mode)
         if hasattr(self, "preview_btn"):
             self.preview_btn.setProperty("active", "true" if self._preview_mode else "false")
@@ -429,6 +473,7 @@ class VirtualKeyboard(QWidget):
             self.preview_btn.update()
         if not self._preview_mode:
             self._hide_preview_dot()
+            self._clear_v2_focus()
 
     @staticmethod
     def _with_avg(features, *, avg_h, avg_v):
@@ -450,67 +495,19 @@ class VirtualKeyboard(QWidget):
             face_y=features.face_y,
         )
 
-    class _PreviewDotWidget(QWidget):
-        def __init__(self, parent=None):
-            super().__init__(parent)
-            self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-            self._pos = None
-            self._raw_pos = None
-            self._row_rect = None
-            self._label = ""
-
-        def set_pos(self, x: int, y: int, *, raw: tuple[int, int] | None = None) -> None:
-            self._pos = (int(x), int(y))
-            self._raw_pos = raw
-            self.update()
-
-        def set_row_rect_and_label(self, row_rect: QRect | None, label: str) -> None:
-            self._row_rect = row_rect
-            self._label = str(label or "")
-            self.update()
-
-        def paintEvent(self, event):
-            painter = QPainter(self)
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            if self._row_rect is not None and not self._row_rect.isNull():
-                painter.setPen(QPen(QColor(16, 185, 129, 160), 3))
-                painter.setBrush(QBrush(QColor(16, 185, 129, 35)))
-                painter.drawRoundedRect(self._row_rect, 10, 10)
-
-            if self._raw_pos is not None:
-                rx, ry = self._raw_pos
-                rr = 8
-                painter.setPen(QPen(QColor(255, 200, 80, 220), 2))
-                painter.setBrush(QBrush(QColor(255, 180, 60, 160)))
-                painter.drawEllipse(int(rx - rr), int(ry - rr), int(rr * 2), int(rr * 2))
-
-            if self._pos is not None:
-                x, y = self._pos
-                r = 10
-                painter.setPen(QPen(QColor(255, 255, 255, 220), 2))
-                painter.setBrush(QBrush(QColor(16, 185, 129, 210)))
-                painter.drawEllipse(int(x - r), int(y - r), int(r * 2), int(r * 2))
-
-            if self._label:
-                painter.setPen(QPen(QColor(255, 255, 255, 230), 1))
-                painter.setBrush(QBrush(QColor(0, 0, 0, 140)))
-                # Draw a small pill near the top-left.
-                x0, y0 = 10, 10
-                w, h = 360, 32
-                painter.drawRoundedRect(x0, y0, w, h, 10, 10)
-                painter.drawText(QRect(x0 + 10, y0 + 6, w - 20, h - 12), Qt.AlignLeft, self._label)
-            painter.end()
-
-    def _ensure_preview_dot(self) -> None:
-        if self._preview_dot is None:
-            self._preview_dot = self._PreviewDotWidget(self.keyboard_widget)
-            self._preview_dot.setGeometry(self.keyboard_widget.rect())
-            self._preview_dot.raise_()
-            self._preview_dot.show()
-
     def _hide_preview_dot(self) -> None:
-        if self._preview_dot is not None:
-            self._preview_dot.hide()
+        if self._gaze_preview is not None:
+            self._gaze_preview.hide()
+
+    def _reset_preview_overlay(self) -> None:
+        """Clear benchmark/debug gaze state; single mapped dot on next frame."""
+        if self._gaze_preview is not None:
+            self._gaze_preview.clear_gaze()
+
+    def _preview_mapped_screen_xy(self, eye_data, *, now_ms: int) -> Optional[Tuple[float, float]]:
+        """Mapped point for preview — same path as benchmark hit testing (PCA4 + feature smooth)."""
+        features = FeatureExtractor.from_eye_data(eye_data, timestamp_ms=now_ms)
+        return self._key_accuracy_predict_screen_xy(features)
 
     def _update_gaze_preview_dot(
         self,
@@ -519,25 +516,23 @@ class VirtualKeyboard(QWidget):
         *,
         label: str = "",
         raw_global: Tuple[float, float] | None = None,
+        show_raw: bool = False,
     ) -> None:
-        """Show mapped gaze on the keyboard (preview dot overlay)."""
-        self._ensure_preview_dot()
-        p = self.keyboard_widget.mapFromGlobal(QPoint(int(screen_x), int(screen_y)))
-        raw_local = None
-        if raw_global is not None:
-            pr = self.keyboard_widget.mapFromGlobal(
-                QPoint(int(raw_global[0]), int(raw_global[1]))
-            )
-            raw_local = (pr.x(), pr.y())
-        self._preview_dot.set_row_rect_and_label(None, str(label or ""))
-        self._preview_dot.set_pos(p.x(), p.y(), raw=raw_local)
-        self._preview_dot.show()
-        self._preview_dot.raise_()
+        """Show mapped gaze on the keyboard (read-only preview overlay)."""
+        if self._gaze_preview is None:
+            self._gaze_preview = GazePreviewController(self.keyboard_widget)
+        self._gaze_preview.show_gaze(
+            screen_x,
+            screen_y,
+            label=label if self._rt2_debug else "",
+            raw_global=raw_global,
+            show_raw=show_raw and self._rt2_debug,
+        )
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        if self._preview_dot is not None and self.keyboard_widget is not None:
-            self._preview_dot.setGeometry(self.keyboard_widget.rect())
+        if self._gaze_preview is not None:
+            self._gaze_preview.resize_to_keyboard()
         if self._keyboard_accuracy_banner is not None:
             self._keyboard_accuracy_banner.setGeometry(
                 12, 8, max(200, self.main_content_widget.width() - 24), 44
@@ -835,6 +830,8 @@ class VirtualKeyboard(QWidget):
         """Rerun full calibration v2 from scratch."""
         self._gaze_mapper_v2 = None
         self._calibration_v2_session = None
+        self._calibration_controller.reset()
+        self._set_post_calibration_controls(False)
         self._reset_calibrate_button_style()
         if not self._ensure_tracking_started():
             return
@@ -972,41 +969,16 @@ class VirtualKeyboard(QWidget):
             self._hide_preview_dot()
         except Exception:
             pass
-        # During calibration, hide the floating webcam preview window entirely.
-        try:
-            if self.camera_preview_window is not None:
-                self.camera_preview_window.hide()
-        except Exception:
-            pass
+        self._set_camera_preview_blocked(True)
         if not self._ensure_tracking_started():
+            self._set_camera_preview_blocked(False)
             return
 
         _frame_w, _frame_h = self._lock_frame_size_for_calibration()
-        # Refresh geometry snapshot so row-aware targets match current layout.
         try:
             self._export_keyboard_layout()
         except Exception:
             pass
-
-        screen = QApplication.primaryScreen().geometry()
-        # MVP active path: keyboard-aligned calibration only (no fullscreen9 / v1 fallback).
-        region_rect = letter_keys_region_rect(self.keyboard_widget)
-        self._calib_clip_rect = (
-            float(region_rect.x()),
-            float(region_rect.y()),
-            float(region_rect.width()),
-            float(region_rect.height()),
-        )
-        layout_keys = inspect_keyboard_layout(self.keyboard_widget)
-        targets = keyboard_geometry_targets(
-            keys=layout_keys,
-            typing_region_rect=region_rect,
-            mode=CALIBRATION_MODE,
-        )
-        self._calib2_mode = CALIBRATION_MODE
-        calib_region = f"LETTER KEYS region {region_rect}"
-
-        dot_targets = [(t.screen_x - screen.x(), t.screen_y - screen.y()) for t in targets]
 
         if self._calibration_overlay is not None:
             self._calibration_overlay.close()
@@ -1014,46 +986,60 @@ class VirtualKeyboard(QWidget):
 
         self._is_calibrating = True
         self._calib2_v_ema = None
-
-        csv_logger = CalibrationCsvLogger(enabled=True)
-        csv_logger.begin_calibration_run()
         self._reset_calibration_debug_csvs()
-        self._calibration_v2_session = CalibrationV2Session(
-            targets=targets,
-            csv_logger=csv_logger,
-            calibration_version=6,
-            calibration_mode=self._calib2_mode,
+
+        ctx = self._calibration_controller.start(
+            keyboard_widget=self.keyboard_widget,
+            on_finished=self._on_calibration_finished,
             gate_cfg=FixationGateConfig(
                 max_head_drift_face_xy=CALIB_HEAD_DRIFT_FACE_XY,
                 max_head_drift_eye_h=CALIB_HEAD_DRIFT_EYE_H,
             ),
+            calibration_mode=CALIBRATION_MODE,
             max_timeouts_per_target=1,
             on_timeout="retry",
         )
-        # Capture the session mode at start (what target set we used).
+        self._calibration_overlay = ctx.overlay
+        self._calibration_v2_session = ctx.session
+        self._calib2_mode = ctx.calib_mode
+        self._calib_clip_rect = ctx.calib_clip_rect
         self._mapper_mode = str(self._calib2_mode)
-        print(f"[calib2] start: {len(targets)} targets in {calib_region}")
-        # Clear index mapping for debugging LOOCV outliers.
-        try:
-            for i, t in enumerate(targets):
-                print(f"[calib2] target map: {t.target_id} = {t.label} ({int(t.screen_x)},{int(t.screen_y)})")
-        except Exception:
-            pass
+        print(f"[calib2] start: {len(ctx.session.targets)} targets mode={self._calib2_mode}")
 
-        self._calibration_overlay = CalibrationOverlay(
-            dot_targets=dot_targets,
-            screen_targets=[(t.screen_x, t.screen_y) for t in targets],
-            on_finished=self._on_calibration_finished,
-            session_v2=self._calibration_v2_session,
+    def _set_camera_preview_blocked(self, blocked: bool) -> None:
+        if self.camera_preview_window is not None:
+            self.camera_preview_window.set_calibration_blocked(blocked)
+
+    def _write_calibration_run_summary(
+        self,
+        *,
+        passed: bool,
+        failure_reason: Optional[str] = None,
+        loocv_rms_px: Optional[float] = None,
+        quality_warnings: Optional[list[str]] = None,
+    ) -> None:
+        session = self._calibration_v2_session
+        if session is None:
+            return
+        collected = sum(
+            1 for i in range(len(session.targets)) if session.accepted_count_for_target(i) > 0
         )
-        self._calibration_overlay.show()
-        self._calibration_overlay.raise_()
-        self._calibration_overlay.activateWindow()
+        self._run_summary_writer.write_calibration_summary(
+            session_id=self._calibration_controller.session_id or session.csv.session_id,
+            status="passed" if passed else "failed",
+            layout=str(self._calib2_mode or CALIBRATION_MODE),
+            targets_collected=collected,
+            targets_total=len(session.targets),
+            failure_reason=failure_reason,
+            loocv_rms_px=loocv_rms_px,
+            quality_warnings=quality_warnings,
+        )
 
     def _on_calibration_finished(self, result) -> None:
         self._is_calibrating = False
         self._calibration_overlay = None
         self._locked_frame_size = None
+        self._set_camera_preview_blocked(False)
 
         if not isinstance(result, CalibrationV2Result):
             print(f"[calib2] unexpected result type: {type(result)}")
@@ -1061,10 +1047,15 @@ class VirtualKeyboard(QWidget):
 
         if not result.success:
             print(f"[calib2] failed: {result.message}")
+            self._write_calibration_run_summary(
+                passed=False,
+                failure_reason=result.message,
+            )
             return
 
         if self._calibration_v2_session is None:
             print("[calib2] missing session at finish")
+            self._write_calibration_run_summary(passed=False, failure_reason="missing_session")
             return
 
         # Safety: don't fit until we have at least 1 accepted sample for every target.
@@ -1075,6 +1066,10 @@ class VirtualKeyboard(QWidget):
         ]
         if missing:
             print(f"[calib2] not fitting mapper: missing accepted samples for targets {missing}")
+            self._write_calibration_run_summary(
+                passed=False,
+                failure_reason=f"missing_samples targets={missing}",
+            )
             return
 
         try:
@@ -1136,6 +1131,11 @@ class VirtualKeyboard(QWidget):
             print(f"[calib2] ridge fit failed: {ridge_fit.message}")
             self._gaze_mapper_v2 = None
             self._preview_mode = False
+            self._set_post_calibration_controls(False)
+            self._write_calibration_run_summary(
+                passed=False,
+                failure_reason=ridge_fit.message,
+            )
             self._show_recalibrate_prompt(
                 "Calibration could not find a reliable mapper — keep head still, eyes on each dot"
             )
@@ -1269,12 +1269,20 @@ class VirtualKeyboard(QWidget):
             except Exception as e:
                 print(f"[calib2] geometry overlay failed: {e}")
 
-        if not quality.accepted:
-            print("[calib2] RECALIBRATE: quality gates failed — gaze typing will stay disabled")
+        if not quality.usable:
+            print("[calib2] RECALIBRATE: calibration not usable — preview/benchmark blocked")
+            gate_reason = "; ".join(quality.reasons[:3]) if quality.reasons else "calibration_not_usable"
             for reason in quality.reasons:
                 print(f"[calib2]   reason: {reason}")
             self._gaze_mapper_v2 = None
             self._preview_mode = False
+            self._set_post_calibration_controls(False)
+            self._write_calibration_run_summary(
+                passed=False,
+                failure_reason=gate_reason,
+                loocv_rms_px=quality.loocv_rms_px,
+                quality_warnings=quality.warnings,
+            )
             self._show_recalibrate_prompt(
                 "Calibration failed — keep head still, move eyes only, then tap RECALIBRATE"
             )
@@ -1294,7 +1302,13 @@ class VirtualKeyboard(QWidget):
         except Exception as e:
             print(f"[calib2] summary write failed: {e}")
 
+        self._write_calibration_run_summary(
+            passed=True,
+            loocv_rms_px=quality.loocv_rms_px,
+            quality_warnings=quality.warnings,
+        )
         self._gaze_mapper_v2 = ridge_fit.model
+        self._set_post_calibration_controls(True)
         try:
             self._mapper_store.save(
                 ridge_fit.model,
@@ -1325,10 +1339,10 @@ class VirtualKeyboard(QWidget):
             }
         """)
         print(
-            f"[calib2] complete. Gaze typing enabled ({TYPING_CANDIDATE_ID}: "
-            f"{self._active_mapper} + intent + selection)."
+            f"[calib2] complete. Read-only gaze preview enabled ({TYPING_CANDIDATE_ID}: "
+            f"{self._active_mapper})."
         )
-        print("[typing] Look at keys and dwell to type. Click Preview to show gaze dot without activation.")
+        print("[preview] Gaze dot tracks mapped position; keys are not activated (MVP).")
         mapper_type = getattr(self._gaze_mapper_v2, "mapper_type", "unknown")
         runtime_line = (
             "[runtime] "
@@ -1345,22 +1359,17 @@ class VirtualKeyboard(QWidget):
         print(runtime_line)
         for w in quality.warnings:
             print(f"[runtime]   warning: {w}")
-        # Typing mode by default; Preview toggles gaze dot without key activation.
-        self._preview_mode = False
+        # Default to read-only preview after calibration (FR-008).
+        self._preview_mode = True
         if hasattr(self, "preview_btn"):
-            self.preview_btn.setProperty("active", "false")
+            self.preview_btn.setProperty("active", "true")
             self.preview_btn.style().unpolish(self.preview_btn)
             self.preview_btn.style().polish(self.preview_btn)
             self.preview_btn.update()
-        # Ensure the runtime preview dot can re-appear normally post-calibration.
-        try:
-            self._hide_preview_dot()
-        except Exception:
-            pass
-        # Restore webcam preview window after calibration (only when expanded).
+        # Restore webcam preview window after calibration (CQ-4; user may close).
         try:
             if self.is_expanded:
-                self._ensure_camera_preview()
+                self._ensure_camera_preview(show=True)
         except Exception:
             pass
 
@@ -1369,6 +1378,9 @@ class VirtualKeyboard(QWidget):
                 self._start_keyboard_accuracy_debug()
             except Exception as e:
                 print(f"[key_accuracy] failed to start: {e}")
+        elif self._dev_benchmark_enabled():
+            # Defer so preview UI is initialized before the 15-key sequence starts.
+            QTimer.singleShot(150, self._maybe_start_dev_benchmark)
         else:
             # Live validation at the calibrated center target (not raw screen center).
             try:
@@ -1629,23 +1641,36 @@ class VirtualKeyboard(QWidget):
         self._keyboard_accuracy_highlight_btn = button
         self._set_key_gaze_style(button, True, 1.0, dwelling=True)
 
-    def _start_keyboard_accuracy_debug(self) -> None:
+    def _benchmark_session_id(self) -> str:
+        session = self._calibration_v2_session
+        base = ""
+        if session is not None:
+            base = self._calibration_controller.session_id or session.csv.session_id
+        if not base:
+            base = "unknown"
+        return f"{base}-bench{int(time.time())}"
+
+    def _begin_key_accuracy_session(self, *, mvp_benchmark: bool) -> bool:
         if self._gaze_mapper_v2 is None:
-            print("[key_accuracy] skipped: no v2 mapper loaded")
-            return
+            tag = "benchmark" if mvp_benchmark else "key_accuracy"
+            print(f"[{tag}] skipped: no v2 mapper loaded")
+            return False
         self._export_keyboard_layout()
         if not self._intent_keys:
-            print("[key_accuracy] skipped: keyboard layout not ready")
-            return
+            tag = "benchmark" if mvp_benchmark else "key_accuracy"
+            print(f"[{tag}] skipped: keyboard layout not ready")
+            return False
         if self.current_layout != "letters":
             self.switch_layout("letters")
         try:
             resolved = resolve_sample_keys(self._intent_keys)
         except ValueError as e:
-            print(f"[key_accuracy] {e}")
-            return
+            tag = "benchmark" if mvp_benchmark else "key_accuracy"
+            print(f"[{tag}] {e}")
+            return False
 
-        # Keep gaze preview visible so you can see where the mapper points while testing.
+        self._benchmark_mvp_run = bool(mvp_benchmark)
+        self._set_post_calibration_controls(False)
         self._preview_mode = True
         if hasattr(self, "preview_btn"):
             self.preview_btn.setProperty("active", "true")
@@ -1669,9 +1694,33 @@ class VirtualKeyboard(QWidget):
             _label, row = cur
             self._highlight_keyboard_accuracy_target(row.button)
         self._update_keyboard_accuracy_banner(self._keyboard_accuracy_session.instruction_text())
+        return True
+
+    def _start_mvp_benchmark(self) -> None:
+        if not self._begin_key_accuracy_session(mvp_benchmark=True):
+            return
+        print("[benchmark] started — dev MVP benchmark (15 keys, GAZEKEY_DEV_BENCHMARK=1)")
+
+    def _start_keyboard_accuracy_debug(self) -> None:
+        if not self._begin_key_accuracy_session(mvp_benchmark=False):
+            return
         print(
-            f"[key_accuracy] started ({len(resolved)} keys) — "
-            f"CSV -> {default_key_accuracy_debug_path()}"
+            f"[key_accuracy] started — CSV -> {default_key_accuracy_debug_path()}"
+        )
+
+    def _finish_mvp_benchmark(self, rows) -> None:
+        run = build_benchmark_run(rows)
+        passed, reason = evaluate_benchmark_pass(run.metrics)
+        status = "passed" if passed else "failed"
+        likely_cause = infer_likely_cause(rows) if status == "failed" else "none"
+        analysis = format_failure_analysis(rows, likely_cause=likely_cause)
+        print(analysis)
+        self._run_summary_writer.write_benchmark_summary(
+            session_id=self._benchmark_session_id(),
+            metrics=run.metrics,
+            status=status,
+            failure_reason=reason or None,
+            failure_analysis=analysis,
         )
 
     def _finish_keyboard_accuracy_debug(self) -> None:
@@ -1679,30 +1728,37 @@ class VirtualKeyboard(QWidget):
         if session is None:
             return
         rows = session.results
-        try:
-            KeyAccuracyDebugCsv().write(rows, overwrite=True)
-            print(f"[key_accuracy] wrote {len(rows)} rows to {default_key_accuracy_debug_path()}")
-        except Exception as e:
-            print(f"[key_accuracy] CSV write failed: {e}")
-        print_accuracy_summary(rows)
-        if session.recorded_gaze and self._last_calib_samples and self._calibration_v2_session is not None:
-            run_keyboard_accuracy_mapper_diagnostics(
-                recorded=session.recorded_gaze,
-                keys=self._intent_keys,
-                model=self._gaze_mapper_v2,
-                calib_samples=self._last_calib_samples,
-                calib_targets=self._calibration_v2_session.targets,
-                gaze_bias_x=float(self._gaze_bias_x),
-                gaze_bias_y=float(self._gaze_bias_y),
-                clamp_xy=self._clamp_v2_xy,
-                feature_smoother_alpha=float(self._feature_smoother.alpha),
-            )
-        if self._keyboard_accuracy_compare and session.recorded_gaze:
-            self._run_keyboard_accuracy_mapper_compare(session)
+        mvp = bool(self._benchmark_mvp_run)
+        if mvp:
+            self._finish_mvp_benchmark(rows)
+        else:
+            try:
+                KeyAccuracyDebugCsv().write(rows, overwrite=True)
+                print(f"[key_accuracy] wrote {len(rows)} rows to {default_key_accuracy_debug_path()}")
+            except Exception as e:
+                print(f"[key_accuracy] CSV write failed: {e}")
+            print_accuracy_summary(rows)
+            if session.recorded_gaze and self._last_calib_samples and self._calibration_v2_session is not None:
+                run_keyboard_accuracy_mapper_diagnostics(
+                    recorded=session.recorded_gaze,
+                    keys=self._intent_keys,
+                    model=self._gaze_mapper_v2,
+                    calib_samples=self._last_calib_samples,
+                    calib_targets=self._calibration_v2_session.targets,
+                    gaze_bias_x=float(self._gaze_bias_x),
+                    gaze_bias_y=float(self._gaze_bias_y),
+                    clamp_xy=self._clamp_v2_xy,
+                    feature_smoother_alpha=float(self._feature_smoother.alpha),
+                )
+            if self._keyboard_accuracy_compare and session.recorded_gaze:
+                self._run_keyboard_accuracy_mapper_compare(session)
+        self._benchmark_mvp_run = False
         self._keyboard_accuracy_session = None
         self._clear_keyboard_accuracy_highlight()
         self._hide_keyboard_accuracy_banner()
+        self._reset_preview_overlay()
         self._preview_mode = True
+        self._set_post_calibration_controls(True)
         if hasattr(self, "preview_btn"):
             self.preview_btn.setProperty("active", "true")
             self.preview_btn.style().unpolish(self.preview_btn)
@@ -1715,25 +1771,18 @@ class VirtualKeyboard(QWidget):
             return
         now_ms = int(time.time() * 1000)
         features = FeatureExtractor.from_eye_data(eye_data, timestamp_ms=now_ms)
-        pred = self._predict_gaze_v2(features)
-        if pred is not None:
-            px = float(pred.x)
-            py = float(pred.y)
-            cur = session.current_sample()
-            target_lbl = cur[0] if cur is not None else ""
-            self._update_gaze_preview_dot(
-                px,
-                py,
-                label=f"key_accuracy: {target_lbl}" if target_lbl else "key_accuracy",
-                raw_global=(px, py),
-            )
+        xy = self._preview_mapped_screen_xy(eye_data, now_ms=now_ms)
+        if xy is not None:
+            px, py = xy
+            self._update_gaze_preview_dot(px, py)
         else:
             self._hide_preview_dot()
 
         completed = session.tick(now_ms, features=features)
+        log_tag = "benchmark" if self._benchmark_mvp_run else "key_accuracy"
         if completed is not None:
             print(
-                f"[key_accuracy] {completed.target_key}: "
+                f"[{log_tag}] {completed.target_key}: "
                 f"pred=({completed.predicted_x:.1f},{completed.predicted_y:.1f}) "
                 f"key={completed.predicted_key} err={completed.error_px:.1f}px "
                 f"correct={completed.is_correct}"
@@ -1747,7 +1796,12 @@ class VirtualKeyboard(QWidget):
         if cur is not None:
             _label, row = cur
             self._highlight_keyboard_accuracy_target(row.button)
-        self._update_keyboard_accuracy_banner(session.instruction_text())
+        banner = session.instruction_text()
+        if self._benchmark_mvp_run:
+            banner = banner.replace("Look at key:", "Benchmark — look at:")
+            if banner.endswith("complete"):
+                banner = "Benchmark complete"
+        self._update_keyboard_accuracy_banner(banner)
 
     def _key_accuracy_predict_screen_xy(self, raw) -> Optional[Tuple[float, float]]:
         """Shared keyboard-accuracy predict path (live session + compare replay)."""
@@ -2010,14 +2064,18 @@ class VirtualKeyboard(QWidget):
         dt = now - self._last_tick_time
         self._last_tick_time = now
 
-        if self.tracking_manager and self.camera_preview_window:
+        if (
+            self.tracking_manager
+            and self.camera_preview_window
+            and not self._is_calibrating
+        ):
             frame = self.tracking_manager.get_latest_frame()
             if frame is not None:
                 self.camera_preview_window.update_frame(frame)
 
-        # Floating live preview in bottom-right of the screen.
-        if self.tracking_manager and not self._is_calibrating:
-            self._ensure_camera_preview()
+        # Floating live preview in bottom-right of the screen (post-calibration only).
+        if self.tracking_manager and not self._is_calibrating and self._gaze_mapper_v2 is not None:
+            self._ensure_camera_preview(show=True)
 
         if self.tracking_manager:
             stats = self.tracking_manager.get_statistics()
@@ -2099,6 +2157,11 @@ class VirtualKeyboard(QWidget):
         except Exception:
             pass
 
+        if self._gaze_preview_active():
+            self._gaze_typing_controller.set_enabled(False)
+            self._process_gaze_preview(eye_data, dt)
+            return
+
         active = self._gaze_typing_active()
         self._gaze_typing_controller.set_enabled(active)
         if active:
@@ -2107,12 +2170,18 @@ class VirtualKeyboard(QWidget):
             self._gaze_smoother.reset()
             self._feature_smoother.reset()
 
-    def _gaze_typing_active(self) -> bool:
+    def _gaze_preview_active(self) -> bool:
         return (
             self.is_expanded
             and not self._is_calibrating
             and self._gaze_mapper_v2 is not None
+            and self._preview_mode
+            and not self._keyboard_accuracy_active()
         )
+
+    def _gaze_typing_active(self) -> bool:
+        # MVP (FR-021): dwell/intent/selection disabled; preview is the validation surface.
+        return False
 
     def _clamp_v2_xy(self, x: float, y: float) -> Tuple[float, float]:
         bounds = getattr(self._gaze_mapper_v2, "clip_bounds", None) if self._gaze_mapper_v2 else None
@@ -2145,28 +2214,26 @@ class VirtualKeyboard(QWidget):
         px, py = self._clamp_v2_xy(px, py)
         return replace(pred, x=px, y=py)
 
-    def _process_gaze_typing(self, eye_data, dt: float) -> None:
-        """Map gaze to screen coords and run intent->selection->activation."""
-        now_ms = int(time.time() * 1000)
+    def _map_gaze_screen_xy(self, eye_data, *, now_ms: int) -> Tuple[Optional[float], Optional[float], Optional[Tuple[float, float]]]:
+        """Predict and smooth gaze; returns (x, y, raw_global) or Nones."""
         features = FeatureExtractor.from_eye_data(eye_data, timestamp_ms=now_ms)
-
         mapped_x = mapped_y = None
-        mapped_quality = None
         if self._gaze_mapper_v2 is not None:
             pred = self._predict_gaze_v2(features)
             if pred is not None:
                 mapped_x = float(pred.x)
                 mapped_y = float(pred.y)
-                mapped_quality = float(pred.quality)
                 self._last_raw_mapped_x = mapped_x
                 self._last_raw_mapped_y = mapped_y
                 self._last_v2_pred_x = mapped_x
                 self._last_v2_pred_y = mapped_y
                 self._last_v2_pred_t = now_ms
                 if self._rt2_debug and self._rt2_debug_pred:
-                    print(f"[rt2] pred x={mapped_x:.1f} y={mapped_y:.1f} q={mapped_quality:.2f}")
+                    print(
+                        f"[rt2] pred x={mapped_x:.1f} y={mapped_y:.1f} "
+                        f"q={float(pred.quality) if pred.quality is not None else 0:.2f}"
+                    )
             else:
-                # Grace: hold last prediction briefly when a frame fails (blink, etc.).
                 grace_ms = 220
                 if (
                     self._last_v2_pred_x is not None
@@ -2176,43 +2243,55 @@ class VirtualKeyboard(QWidget):
                 ):
                     mapped_x = float(self._last_v2_pred_x)
                     mapped_y = float(self._last_v2_pred_y)
-                    mapped_quality = None
                 else:
-                    self._clear_v2_focus()
-                    self._gaze_typing_controller.tick(None, None, dt)
-                    return
+                    return None, None, None
 
         if mapped_x is None or mapped_y is None:
-            self._clear_v2_focus()
-            self._gaze_typing_controller.tick(None, None, dt)
-            return
+            return None, None, None
 
         raw_global = None
         if self._last_raw_mapped_x is not None and self._last_raw_mapped_y is not None:
             raw_global = (float(self._last_raw_mapped_x), float(self._last_raw_mapped_y))
 
         mapped_x, mapped_y = self._gaze_smoother.filter(mapped_x, mapped_y)
+        return mapped_x, mapped_y, raw_global
 
-        if self._preview_mode:
-            if mapped_x is not None and mapped_y is not None:
-                dbg_label = ""
-                if self._rt2_debug and self._gaze_mapper_v2 is not None:
-                    dbg_label = (
-                        f"mapper={getattr(self._gaze_mapper_v2, 'mapper_type', '?')} "
-                        f"raw=({raw_global[0]:.0f},{raw_global[1]:.0f}) "
-                        f"smooth=({mapped_x:.0f},{mapped_y:.0f})"
-                        if raw_global
-                        else f"mapper={getattr(self._gaze_mapper_v2, 'mapper_type', '?')}"
-                    )
-                self._update_gaze_preview_dot(
-                    mapped_x,
-                    mapped_y,
-                    label=dbg_label,
-                    raw_global=raw_global if self._rt2_debug else None,
-                )
-            else:
-                self._hide_preview_dot()
-            # No intent/selection/activation in preview mode.
+    def _process_gaze_preview(self, eye_data, dt: float) -> None:
+        """Read-only gaze dot — no intent, selection, dwell, or text buffer updates (FR-008)."""
+        now_ms = int(time.time() * 1000)
+        xy = self._preview_mapped_screen_xy(eye_data, now_ms=now_ms)
+        if xy is None:
+            self._clear_v2_focus()
+            self._hide_preview_dot()
+            return
+
+        mapped_x, mapped_y = xy
+        raw_global = None
+        dbg_label = ""
+        if self._rt2_debug and self._gaze_mapper_v2 is not None:
+            gaze_x, gaze_y, _pre = self._map_gaze_screen_xy(eye_data, now_ms=now_ms)
+            dbg_label = (
+                f"mapper={getattr(self._gaze_mapper_v2, 'mapper_type', '?')} "
+                f"mapped=({mapped_x:.0f},{mapped_y:.0f})"
+            )
+            if gaze_x is not None and gaze_y is not None:
+                raw_global = (float(gaze_x), float(gaze_y))
+                dbg_label += f" gaze_smooth=({gaze_x:.0f},{gaze_y:.0f})"
+        self._update_gaze_preview_dot(
+            mapped_x,
+            mapped_y,
+            label=dbg_label,
+            raw_global=raw_global,
+            show_raw=bool(self._rt2_debug and raw_global is not None),
+        )
+        self._gaze_typing_controller.tick(None, None, dt)
+
+    def _process_gaze_typing(self, eye_data, dt: float) -> None:
+        """Map gaze to screen coords and run intent->selection->activation (disabled in MVP)."""
+        now_ms = int(time.time() * 1000)
+        mapped_x, mapped_y, raw_global = self._map_gaze_screen_xy(eye_data, now_ms=now_ms)
+        if mapped_x is None or mapped_y is None:
+            self._clear_v2_focus()
             self._gaze_typing_controller.tick(None, None, dt)
             return
 
@@ -2551,14 +2630,16 @@ class VirtualKeyboard(QWidget):
         
         QApplication.quit()
 
-    def _ensure_camera_preview(self) -> None:
-        """Create/show the floating camera preview window (bottom-right)."""
+    def _ensure_camera_preview(self, *, show: bool = False) -> None:
+        """Create the floating camera preview window; show only when allowed."""
+        if self._is_calibrating:
+            return
         if self.camera_preview_window is None:
             self.camera_preview_window = CameraPreviewWindow(dock="bottom_right")
-        if self.is_expanded:
-            if not self.camera_preview_window.isVisible():
-                self.camera_preview_window.show()
-            self.camera_preview_window.position_at_bottom_right()
+        if self.camera_preview_window.is_calibration_blocked:
+            return
+        if show and self.is_expanded and self._gaze_mapper_v2 is not None:
+            self.camera_preview_window.show_post_calibration()
     
     def on_shift_clicked(self, checked):
         """Handle shift toggle - updates all letter keys"""
@@ -2595,9 +2676,8 @@ class VirtualKeyboard(QWidget):
         self.main_content_widget.show()
         self._apply_full_keyboard_geometry()
         self.is_expanded = True
-        if self.camera_preview_window:
-            self.camera_preview_window.show()
-            self.camera_preview_window.position_at_bottom_right()
+        if self.camera_preview_window and self._gaze_mapper_v2 is not None:
+            self.camera_preview_window.show_post_calibration()
         self._gaze_typing_controller.mark_keyboard_dirty()
         print("Keyboard restored to full view")
     

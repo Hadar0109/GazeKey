@@ -102,3 +102,22 @@ def test_build_benchmark_run_status():
     run = build_benchmark_run(rows)
     assert run.status == "passed"
     assert run.metrics.keys_correct == 10
+
+
+def test_write_benchmark_summary_appends_failure_analysis(tmp_path):
+    from gazekey.evaluation.failure_analysis import format_failure_analysis
+
+    writer = RunSummaryWriter(runs_dir=tmp_path)
+    rows = [_row(correct=False, err=80.0) for _ in range(15)]
+    metrics = compute_benchmark_metrics(rows)
+    analysis = format_failure_analysis(rows, likely_cause="mapping")
+    writer.write_benchmark_summary(
+        session_id="bench02",
+        metrics=metrics,
+        status="failed",
+        failure_reason="key-hit",
+        failure_analysis=analysis,
+    )
+    body = (tmp_path / "benchmark_bench02.txt").read_text(encoding="utf-8")
+    assert "failure_analysis:" in body
+    assert "likely_cause: mapping" in body

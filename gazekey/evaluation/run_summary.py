@@ -59,6 +59,12 @@ class RunSummaryWriter:
             layout = summary.primary_metrics.get("layout", "n/a")
             targets = summary.primary_metrics.get("targets", "n/a")
             line = f"[{tag}] {st} session={sid} layout={layout} targets={targets}"
+            loocv = summary.primary_metrics.get("loocv_rms_px")
+            if loocv is not None:
+                line = f"{line} loocv_rms={float(loocv):.1f}px (supplementary)"
+            warn_n = summary.primary_metrics.get("quality_warning_count", 0)
+            if warn_n:
+                line = f"{line} quality_warnings={warn_n}"
         else:
             correct = summary.primary_metrics.get("keys_correct", 0)
             total = summary.primary_metrics.get("keys_total", 0)
@@ -74,13 +80,45 @@ class RunSummaryWriter:
             line = f"{line} reason={summary.failure_reason}"
         return line
 
-    def write(self, summary: RunSummary) -> Path:
+    def write(self, summary: RunSummary, *, append_text: Optional[str] = None) -> Path:
         line = self.format_console(summary)
         print(line)
         self.runs_dir.mkdir(parents=True, exist_ok=True)
         path = self.runs_dir / f"{summary.run_type}_{summary.session_id}.txt"
-        path.write_text(line + "\n", encoding="utf-8")
+        body = line + "\n"
+        if append_text:
+            body += append_text.rstrip() + "\n"
+        path.write_text(body, encoding="utf-8")
         return path
+
+    def write_calibration_summary(
+        self,
+        *,
+        session_id: str,
+        status: RunStatus,
+        layout: str,
+        targets_collected: int,
+        targets_total: int,
+        failure_reason: Optional[str] = None,
+        loocv_rms_px: Optional[float] = None,
+        quality_warnings: Optional[list[str]] = None,
+    ) -> RunSummary:
+        warnings = list(quality_warnings or [])
+        summary = RunSummary(
+            session_id=session_id,
+            run_type="calibration",
+            status=status,
+            primary_metrics={
+                "layout": layout,
+                "targets": f"{targets_collected}/{targets_total}",
+                "loocv_rms_px": loocv_rms_px,
+                "quality_warning_count": len(warnings),
+                "quality_warnings": warnings[:5],
+            },
+            failure_reason=failure_reason,
+        )
+        self.write(summary)
+        return summary
 
     def write_benchmark_summary(
         self,
@@ -89,6 +127,7 @@ class RunSummaryWriter:
         metrics,
         status: RunStatus,
         failure_reason: Optional[str] = None,
+        failure_analysis: Optional[str] = None,
     ) -> RunSummary:
         summary = RunSummary(
             session_id=session_id,
@@ -104,7 +143,7 @@ class RunSummaryWriter:
             },
             failure_reason=failure_reason,
         )
-        self.write(summary)
+        self.write(summary, append_text=failure_analysis)
         return summary
 
 

@@ -93,6 +93,7 @@ class CalibrationOverlay(QWidget):
         frame_w: float = 640.0,
         frame_h: float = 480.0,
         session_v2: CalibrationV2Session | None = None,
+        minimal_fixation_ui: bool = False,
         parent=None,
     ):
         super().__init__(parent)
@@ -100,6 +101,7 @@ class CalibrationOverlay(QWidget):
         self._screen_targets = screen_targets
         self._on_finished = on_finished
         self._session_v2 = session_v2
+        self._minimal_fixation_ui = bool(minimal_fixation_ui or session_v2 is not None)
         self._session = None if self._session_v2 is not None else CalibrationSession(screen_targets, frame_w=frame_w, frame_h=frame_h)
         self._result: Optional[Union[CalibrationResult, CalibrationV2Result]] = None
         self._v2_last_target_index: int = -1
@@ -145,18 +147,21 @@ class CalibrationOverlay(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(40, 40, 40, 40)
 
-        title = QLabel("Eye Calibration")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setFont(QFont("Segoe UI", 28, QFont.Weight.Bold))
-        title.setStyleSheet("color: white; background: transparent;")
-        layout.addWidget(title)
+        self._title_label = QLabel("Eye Calibration")
+        self._title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._title_label.setFont(QFont("Segoe UI", 28, QFont.Weight.Bold))
+        self._title_label.setStyleSheet("color: white; background: transparent;")
+        layout.addWidget(self._title_label)
 
-        self.status_label = QLabel("Look at the dot")
+        self.status_label = QLabel("")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_label.setFont(QFont("Segoe UI", 16))
         self.status_label.setStyleSheet("color: #CCCCCC; background: transparent;")
         self.status_label.setWordWrap(True)
         layout.addWidget(self.status_label)
+        if self._minimal_fixation_ui:
+            self._title_label.hide()
+            self.status_label.setFont(QFont("Segoe UI", 14))
 
         layout.addStretch()
 
@@ -260,7 +265,7 @@ class CalibrationOverlay(QWidget):
         if not self._v2_collect_enabled:
             return
 
-        if os.environ.get("GAZEKEY_CALIB_DEBUG", "0").strip() == "1":
+        if self._verbose_fixation_ui():
             idx = int(self._session_v2.target_index)
             label = (
                 self._session_v2.targets[idx].label
@@ -274,6 +279,8 @@ class CalibrationOverlay(QWidget):
                 f"uR={features.pca_uR} vR={features.pca_vR} "
                 f"avg_v={features.avg_v}"
             )
+        elif self._minimal_fixation_ui:
+            self._update_v2_progress_only()
         else:
             self._update_v2_status_hint()
 
@@ -282,8 +289,11 @@ class CalibrationOverlay(QWidget):
             self._show_result(res)
             return
 
-        if os.environ.get("GAZEKEY_CALIB_DEBUG", "0").strip() != "1":
-            self._update_v2_status_hint()
+        if not self._verbose_fixation_ui():
+            if self._minimal_fixation_ui:
+                self._update_v2_progress_only()
+            else:
+                self._update_v2_status_hint()
 
         # If we advanced targets, update the dot/label.
         if int(self._session_v2.target_index) != idx:
@@ -313,11 +323,16 @@ class CalibrationOverlay(QWidget):
         self.dot_widget.show()
         self.dot_widget.raise_()
 
-        self.status_label.setStyleSheet("color: #CCCCCC; background: transparent;")
-        self.status_label.setText(
-            f"Point {idx + 1} of {point_count} ({name})\n"
-            "Look at the dot — move your eyes only; keep your head still."
-        )
+        if self._minimal_fixation_ui and self._session_v2 is not None:
+            self._update_v2_progress_only()
+        elif self._session_v2 is None:
+            self.status_label.setStyleSheet("color: #CCCCCC; background: transparent;")
+            self.status_label.setText(
+                f"Point {idx + 1} of {point_count} ({name})\n"
+                "Look at the dot — move your eyes only; keep your head still."
+            )
+        else:
+            self._update_v2_status_hint()
 
         if self._session_v2 is None:
             self._session.begin_prepare()
@@ -330,6 +345,24 @@ class CalibrationOverlay(QWidget):
             except Exception:
                 pass
             self._prepare_timer.start(PREPARE_MS)
+
+    @staticmethod
+    def _verbose_fixation_ui() -> bool:
+        return os.environ.get("GAZEKEY_VERBOSE", "0").strip() == "1" or (
+            os.environ.get("GAZEKEY_CALIB_DEBUG", "0").strip() == "1"
+        )
+
+    def _update_v2_progress_only(self) -> None:
+        """MVP fixation UI: optional progress only (FR-003, SC-006)."""
+        if self._session_v2 is None:
+            return
+        idx = int(self._session_v2.target_index)
+        if idx >= len(self._dot_targets):
+            return
+        point_count = len(self._dot_targets)
+        self.status_label.setStyleSheet("color: #AAAAAA; background: transparent;")
+        self.status_label.setText(f"{idx + 1} / {point_count}")
+        self.status_label.show()
 
     def _update_v2_status_hint(self) -> None:
         if self._session_v2 is None:
@@ -377,6 +410,12 @@ class CalibrationOverlay(QWidget):
         self._result = result
         self.dot_widget.hide()
         self._prepare_timer.stop()
+
+        if result.success and self._session_v2 is not None and self._minimal_fixation_ui:
+            # Pass/fail is reported after mapper fit (FR-005); close without overlay verdict.
+            self.status_label.hide()
+            self._emit_finished_and_close()
+            return
 
         if result.success:
             self.status_label.setStyleSheet("color: #10B981; background: transparent;")

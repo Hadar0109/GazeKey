@@ -251,9 +251,9 @@ def test_keyboard_avg_v_correlation_catastrophic_fail():
         require_any_vertical_monotonic=False,
         min_catastrophic_screen_y_avg_v_corr=0.15,
     )
+    assert not q.usable
     assert not q.accepted
     assert any("catastrophic" in r for r in q.reasons)
-    assert not q.warnings
 
 
 def test_fullscreen_avg_v_correlation_still_hard_fail():
@@ -277,46 +277,72 @@ def test_fullscreen_avg_v_correlation_still_hard_fail():
     assert any("avg_v poorly correlated" in r for r in q.reasons)
 
 
-def test_quality_rejects_high_train_error():
-    targets = _targets_3x3()
-    # Synthetic features with clear vertical trend
-    samples = []
-    for i, t in enumerate(targets):
-        row = i // 3
-        v = 0.1 + 0.1 * row
-        samples.append(
-            (
-                _feat(
-                    avg_h=0.3 + 0.2 * (i % 3),
-                    avg_v=v,
-                    pca_vL=v - 0.5,
-                    pca_vR=v - 0.5,
-                    face_y=0.5 + 0.05 * row,
-                ),
-                (t.screen_x, t.screen_y),
-            )
-        )
+def test_keyboard_high_train_error_is_warning_not_blocker():
+    """Keyboard: LOOCV/train pixel gates are supplementary warnings (FR-009)."""
+    targets = _keyboard_targets_3x3()
+    samples = _keyboard_samples_from_avg_v(
+        [0.10, 0.12, 0.14, 0.20, 0.22, 0.24, 0.30, 0.32, 0.34]
+    )
     from gazekey.mapping.ridge import fit_calibration_mapper
 
     fit = fit_calibration_mapper(
         samples=samples,
+        targets=targets,
+        calibration_mode="keyboard15",
         min_alpha=1.0,
-        max_train_error_px=200.0,
-        max_loocv_rms_px=500.0,
-        max_target_loocv_px=500.0,
+        max_train_error_px=1.0,
+        max_loocv_rms_px=1.0,
+        max_target_loocv_px=1.0,
     )
     assert fit.success and fit.model is not None
-    # Perturb one target to force huge train error by mislabeling screen y in samples
-    bad_samples = list(samples)
-    f, (x, y) = bad_samples[0]
-    bad_samples[0] = (f, (x, 9999.0))
     q = evaluate_calibration_quality(
         model=fit.model,
-        samples=bad_samples,
+        samples=samples,
         targets=targets,
-        screen_rect=(0.0, 0.0, 300.0, 300.0),
-        max_train_error_px=50.0,
-        max_loocv_rms_px=500.0,
+        screen_rect=(0.0, 0.0, 500.0, 500.0),
+        calibration_mode="keyboard15",
+        loocv_detail=fit.model.leave_one_out_detail_px(),
+        max_train_error_px=1.0,
+        max_loocv_rms_px=1.0,
+        max_target_loocv_px=1.0,
         require_any_vertical_monotonic=False,
     )
-    assert not q.accepted
+    assert q.usable
+    assert q.accepted
+    assert not q.reasons
+    assert any("train error" in w.lower() or "loocv" in w.lower() for w in q.warnings)
+
+
+def test_keyboard_region_gate_failure_is_warning_not_blocker():
+    """Region misclassification recorded as quality warning; preview still allowed."""
+    targets = _keyboard_targets_3x3()
+    samples = _keyboard_samples_from_avg_v(
+        [0.10, 0.12, 0.14, 0.20, 0.22, 0.24, 0.30, 0.32, 0.34]
+    )
+    # LOOCV always perfect; train predictions offset to wrong row/col.
+    loocv = [
+        {"i": i, "pred_x": tx, "pred_y": ty, "err": 0.0}
+        for i, (_f, (tx, ty)) in enumerate(samples)
+    ]
+    train_preds = [(tx + 500.0, ty + 500.0) for _f, (tx, ty) in samples]
+
+    class _OffsetTrainMapper(_ExactTrainMapper):
+        def predict(self, feat: FrameFeatures) -> MapperPrediction | None:
+            for j, (f, _p) in enumerate(self.samples):
+                if f is feat:
+                    px, py = train_preds[j]
+                    return MapperPrediction(x=float(px), y=float(py), quality=1.0)
+            return None
+
+    model = _OffsetTrainMapper(samples, loocv_detail=loocv)
+    q = evaluate_calibration_quality(
+        model=model,
+        samples=samples,
+        targets=targets,
+        screen_rect=(0.0, 0.0, 500.0, 500.0),
+        calibration_mode="keyboard15",
+        loocv_detail=loocv,
+        require_any_vertical_monotonic=False,
+    )
+    assert q.usable
+    assert any("region" in w.lower() for w in q.warnings)

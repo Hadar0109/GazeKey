@@ -40,6 +40,15 @@ class MonotonicityReport:
 
 @dataclass
 class CalibrationQualityResult:
+    """Calibration usability vs supplementary mapping-quality signals.
+
+    ``usable`` / ``accepted``: True when collection + basic sanity passed and the
+    PCA4 mapper can predict (preview/benchmark may proceed). LOOCV, region, and
+    train pixel gates are recorded as ``warnings`` on keyboard mode — benchmark
+    decides mapping acceptance (FR-009, calibration-session contract).
+    """
+
+    usable: bool
     accepted: bool
     reasons: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
@@ -195,6 +204,16 @@ def _fmt(v: Optional[float]) -> str:
     if v is None:
         return "   n/a"
     return f"{float(v):8.4f}"
+
+
+def _keyboard_blocking_reason(reason: str) -> bool:
+    """Hard blockers for keyboard usability (collection sanity + mapper usable)."""
+    lower = reason.lower()
+    if "predict returned none" in lower:
+        return True
+    if "catastrophic" in lower:
+        return True
+    return False
 
 
 def check_vertical_monotonicity(
@@ -478,6 +497,7 @@ def evaluate_calibration_quality(
             )
     if is_keyboard:
         for pr in pixel_reasons:
+            warnings.append(pr)
             print(f"[calib2]   pixel (warning): {pr}")
     else:
         reasons.extend(pixel_reasons)
@@ -523,6 +543,7 @@ def evaluate_calibration_quality(
         loocv_pixel.append(f"worst LOOCV {max_loocv:.1f}px > {max_target_loocv_px:.1f}px")
     if is_keyboard:
         for pr in loocv_pixel:
+            warnings.append(pr)
             print(f"[calib2]   pixel (warning): {pr}")
     else:
         reasons.extend(loocv_pixel)
@@ -537,16 +558,17 @@ def evaluate_calibration_quality(
             half_key_height_px=half_key_height_px,
             verbose=False,
         )
-        reasons.extend(region.hard_fail_reasons)
+        for rr in region.hard_fail_reasons:
+            warnings.append(rr)
         if not region.passed:
             print(
-                "[calib2] keyboard gate failure: wrong calibration region "
-                "(row/col), not pixel RMS alone"
+                "[calib2] keyboard region quality warning: wrong calibration region "
+                "(row/col) — supplementary; benchmark decides mapping acceptance"
             )
         elif pixel_reasons or loocv_pixel:
             print(
-                "[calib2] keyboard gate: region OK — pixel thresholds exceeded but "
-                "not failing (wrong key/row would fail)"
+                "[calib2] keyboard region OK — pixel thresholds exceeded "
+                "(supplementary warnings only)"
             )
 
     # Center-target proxy for post-fit validation (offline).
@@ -619,21 +641,34 @@ def evaluate_calibration_quality(
                     f"avg_v poorly correlated with screen Y (r={corr:.3f}, need >={preferred:.2f})"
                 )
 
-    accepted = len(reasons) == 0
-    if accepted:
+    if is_keyboard:
+        kept: List[str] = []
+        for r in reasons:
+            if _keyboard_blocking_reason(r):
+                kept.append(r)
+            else:
+                warnings.append(r)
+        reasons = kept
+
+    usable = len(reasons) == 0
+    if usable:
         if warnings:
-            print(f"[calib2] quality gates: PASSED ({len(warnings)} warning(s))")
+            print(
+                f"[calib2] calibration usable for preview/benchmark "
+                f"({len(warnings)} quality warning(s); benchmark decides mapping acceptance)"
+            )
             for w in warnings:
-                print(f"[calib2]   warning: {w}")
+                print(f"[calib2]   quality warning: {w}")
         else:
-            print("[calib2] quality gates: PASSED")
+            print("[calib2] calibration usable for preview/benchmark")
     else:
-        print("[calib2] quality gates: FAILED")
+        print("[calib2] calibration NOT usable (basic sanity / mapper failed)")
         for r in reasons:
             print(f"[calib2]   - {r}")
 
     return CalibrationQualityResult(
-        accepted=accepted,
+        usable=usable,
+        accepted=usable,
         reasons=reasons,
         warnings=warnings,
         monotonicity=list(mono_reports),

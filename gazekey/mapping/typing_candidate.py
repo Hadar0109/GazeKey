@@ -37,14 +37,15 @@ MAX_TARGET_LOOCV_PX = 110.0
 MAX_TRAIN_ERROR_PX = 60.0
 HALF_KEY_HEIGHT_PX = 34.0
 
-# Final calibration acceptance before typing is enabled.
+# Supplementary mapping-quality thresholds (warnings in calibration summary).
+# Benchmark (SC-001–004) is primary mapping acceptance — not these gates.
 MAX_VALIDATION_ERROR_PX = 80.0
 MAX_OFF_SCREEN_LOOCV = 0
 MIN_SCREEN_Y_AVG_V_CORR = 0.55  # warning only for keyboard mode
-MIN_CATASTROPHIC_SCREEN_Y_AVG_V_CORR = 0.15  # hard fail
+MIN_CATASTROPHIC_SCREEN_Y_AVG_V_CORR = 0.15  # hard fail (mapper unusable)
 MAX_SINGLE_TARGET_TRAIN_PX = 55.0
 
-# When False, failed calibration gates block typing (no mapper bypass).
+# Calibration usability: collection + PCA4 fit. Quality gates do not block preview.
 ENABLE_TYPING_ON_BEST_EFFORT = False
 
 # Per-sample head geometry limits during fixation collection (stricter than post-hoc QA).

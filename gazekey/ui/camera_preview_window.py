@@ -19,6 +19,8 @@ class CameraPreviewWindow(QWidget):
     def __init__(self, dock: str = "bottom_right"):
         super().__init__()
         self._dock = dock
+        self._calibration_blocked = False
+        self._user_visible = False
         self.init_ui()
     
     def init_ui(self):
@@ -81,6 +83,36 @@ class CameraPreviewWindow(QWidget):
         y = 20
         
         self.move(x, y)
+
+    @property
+    def is_calibration_blocked(self) -> bool:
+        return self._calibration_blocked
+
+    def set_calibration_blocked(self, blocked: bool) -> None:
+        """Hide and prevent show while fixation overlay is active (CQ-4)."""
+        self._calibration_blocked = bool(blocked)
+        if blocked:
+            self.hide()
+            self._user_visible = False
+
+    def show_post_calibration(self) -> None:
+        """Show only when allowed after calibration (user may close later)."""
+        if self._calibration_blocked:
+            return
+        self._user_visible = True
+        self.show()
+        self.position_at_bottom_right()
+        self.raise_()
+
+    def show(self) -> None:  # noqa: D401 — Qt override
+        if self._calibration_blocked:
+            return
+        self._user_visible = True
+        super().show()
+
+    def hide(self) -> None:
+        self._user_visible = False
+        super().hide()
 
     def position_at_bottom_right(self):
         """Position the window at the bottom-right corner of the usable screen."""
