@@ -95,18 +95,164 @@ def _letter_keys_by_row(
     return out
 
 
+def _all_keys_by_row(
+    keys: Iterable[KeyGeometryRow],
+) -> List[Tuple[int, List[KeyGeometryRow]]]:
+    """Return [(row_index, keys)] for ALL gaze-hittable keys (incl. specials), top to bottom.
+
+    Unlike :func:`_letter_keys_by_row`, this keeps Shift/Ctrl/Alt/Space/Enter/Backspace so
+    the full interactive keyboard bounding box (true left/right edges + Space/Enter row) is
+    available for whole-keyboard coverage layouts.
+    """
+    rows: dict[int, List[KeyGeometryRow]] = {}
+    for k in keys:
+        rows.setdefault(int(k.row_index), []).append(k)
+    ordered = sorted(
+        rows.items(),
+        key=lambda kv: float(np.mean([kk.center[1] for kk in kv[1]])),
+    )
+    return [(ri, sorted(rs, key=lambda k: k.center[0])) for ri, rs in ordered]
+
+
+def _keyboard_full_coverage_targets(
+    keys: Sequence[KeyGeometryRow],
+) -> List[CalibrationTarget]:
+    """Candidate A: ~9 anchors spanning the FULL interactive keyboard via real key centers.
+
+    Three vertical bands (top interactive row, a middle row, the bottom Ctrl/Space/Enter
+    row) x three columns (true leftmost / center / rightmost key per band). Anchors snap to
+    real key centers so they remain stable fixation targets, and they reach the true
+    left/right edges and the bottom row that ``keyboard15`` never covers.
+
+    Bands are tagged grid_row 0/1/2 so :func:`calibration_row_groups` still yields three
+    groups; the only change versus the letter-only layout is that the three row-Y centers
+    now span the whole keyboard vertically (a layout effect, not a mapping-logic change).
+    """
+    rows = _all_keys_by_row(keys)
+    n = len(rows)
+    if n < 3:
+        return []  # caller falls back to the standard letter layout
+
+    # rows is already ordered top->bottom by mean center-y. Pick top, bottom, and the
+    # interior row whose mean y is closest to the vertical midpoint (best 3-band spread;
+    # avoids bunching two bands near the bottom when there are 4+ rows).
+    def _row_mean_y(row: Tuple[int, List[KeyGeometryRow]]) -> float:
+        return float(np.mean([k.center[1] for k in row[1]]))
+
+    top_row = rows[0]
+    bottom_row = rows[n - 1]
+    mid_y = 0.5 * (_row_mean_y(top_row) + _row_mean_y(bottom_row))
+    interior = rows[1:-1]
+    mid_row = min(interior, key=lambda r: abs(_row_mean_y(r) - mid_y))
+    band_rows = [top_row, mid_row, bottom_row]
+    band_labels = ("top", "mid", "bottom")
+    col_labels = ("left", "center", "right")
+
+    out: List[CalibrationTarget] = []
+    tid = 1
+    for grid_row, (_phys_row, row_keys) in enumerate(band_rows):
+        left = row_keys[0]
+        right = row_keys[-1]
+        center = row_keys[len(row_keys) // 2]
+        for grid_col, k in enumerate((left, center, right)):
+            cx, cy = k.center
+            out.append(
+                CalibrationTarget(
+                    target_id=f"T{tid:02d}",
+                    label=f"full_{band_labels[grid_row]}_{col_labels[grid_col]}",
+                    key_id=str(k.key_id),
+                    screen_x=float(cx),
+                    screen_y=float(cy),
+                    grid_row=int(grid_row),
+                    grid_col=int(grid_col),
+                )
+            )
+            tid += 1
+    return out
+
+
+def _keyboard_wide_targets(
+    typing_region_rect: QRect,
+    screen_rect: Optional[QRect],
+    *,
+    expand_frac: float = 0.6,
+    screen_inset_frac: float = 0.04,
+) -> List[CalibrationTarget]:
+    """Candidate B: ~9 anchors on a 3x3 grid pushed WIDER than the keyboard toward the screen.
+
+    The keyboard rect is grown by ``expand_frac`` of its size on each side, then clamped to
+    the screen (minus ``screen_inset_frac`` so dots stay on-screen). Anchors are off-keyboard
+    points (no key_id). Hypothesis: a wider, better-conditioned gaze range improves the
+    PCA4->screen linear fit, with the keyboard becoming an interpolated interior region.
+    """
+    r = typing_region_rect
+    ex = float(r.width()) * float(expand_frac)
+    ey = float(r.height()) * float(expand_frac)
+    x0 = float(r.x()) - ex
+    x1 = float(r.x() + r.width()) + ex
+    y0 = float(r.y()) - ey
+    y1 = float(r.y() + r.height()) + ey
+
+    if screen_rect is not None and screen_rect.width() > 0 and screen_rect.height() > 0:
+        sx0 = float(screen_rect.x()) + float(screen_rect.width()) * screen_inset_frac
+        sx1 = float(screen_rect.x() + screen_rect.width()) - float(screen_rect.width()) * screen_inset_frac
+        sy0 = float(screen_rect.y()) + float(screen_rect.height()) * screen_inset_frac
+        sy1 = float(screen_rect.y() + screen_rect.height()) - float(screen_rect.height()) * screen_inset_frac
+        x0 = max(x0, sx0)
+        x1 = min(x1, sx1)
+        y0 = max(y0, sy0)
+        y1 = min(y1, sy1)
+
+    xs = [x0, 0.5 * (x0 + x1), x1]
+    ys = [y0, 0.5 * (y0 + y1), y1]
+    col_labels = ("left", "center", "right")
+    row_labels = ("top", "mid", "bottom")
+
+    out: List[CalibrationTarget] = []
+    tid = 1
+    for grid_row, y in enumerate(ys):
+        for grid_col, x in enumerate(xs):
+            out.append(
+                CalibrationTarget(
+                    target_id=f"T{tid:02d}",
+                    label=f"wide_{row_labels[grid_row]}_{col_labels[grid_col]}",
+                    key_id="",
+                    screen_x=float(x),
+                    screen_y=float(y),
+                    grid_row=int(grid_row),
+                    grid_col=int(grid_col),
+                )
+            )
+            tid += 1
+    return out
+
+
 def keyboard_geometry_targets(
     *,
     keys: Sequence[KeyGeometryRow],
     typing_region_rect: QRect,
     mode: str = "keyboard15",
+    screen_rect: Optional[QRect] = None,
 ) -> List[CalibrationTarget]:
     """
     Dense calibration targets aligned to real key centers inside the letter-key area.
 
     - keyboard15: 3 letter rows × 3 columns + 3 row-gap + 3 interior = 15
     - keyboard13: same without 2 interior anchors = 13
+    - keyboard_full9: ~9 anchors across the FULL interactive keyboard (Candidate A, T032)
+    - keyboard_wide9: ~9 anchors on a grid wider than the keyboard (Candidate B, T032)
+
+    All ``keyboard*`` modes keep the same mapper treatment downstream (keyboard_mode=True);
+    the only difference is anchor placement/count (the single Iteration-4 lever).
     """
+    if mode == "keyboard_full9":
+        full = _keyboard_full_coverage_targets(list(keys))
+        if len(full) >= 9:
+            return full
+        mode = "keyboard15"  # too few rows detected; fall back to standard layout
+    elif mode == "keyboard_wide9":
+        return _keyboard_wide_targets(typing_region_rect, screen_rect)
+
     if mode not in {"keyboard15", "keyboard13"}:
         raise ValueError(f"Unknown keyboard geometry mode: {mode}")
 

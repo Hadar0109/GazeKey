@@ -26,6 +26,10 @@ from gazekey.evaluation.benchmark_diagnostics import (
     build_benchmark_diagnostics,
     write_benchmark_diagnostics,
 )
+from gazekey.evaluation.coverage_diagnostics import (
+    build_coverage_report,
+    write_coverage_diagnostics,
+)
 from gazekey.evaluation.failure_analysis import format_failure_analysis, infer_likely_cause
 from gazekey.evaluation.run_summary import RunSummaryWriter
 from gazekey.mvp_log import mvp_log
@@ -179,9 +183,10 @@ class VirtualKeyboard(QWidget):
         self._calib2_v_ema = None
         self._calib2_v_alpha = 0.35
         self._calib2_enable_v_ema = False
-        self._row_aware_mapping = True
-        # New experimental path: PCA geometric features + ridge regression (recommended default).
-        self._use_ridge_mapper = True
+        # Phase 9 cleanup (T038, FR-007): the active path is frozen to the PCA4 ridge mapper
+        # (see gazekey/mapping/typing_candidate.ACTIVE_MAPPER). The old runtime mapper-selection
+        # toggles (_use_ridge_mapper / _row_aware_mapping) are removed so no experimental mapper
+        # can be selected at runtime. Variant code in ridge.py is removed in Phase 10 (T043).
         # Verbose detail: GAZEKEY_VERBOSE=1 (legacy per-flag env vars still honored).
         self._rt2_debug = self._verbose or os.environ.get("GAZEKEY_GAZE_DEBUG", "0").strip() == "1"
         self._rt2_debug_pred = self._rt2_debug or os.environ.get("GAZEKEY_GAZE_DEBUG_PRED", "0").strip() == "1"
@@ -192,7 +197,10 @@ class VirtualKeyboard(QWidget):
         self._keyboard_accuracy_debug = self._verbose or (
             os.environ.get("GAZEKEY_KEYBOARD_ACCURACY_DEBUG", "0").strip() == "1"
         )
-        self._keyboard_accuracy_compare = self._verbose or (
+        # Phase 9 cleanup (T038, FR-007): multi-mapper comparison is an experimental
+        # selection path and must stay out of the active/verbose user flow. Gate it behind
+        # the explicit debug-only flag only — GAZEKEY_VERBOSE (user clarity) must not trigger it.
+        self._keyboard_accuracy_compare = (
             os.environ.get("GAZEKEY_KEYBOARD_ACCURACY_COMPARE", "0").strip() == "1"
         )
         self._last_mapper_candidate_reports: tuple[MapperCandidateReport, ...] = ()
@@ -296,7 +304,41 @@ class VirtualKeyboard(QWidget):
         self.setLayout(main_layout)
         self.setStyleSheet("background-color: #000000;")
         self._update_responsive_sizes()
+        self._apply_mvp_future_ui_placeholders()
         
+    def _apply_mvp_future_ui_placeholders(self) -> None:
+        """T037 / FR-018: disconnect unimplemented UI behavior without shrinking the surface.
+
+        Future interactive regions (suggestion bar, language toggle, symbols switch, etc.)
+        stay visible and layout-reserved so calibration geometry, hitboxes, and coverage
+        diagnostics still reflect the full keyboard we will support later.
+        """
+        disabled_chrome_style = """
+            QPushButton:disabled {
+                background-color: rgba(255, 255, 255, 0.05);
+                color: rgba(255, 255, 255, 0.35);
+                border: 1px solid rgba(255, 255, 255, 0.12);
+            }
+        """
+        for attr in ("lang_btn", "symbols_btn"):
+            if hasattr(self, attr):
+                btn = getattr(self, attr)
+                btn.setEnabled(False)
+                btn.setToolTip("Reserved for a future release — not active in the calibration/mapping MVP")
+                btn.setStyleSheet(btn.styleSheet() + disabled_chrome_style)
+
+        suggestion_disabled_style = """
+            QPushButton:disabled {
+                background-color: #0a0a0a;
+                color: rgba(204, 204, 204, 0.35);
+                border: 1px solid #222222;
+            }
+        """
+        for btn in getattr(self, "suggestion_buttons", []):
+            btn.setEnabled(False)
+            btn.setToolTip("Autocomplete suggestions — reserved for a future release")
+            btn.setStyleSheet(btn.styleSheet() + suggestion_disabled_style)
+
     def create_control_bar(self):
         """Create the top control bar with calibrate, zoom, etc."""
         layout = QHBoxLayout()
@@ -620,6 +662,9 @@ class VirtualKeyboard(QWidget):
     
     def on_suggestion_clicked(self, suggestion):
         """Handle suggestion button click (placeholder for future auto-complete)"""
+        # T037: buttons are disabled in MVP; guard in case a signal fires anyway.
+        if not getattr(self, "suggestion_buttons", None):
+            return
         self._log_verbose(f"Suggestion clicked: {suggestion} - TODO: Insert word into text")
     
     def create_minimized_view(self):
@@ -1052,6 +1097,46 @@ class VirtualKeyboard(QWidget):
             quality_warnings=quality_warnings,
         )
 
+    def _write_calibration_coverage_diagnostic(self) -> None:
+        """Reporting-only: record full-keyboard coverage of the calibration anchors (T032).
+
+        Calibration-data only (no mapping change); guarded so a failure never affects calibration.
+        """
+        try:
+            session = self._calibration_v2_session
+            if session is None or not session.targets:
+                return
+            anchors = [(float(t.screen_x), float(t.screen_y)) for t in session.targets]
+            layout_keys = self._intent_keys or inspect_keyboard_layout(self.keyboard_widget)
+            keys = [
+                {
+                    "key_label": str(k.key_label),
+                    "key_action": str(k.key_action),
+                    "x": float(k.center[0]),
+                    "y": float(k.center[1]),
+                    "row_index": int(k.row_index),
+                    "is_special": bool(k.is_special_key),
+                }
+                for k in layout_keys
+            ]
+            if not keys:
+                return
+            session_id = self._calibration_controller.session_id or session.csv.session_id
+            report = build_coverage_report(
+                anchors=anchors,
+                keys=keys,
+                calibration_mode=str(self._calib2_mode or CALIBRATION_MODE),
+                session_id=str(session_id),
+            )
+            path = write_coverage_diagnostics(report, session_id=str(session_id))
+            cov = report["overall"]
+            self._log_verbose(
+                f"[calib2] coverage diag -> {path} "
+                f"({cov['n_inside_hull']}/{cov['n_keys']} keys inside hull)"
+            )
+        except Exception as e:
+            self._log_verbose(f"[calib2] coverage diagnostic failed: {e}")
+
     def _on_calibration_finished(self, result) -> None:
         self._is_calibrating = False
         if self._calibration_overlay is not None:
@@ -1346,6 +1431,7 @@ class VirtualKeyboard(QWidget):
             )
         except Exception as e:
             self._log_verbose(f"[calib2] v2 mapper save failed: {e}")
+        self._write_calibration_coverage_diagnostic()
         self._gaze_smoother.reset()
         self._feature_smoother.reset()
         self._gaze_bias_x = 0.0
@@ -1761,6 +1847,7 @@ class VirtualKeyboard(QWidget):
                 gaze_smoother_alpha=gaze_alpha,
                 gaze_bias_x=float(self._gaze_bias_x),
                 gaze_bias_y=float(self._gaze_bias_y),
+                active_calibration_mode=str(self._calib2_mode or CALIBRATION_MODE),
             )
             path = write_benchmark_diagnostics(diagnostics, session_id=session_id)
             self._log_verbose(f"[benchmark] diagnostics written -> {path}")
@@ -2593,6 +2680,8 @@ class VirtualKeyboard(QWidget):
     
     def on_language_clicked(self):
         """Handle language toggle"""
+        if hasattr(self, "lang_btn") and not self.lang_btn.isEnabled():
+            return
         current = self.lang_btn.text()
         self.lang_btn.setText("עב" if current == "EN" else "EN")
         self._log_verbose(f"Language switched to: {self.lang_btn.text()}")

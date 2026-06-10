@@ -48,6 +48,10 @@ ALPHA_SELECT_LOOCV_TOL_PX = _TC_ALPHA_SELECT_LOOCV_TOL_PX
 LOOCV_TIE_TOL_PX = 2.0
 # Active runtime freeze: calibration always fits/selects this mapper only.
 FROZEN_ACTIVE_MAPPER = ACTIVE_MAPPER
+# Phase 9 cleanup (T038, FR-007): the only mapper permitted on the active calibration path.
+# Experimental candidates (decoupled, poly12, ...) stay in this module for offline comparison
+# but are disconnected from runtime selection; their dead wiring is removed in Phase 10 (T043).
+_ACTIVE_MAPPER_ALLOWLIST: frozenset[str] = frozenset({"pca4_baseline"})
 MAPPER_SIMPLICITY: Tuple[str, ...] = (
     "pca4_baseline",
     "pca4_decoupled_split",
@@ -1066,7 +1070,17 @@ def fit_calibration_mapper(
 
     Other ridge candidates (decoupled, poly12, etc.) remain in this module but are not
     evaluated on the active calibration path while FROZEN_ACTIVE_MAPPER is set.
+
+    Phase 9 cleanup (T038, FR-007): this is the single active selection entry point and it
+    only ever fits/returns a mapper from ``_ACTIVE_MAPPER_ALLOWLIST``. Experimental mapper
+    selection / multi-candidate ranking is blocked here so it cannot reach the user path.
     """
+    if FROZEN_ACTIVE_MAPPER not in _ACTIVE_MAPPER_ALLOWLIST:
+        raise RuntimeError(
+            f"Active mapper {FROZEN_ACTIVE_MAPPER!r} is not in the allowed set "
+            f"{sorted(_ACTIVE_MAPPER_ALLOWLIST)}; experimental mapper selection is blocked "
+            f"on the active path (FR-007)."
+        )
     mvp_log(
         f"[calib2] mapper freeze: active path locked to {FROZEN_ACTIVE_MAPPER} "
         f"(LOOCV candidate ranking disabled)"

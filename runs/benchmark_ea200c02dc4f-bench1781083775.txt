@@ -1,0 +1,18 @@
+[benchmark] FAILED session=ea200c02dc4f-bench1781083775 keys=3/15 (20%) row=5/15 median_err=115px reason=key-hit 3/15 (20%) < 10/15 (~67%); median_err 115.4px > 55px; row 5/15 (33%) < 80%
+failure_analysis:
+  likely_cause: mapping
+  keys_failed: 12/15
+  rows_failed: 10/15
+  per_key_misses:
+    E -> S dx=-56.1 dy=+72.8 err=91.8px
+    T -> G dx=+99.3 dy=+38.5 err=106.5px
+    U -> I dx=+70.0 dy=-5.1 err=70.2px
+    A -> Alt dx=-19.7 dy=+157.2 err=158.4px
+    D -> Space dx=+43.3 dy=+143.4 err=149.8px
+    G -> Space dx=+113.7 dy=+125.2 err=169.2px
+    J -> K dx=+84.6 dy=-9.1 err=85.1px
+    L -> ⌫ dx=+7.9 dy=+61.0 err=61.5px
+    Z -> Space dx=+104.6 dy=+103.0 err=146.8px
+    C -> Space dx=+102.9 dy=+103.0 err=145.6px
+    B -> Space dx=+126.9 dy=+103.0 err=163.5px
+    M -> ↵ dx=+109.4 dy=+97.2 err=146.4px

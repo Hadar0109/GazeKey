@@ -200,6 +200,7 @@ def build_benchmark_diagnostics(
     gaze_bias_x: Optional[float] = None,
     gaze_bias_y: Optional[float] = None,
     thresholds: Any = None,
+    active_calibration_mode: Optional[str] = None,
 ) -> dict[str, Any]:
     """Assemble the full diagnostics record (does not write anything)."""
     from gazekey.evaluation.run_summary import benchmark_thresholds, display_key_hit_pct
@@ -236,6 +237,12 @@ def build_benchmark_diagnostics(
         else None
     )
 
+    config_block = _config_metadata()
+    if active_calibration_mode is not None:
+        # Record the layout actually used this run (e.g. T032 candidate via env override),
+        # which may differ from the static configured CALIBRATION_MODE.
+        config_block["calibration_mode"] = str(active_calibration_mode)
+
     return {
         "schema_version": SCHEMA_VERSION,
         "run_type": "benchmark",
@@ -255,7 +262,7 @@ def build_benchmark_diagnostics(
         },
         "metrics": metrics_block,
         "mapper": mapper_block,
-        "config": _config_metadata(),
+        "config": config_block,
         "runtime": runtime_block,
         "calibration_targets": cal_targets,
         "targets": [_result_row_to_dict(r) for r in rows],

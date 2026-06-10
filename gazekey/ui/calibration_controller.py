@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Callable, List, Optional, Tuple
 
@@ -72,7 +73,14 @@ class CalibrationController:
     ) -> CalibrationStartContext:
         self.reset()
 
+        # Dev override so T032 candidate layouts can be selected without editing config
+        # (mirrors GAZEKEY_DEV_BENCHMARK). Falls back to the configured mode.
+        env_mode = os.environ.get("GAZEKEY_CALIB_MODE", "").strip()
+        resolved_mode = env_mode or calibration_mode
+
         screen = QApplication.primaryScreen().geometry()
+        # letter_keys_region_rect() is the full keyboard-widget rect (all rows, no
+        # calibrate bar); it already spans the interactive keyboard vertically.
         region_rect = letter_keys_region_rect(keyboard_widget)
         self.calib_clip_rect = (
             float(region_rect.x()),
@@ -84,9 +92,10 @@ class CalibrationController:
         targets = keyboard_geometry_targets(
             keys=layout_keys,
             typing_region_rect=region_rect,
-            mode=calibration_mode,
+            mode=resolved_mode,
+            screen_rect=screen,
         )
-        self.calib_mode = calibration_mode
+        self.calib_mode = resolved_mode
 
         dot_targets = [(t.screen_x - screen.x(), t.screen_y - screen.y()) for t in targets]
         screen_targets = [(t.screen_x, t.screen_y) for t in targets]
