@@ -1,6 +1,6 @@
 # Contract: Evaluation Module (minimal)
 
-**Version**: 1.0.0  
+**Version**: 1.2.0  
 **Feature**: `001-calibration-mapping-mvp`
 
 ## Purpose
@@ -12,34 +12,41 @@ summaries. **Not** a diagnostics framework.
 
 ```text
 gazekey/evaluation/
-  benchmark_runner.py    # Run 15-key test; produce BenchmarkRun
-  run_summary.py         # Write console + lightweight file record
-  failure_analysis.py    # Format per-key misses, dx/dy, row errors into summary
+  benchmark_runner.py       # 15-key scoring; DEFAULT_SAMPLE_KEYS; SC-001–SC-003
+  benchmark_session.py      # Timed per-key settle/collect
+  run_summary.py            # Console + runs/<session_id>/ records
+  failure_analysis.py       # Per-key misses, dx/dy, likely_cause
+  coverage_diagnostics.py   # coverage.json at calibration finish
+  session_paths.py          # runs/<session_id>/ path helpers
+  benchmark_diagnostics.py  # benchmark_diag.json (optional)
 ```
 
 ## Out of scope
 
-- Multi-mapper comparison or replay (`keyboard_accuracy_compare.py`, mapper_diag)
-- Dashboards, HTML reports, session diff UI
-- LOOCV-primary gating or geometry debug overlays
-- Framework for pluggable analysis plugins
+- Multi-mapper comparison (deleted legacy tooling)
+- Dashboards, replay UI, automated AR tooling (until approved)
 
-## Dependencies
+## T061 baseline discipline (Phase 11)
 
-- `gazekey/layout/layout_inspector.py` — key centers and hitboxes (must be verified)
-- `gazekey/typing/key_hit_tester.py` — hit test for benchmark scoring
-- `gazekey/mapping/ridge.py` — `pca4_baseline` predict only
-- Extract from `gazekey/debug/keyboard_accuracy.py` — do not fork compare tooling
+| Step | Requirement |
+|------|-------------|
+| T061A | Run 1 → `runs/<session_id_A>/` |
+| T061B | Run 2, same config → `runs/<session_id_B>/` |
+| T061C | Aggregate → `runs/t061_baseline_comparison.md` |
+| T061D | Record first lever choice (no code change) |
+| T062+ | Compare all iterations vs T061 two-run set |
 
-## Task discipline
+**Historical only**: T029, pre-restart `iteration_*`, deleted run folders.
 
-1. **Baseline run** — end-to-end required before Phase 8; fix flow if blocked
-2. **One change per iteration** — layout, collection, geometry, or PCA4 fit only
-3. **Failure analysis** — document patterns; use plan.md decision guide
-4. **Compare** — label re-runs as improved / unchanged / regressed vs baseline
-5. **No diagnostics framework** — no mapper compare, dashboards, or replay UI
+## One-change iteration discipline
+
+1. T061 complete before any tuning
+2. Each cycle: layout OR collection OR geometry OR PCA4 fit/smoothing/row bias
+3. Failure inputs: dx/dy, row errors, failed keys, coverage.json, geometry
+4. T036 documents vs T061 baseline set
 
 ## Acceptance
 
-Module is acceptable when a tester can run benchmark, read pass/fail + per-key
-failures from one summary, and compare two sessions — without additional tools.
+Tester can run benchmark, read pass/fail + per-key failures from
+`runs/<session_id>/benchmark_summary.txt`, and compare sessions using
+`runs/t061_baseline_comparison.md` as the active reference.

@@ -103,10 +103,11 @@ gaze-to-target error, and overall pass/fail.
 
 **Acceptance Scenarios**:
 
-1. **Given** calibration has passed and preview is available, **When** the user
-   **manually starts** the benchmark (button/menu — not automatic), **Then** the
-   system prompts gaze at each benchmark test key in sequence and records whether
-   the mapped position hits the correct key.
+1. **Given** calibration has passed and preview is available, **When** the
+   developer enables `GAZEKEY_DEV_BENCHMARK=1` and restarts or continues the MVP
+   session, **Then** the benchmark auto-starts after preview (no normal UI button;
+   CQ-3) and prompts gaze at each benchmark test key in sequence, recording
+   whether the mapped position hits the correct key.
 2. **Given** a benchmark completes, **When** results are available, **Then** a
    run summary states pass or fail, key-hit accuracy, row accuracy, and
    median gaze-to-target error.
@@ -217,10 +218,12 @@ pass/fail and primary metrics.
 
 - **FR-010**: System MUST provide a structured **benchmark** separate from
   calibration that tests whether mapped gaze hits the correct key for each
-  **benchmark test key**. The benchmark is **started manually** by the user
-  after preview (not auto-run after calibration). Benchmark keys are for
-  validation; they are defined independently of calibration targets (may
-  partially overlap, but serve a different purpose).
+  **benchmark test key**. For MVP validation the benchmark is triggered by the
+  **developer flag** `GAZEKEY_DEV_BENCHMARK=1` (CQ-3): after calibration pass and
+  read-only preview, the benchmark auto-starts — it is **not** exposed as a normal
+  user-facing button or menu control. Benchmark keys are for validation; they are
+  defined independently of calibration targets (may partially overlap, but serve a
+  different purpose).
 - **FR-011**: Benchmark test key count and placement are **planning decisions**.
   The repository's historical 15-key evaluation is a useful baseline reference;
   the plan SHOULD justify the chosen benchmark set (coverage across rows/columns,
@@ -256,10 +259,12 @@ pass/fail and primary metrics.
 **Result-driven accuracy work**
 
 - **FR-022**: Before any **major change** to calibration, geometry, or PCA4
-  mapping, the team MUST run an end-to-end **baseline PCA4 run** (calibrate →
-  preview → manual benchmark) and save a run summary for comparison. If the
-  baseline cannot complete end-to-end, **blocking flow issues** MUST be fixed
-  before accuracy iterations begin.
+  mapping, the team MUST complete the **T061 two-run baseline** (calibrate →
+  read-only preview → benchmark with `GAZEKEY_DEV_BENCHMARK=1`, twice, no code
+  changes between runs) and save comparison evidence in `runs/t061_baseline_comparison.md`.
+  All tuning iterations compare against that baseline set. If a baseline run cannot
+  complete end-to-end, **blocking flow issues** MUST be fixed before accuracy
+  iterations begin.
 - **FR-022a**: Each accuracy iteration MUST apply **at most one** change among
   calibration layout, collection, geometry/hitboxes, or PCA4 fit path — per the
   failure-pattern guide in `plan.md`.
@@ -304,7 +309,7 @@ pass/fail and primary metrics.
 | Topic | Resolution |
 |-------|------------|
 | Active mapping model | **PCA4 (`pca4_baseline`)** — chosen MVP direction |
-| Benchmark start | **Manual** after preview (CQ-3) |
+| Benchmark start | **Developer flag** `GAZEKEY_DEV_BENCHMARK=1` auto-starts after preview (CQ-3); no normal UI control |
 | Success thresholds | **Binding** initial targets (CQ-1); 80% key-hit is stretch only |
 | Per-session calibration | Yes (CQ-2) |
 | Camera preview | Off by default during calibration; available in post-calibration UI (CQ-4) |
@@ -315,13 +320,21 @@ pass/fail and primary metrics.
 |-------|-------------|
 | Calibration target count and placement | Evaluate 9/13/15 from benchmark evidence; not locked here |
 | Benchmark test key set | 15 keys per plan (`DEFAULT_SAMPLE_KEYS`) |
-| Run summary file format | Simple and readable; no prescribed structure |
+| Run summary file format | `runs/<session_id>/` per-session files; aggregated baselines in `runs/t061_baseline_comparison.md` |
+| Phase 8 evidence baseline | **T061 two-run set** only; T029 and pre-restart iteration artifacts are historical |
 
 ## Success Criteria *(mandatory)*
 
-Historical baseline (repository evidence): archived **15-key benchmark** sessions
-showed **20%–60%** key-hit accuracy, high session-to-session variance, and poor
-correlation between internal quality gates and real key-hit accuracy.
+**Phase 8 clean restart (2026-06-10)**: Accuracy tuning restarts from a clean
+evidence slate. Prior experiments (row-Y bias, alpha floor, layout candidates,
+local correction, and other pre-restart tuning) are **historical only** — do not
+treat their run summaries or iteration notes as active comparison evidence. The
+**active tuning reference** is the T061 two-run baseline comparison
+(`runs/t061_baseline_comparison.md`).
+
+Historical repository evidence (pre-restart): archived **15-key benchmark**
+sessions showed **20%–60%** key-hit accuracy, high session-to-session variance,
+and poor correlation between internal quality gates and real key-hit accuracy.
 
 The numeric targets below are **binding for this MVP** (CQ-1 resolved). They are
 not tightened further at this stage. Key-hit benchmark accuracy remains the

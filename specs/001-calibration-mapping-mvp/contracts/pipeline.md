@@ -13,7 +13,7 @@ Define the single active processing pipeline from camera frame to benchmark resu
 |-------|-------|--------|--------------|
 | Capture | Webcam frame | `EyeData` | `gazekey/tracking/` |
 | Features | `EyeData` | `FrameFeatures` | `gazekey/features/extractor.py` |
-| Calibrate | `FrameFeatures` stream | `CalibrationSession` + samples | `gazekey/calibration2/` |
+| Calibrate | `FrameFeatures` stream | `CalibrationSession` + samples | `gazekey/calibration/` |
 | Fit | `CalibrationSession` | `GazeMapping` (`pca4_baseline`) | `gazekey/mapping/ridge.py` |
 | Preview | `FrameFeatures` + `GazeMapping` | screen `(x, y)` dot | `gazekey/ui/gaze_preview` |
 | Benchmark | `GazeMapping` + test keys | `BenchmarkRun` | `gazekey/evaluation/` |

@@ -1,15 +1,27 @@
 # Quickstart: Calibration & Gaze Mapping MVP Validation
 
 **Feature**: `001-calibration-mapping-mvp`  
-**Date**: 2026-06-09 (revised)
+**Date**: 2026-06-10 (revised 6 — T061 two-run baseline)
 
-Manual procedure to validate the MVP after implementation.
+Manual procedure to validate the MVP and run accuracy iterations.
 
 ## Prerequisites
 
 - Camera working; face visible at normal typing distance
 - Single monitor; virtual keyboard on primary screen
 - Quiet lighting; minimize head movement between calibration targets
+- Phase 10 cleanup complete; **`runs/` cleaned** for Phase 8 fresh start
+- Active path: `gazekey/calibration/`, `gazekey/mapping/config.py`
+
+## Historical vs active evidence
+
+| Evidence | Status |
+|----------|--------|
+| T029 / `baseline_pca4_summary.txt` | **Historical only** |
+| Pre-restart `iteration_01–04_*` | **Historical only** |
+| Pre-restart tuning (row-Y, alpha, layout, local-Y experiments) | **Historical only** — do not assume active |
+| **T061 two-run baseline** | **Active tuning reference** |
+| New sessions | `runs/<session_id>/` only |
 
 ## 1. Launch
 
@@ -20,124 +32,108 @@ python main.py
 **Expected (MVP)**:
 
 - App starts; per-session calibration begins
-- Terminal shows essential status only
-- Fixation overlay: **dot + progress only** — no metrics, no camera preview
-- Floating camera preview window **hidden by default** (CQ-4)
+- Fixation overlay: **dot + progress only** — no camera preview by default (CQ-4)
 
 ## 2. Calibrate
 
 1. Look at each calibration target until it advances.
 2. Complete all targets; wait for pass/fail **after** session ends.
 
-**Pass criteria**: All targets collected; run summary records outcome.
+**Artifacts**: `runs/<session_id>/calibration_summary.txt`, `coverage.json`
 
 ## 3. Preview (read-only)
 
-After calibration pass:
+After calibration pass: gaze dot tracks keys. No key activation or text changes from gaze.
 
-1. Gaze preview indicator on keyboard (position only).
-2. Confirm tracking across keys.
+## 4. Benchmark (developer flag — CQ-3)
 
-**Must NOT happen**: Key selection, dwell activation, text buffer changes from gaze.
-
-## 4. Benchmark (developer flag only)
-
-Benchmark is **not** exposed in the normal UI. To run the 15-key validation set during development:
+Benchmark is **not** in the normal UI. Validation uses:
 
 ```bash
 set GAZEKEY_DEV_BENCHMARK=1
 python main.py
 ```
 
-After calibration pass and preview ready, the benchmark auto-starts. Record from summary: key-hit accuracy, row accuracy, median error, PASS/FAIL.
+After calibration pass, benchmark **auto-starts** after preview. Record key-hit, row
+accuracy, median error, PASS/FAIL.
 
-**Pass thresholds** (CQ-1 — initial, not tightened):
+**Artifacts**: `runs/<session_id>/benchmark_summary.txt`, `benchmark_diag.json`
 
-- ≥ 10/15 keys correct (67%)
-- Median error ≤ 55 px
-- ≥ 80% correct row
-- Across 3 sessions: every session ≥ 8/15; spread ≤ 20 percentage points
+**Pass thresholds** (CQ-1): ≥ 10/15 keys; median ≤ 55 px; ≥ 80% row; SC-004 across 3 sessions later.
 
-## 5. Baseline before changes
+## 5. T061 — Two-run baseline (before any tuning)
 
-Before any major calibration, geometry, or PCA4 change:
+**No tuning** until T061A–T061D complete. **No code/config changes** during T061A–T061C.
 
-1. Run full calibrate → preview → benchmark.
-2. Save run summary as **baseline** in `runs/`.
-3. Only then apply the change and re-benchmark.
+### T061A — Baseline run 1
 
-## 6. Result-driven iteration
+1. `GAZEKEY_DEV_BENCHMARK=1`, `python main.py`
+2. Full flow: calibrate → preview → benchmark
+3. Note `session_id_A` and `runs/<session_id_A>/` artifacts
 
-**Prerequisite**: Baseline run (§5) must complete end-to-end. If not, fix blocking
-flow issues first — do not start accuracy iterations.
+### T061B — Baseline run 2
 
-When benchmark fails, use **per-key failure detail** and `plan.md` decision guide:
+1. **Same env** — restart app, new session
+2. Same flow; **no** parameter or code changes
+3. Note `session_id_B` and `runs/<session_id_B>/`
 
-- Wrong row / large `dy` → PCA4 fit or calibration layout (pick one)
-- Wrong column / `dx` → geometry or PCA4 u-fit or layout (pick one)
-- Erratic misses → fixation/collection
-- Preview OK, benchmark wrong → geometry/hitboxes first
+### T061C — Comparison + AR triage
 
-Apply **exactly one** change per iteration (layout, collection, geometry, or
-PCA4 fit in `ridge.py` / `typing_candidate.py`). Re-benchmark vs baseline.
+Write `runs/t061_baseline_comparison.md` comparing both runs:
 
-**Do not**: Combine multiple fixes in one iteration; re-run mapper variant matrices.
+| Input | Source |
+|-------|--------|
+| Key-hit, row, median_err | Both `benchmark_summary.txt` |
+| Failed keys, dx/dy | Failure analysis / `benchmark_diag.json` |
+| Coverage | Both `coverage.json` |
+| Geometry | Live UI sanity (AR-5 dots, AR-6 key centers/hitboxes) |
+| Variance | Spread between run A and run B (AR-7) |
+| Regional bias | Left/right/top/bottom dx/dy patterns (AR-2) |
+| AR-8 | Recommend whether SC-004 evaluator needed before acceptance |
 
-## 7. Geometry check
+**Conditional notes** (if baselines noisy/unstable): AR-3 fixation gate, AR-4 mean/outliers.
 
-**Phase 2 (automated)**: `tests/unit/test_layout_geometry.py` + `runs/geometry_check.txt`
-on a synthetic keyboard — sufficient for foundational work.
+**Defer AR-1** (feature sufficiency) unless both runs show unexplained persistent mapping bias after geometry/layout/collection review.
 
-**Before T029 baseline (manual, required)**: On the live `VirtualKeyboard` UI, confirm
-calibration dots and benchmark key highlights align with visible key centers; check
-`runs/geometry_check.txt` has no mismatches on synthetic fixture. If on-screen keys
-look offset, fix geometry before interpreting benchmark scores.
+### T061D — Choose first lever
 
-Benchmark hit-test uses the same tight/snap rules as `KeyHitTester` (`hit_test_layout_keys`).
+From T061C, record in `t061_baseline_comparison.md` which **one** lever T062 will use:
 
-## 8. Repeatability (SC-004)
+- T032 layout · T033 collection · T034 geometry · T035 PCA4 fit/smoothing/row bias
 
-Repeat steps 2–4 for **3 sessions** (restart app each time).
+## 6. T062 — First tuning iteration
 
-## 9. Verbose debugging (optional)
+1. Implement **only** the lever from T061D (one module area).
+2. Re-run full flow (`GAZEKEY_DEV_BENCHMARK=1`).
+3. Document in `runs/iteration_01_<lever>.txt` vs **T061 baseline set** (T036).
 
-```bash
-set GAZEKEY_VERBOSE=1
-python main.py
-```
+## 7. Further Phase 8 cycles
 
-## 10. Debug-only environment variables (not in the user flow)
+Each cycle: pick **one** of T032–T035 from latest failure analysis → re-benchmark →
+`runs/iteration_NN_<change>.txt` vs T061. Never combine multiple changes.
 
-These flags exist for development/diagnostics only. They are **off by default** and are
-**not** part of the normal calibrate → preview → benchmark user flow. Only
-`GAZEKEY_VERBOSE` (run clarity, FR-016) and `GAZEKEY_DEV_BENCHMARK` (developer benchmark,
-CQ-3) are intended for routine use; everything else below is debug-only.
+## 8. Geometry check
 
-| Env var | Default | Purpose | Notes |
-|---------|---------|---------|-------|
-| `GAZEKEY_VERBOSE` | `0` | Extra per-target / per-run detail logging | User-facing clarity flag (FR-015/016) |
-| `GAZEKEY_DEV_BENCHMARK` | `0` | Auto-start the 15-key benchmark after preview | Developer flag (CQ-3); no UI control |
-| `GAZEKEY_CALIB_MODE` | unset | Override calibration target layout (e.g. `keyboard13`, `keyboard_full9`, `keyboard_wide9`) | Debug/experiment only; default active layout is `keyboard15`. Candidate layouts (`keyboard_full9`, `keyboard_wide9`) preserved for Phase 8 experiments after Phase 10 cleanup |
-| `GAZEKEY_KEYBOARD_ACCURACY_COMPARE` | `0` | Replay recorded gaze across mapper candidates and write a comparison CSV | Experimental multi-mapper tooling; **not** an active mapper selection path (active path is PCA4-only, FR-007). No longer triggered by `GAZEKEY_VERBOSE` |
-| `GAZEKEY_KEYBOARD_ACCURACY_DEBUG` | `0` | Extra keyboard-accuracy per-key debug output / CSV | Debug-only |
-| `GAZEKEY_CALIB_DEBUG` | `0` | Calibration overlay + fit debug detail | Debug-only |
-| `GAZEKEY_CALIB_GEOM_DEBUG` | `0` | Show post-fit calibration geometry overlay | Debug-only |
-| `GAZEKEY_GAZE_DEBUG` | `0` | Runtime gaze-mapping debug | Debug-only |
-| `GAZEKEY_GAZE_DEBUG_PRED` | `0` | Runtime gaze prediction debug | Debug-only |
-| `GAZEKEY_GAZE_DEBUG_SELECTION` | `0` | Runtime gaze selection debug | Debug-only |
-| `GAZEKEY_SELECTION_DEBUG` | `0` | Selection "follow best" debug | Debug-only |
-| `GAZEKEY_DIAG_EXTRACTOR` | `0` | Raw feature-extractor diagnostics | Debug-only; off to avoid console spam |
+Automated: `tests/unit/test_layout_geometry.py`, `runs/geometry_check.txt` (synthetic).
+
+Manual: confirm calibration dots and benchmark highlights match visible keys (AR-5, AR-6).
+
+## 9. Repeatability (SC-004) — T063
+
+Three sessions after tuning stabilizes; record `runs/acceptance_3session.md`.
+
+## 10. Debug env vars
+
+| Variable | Purpose |
+|----------|---------|
+| `GAZEKEY_DEV_BENCHMARK=1` | Auto benchmark after preview (CQ-3) |
+| `GAZEKEY_VERBOSE=1` | Extra logging |
+| `GAZEKEY_CALIB_MODE` | Layout override (experiments) |
 
 ## Success checklist
 
-- [ ] Fixation UI distraction-free; no camera preview on calibration overlay (SC-006, CQ-4)
-- [ ] Preview read-only (SC-007)
-- [ ] Benchmark separate from calibration targets
-- [ ] PCA4 only in active path — no experimental mapper switching
-- [ ] Run summary answers pass/fail without verbose logs (SC-005)
-- [ ] Meets SC-001–SC-004 thresholds
-
-## Reference baselines
-
-Archived sessions: key accuracy **20%–60%** (best 9/15). MVP targets meaningful
-improvement via calibration + PCA4 tuning, not mapper variant hunts.
+- [ ] T061A + T061B complete; `t061_baseline_comparison.md` written
+- [ ] T061D lever chosen; T062 not started before T061D
+- [ ] Each iteration: exactly one change, compared vs T061
+- [ ] Artifacts under `runs/<session_id>/`
+- [ ] SC-001–SC-004 (acceptance phase)

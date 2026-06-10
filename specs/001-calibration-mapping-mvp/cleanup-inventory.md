@@ -3,7 +3,9 @@
 **Feature**: `001-calibration-mapping-mvp`  
 **Date**: 2026-06-10  
 **MVP entry**: `main.py` → `gazekey.ui.virtual_keyboard.VirtualKeyboard`  
-**Active flow**: calibrate (calibration2) → PCA4 ridge fit → read-only preview → dev-flag benchmark (`GAZEKEY_DEV_BENCHMARK=1`)
+**Active flow** (post-cleanup): calibrate (`gazekey/calibration/`) → PCA4 ridge fit → read-only preview → dev-flag benchmark (`GAZEKEY_DEV_BENCHMARK=1`)
+
+> **Historical snapshot (T042)** — table rows below use pre-rename paths. See `plan.md` revised 5.
 
 ## Classification legend
 

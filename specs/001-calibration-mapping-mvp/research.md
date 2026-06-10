@@ -31,7 +31,7 @@ LOOCV alone.
 ## R-2: Benchmark test key set (separate from calibration)
 
 **Decision**: Use the existing **15-key benchmark set** (`DEFAULT_SAMPLE_KEYS` in
-`gazekey/debug/keyboard_accuracy.py`) as the **fixed validation set**.
+`gazekey/evaluation/benchmark_runner.py`) as the **fixed validation set**.
 
 **Rationale**: Archived `runs/` baseline; covers rows/columns; independent of
 calibration targets (FR-010, FR-011).
@@ -48,7 +48,7 @@ the active path.
 |--------|--------|
 | Features | PCA eye-local `pca_uL`, `pca_uR`, `pca_vL`, `pca_vR` |
 | Model | Ridge regression — X from u features, Y from v features |
-| Code | `gazekey/mapping/ridge.py`, config in `typing_candidate.py` |
+| Code | `gazekey/mapping/ridge.py`, config in `gazekey/mapping/config.py` |
 | Runtime smoothing | `PcaFeatureSmoother` (existing alpha) before predict |
 
 **Out of active MVP path** (remain in repo, not selectable):

@@ -24,11 +24,11 @@
 **Purpose**: Geometry verification, minimal evaluation module, PCA4-only active path. **No user story work until this phase completes.**
 
 - [x] T003 Verify key centers and hitboxes in `gazekey/layout/layout_inspector.py` match on-screen keys; document any offset in `runs/geometry_check.txt` (FR-024)
-- [x] T004 [P] Add unit test that calibration targets from `gazekey/calibration2/targets.py` use same layout snapshot as `inspect_keyboard_layout()` in `tests/unit/test_layout_geometry.py`
+- [x] T004 [P] Add unit test that calibration targets from `gazekey/calibration/targets.py` use same layout snapshot as `inspect_keyboard_layout()` in `tests/unit/test_layout_geometry.py`
 - [x] T005 [P] Implement `gazekey/evaluation/run_summary.py` — console + one lightweight file record per run (contracts/run-summary.md)
 - [x] T006 [P] Implement `gazekey/evaluation/failure_analysis.py` — format per-key miss list, dx/dy, row errors into summary text (FR-023)
-- [x] T007 Extract benchmark scoring from `gazekey/debug/keyboard_accuracy.py` into `gazekey/evaluation/benchmark_runner.py` using `gazekey/typing/key_hit_tester.py` (15 keys: `DEFAULT_SAMPLE_KEYS`)
-- [x] T008 Wire `fit_calibration_mapper()` in `gazekey/mapping/ridge.py` to **PCA4 only** — disable multi-candidate ranking in active path; config in `gazekey/mapping/typing_candidate.py` (FR-007)
+- [x] T007 Extract benchmark scoring into `gazekey/evaluation/benchmark_runner.py` using `gazekey/typing/key_hit_tester.py` (15 keys: `DEFAULT_SAMPLE_KEYS`)
+- [x] T008 Wire `fit_calibration_mapper()` in `gazekey/mapping/ridge.py` to **PCA4 only** — disable multi-candidate ranking in active path; config in `gazekey/mapping/config.py` (FR-007)
 - [x] T009 Disconnect v1 calibration fallback from `gazekey/ui/virtual_keyboard.py` normal flow (cleanup Phase A, FR-001)
 - [x] T010 [P] Add `tests/unit/test_evaluation_summary.py` for pass/fail formatting and SC-001–004 threshold checks
 
@@ -43,10 +43,10 @@
 **Independent test**: Complete calibration; dot + progress only on overlay; pass/fail after session; no camera window on fixation overlay.
 
 - [x] T011 [US1] Strip debug/metrics text from `gazekey/ui/calibration_overlay.py` during fixation (FR-003, FR-004, SC-006)
-- [x] T012 [US1] Ensure `gazekey/calibration2/session.py` reports pass/fail only after session ends; LOOCV supplementary in summary only (FR-005, FR-009)
+- [x] T012 [US1] Ensure `gazekey/calibration/session.py` reports pass/fail only after session ends; LOOCV supplementary in summary only (FR-005, FR-009)
 - [x] T013 [US1] Hide floating camera preview in `gazekey/ui/camera_preview_window.py` during calibration; default off; never z-order above fixation overlay (FR-006a, CQ-4)
 - [x] T014 [US1] Require calibration at app start before preview/benchmark in `gazekey/ui/virtual_keyboard.py` (FR-006, CQ-2)
-- [x] T015 [US1] Write calibration run summary via `gazekey/evaluation/run_summary.py` from `gazekey/calibration2/calibration_csv.py` / session finish path (FR-014)
+- [x] T015 [US1] Write calibration run summary via `gazekey/evaluation/run_summary.py` from calibration finish path (FR-014)
 - [x] T016 [US1] Extract minimal `CalibrationController` boundary from `gazekey/ui/virtual_keyboard.py` — start/finish session, pass/fail callback, summary trigger; keep full app orchestration in `virtual_keyboard.py` (FR-017)
 
 **Checkpoint**: US1 independently testable.
@@ -98,15 +98,15 @@
 
 ---
 
-## Phase 7: Baseline PCA4 Run (mandatory before Phase 8)
+## Phase 7: Pre-Cleanup Baseline (historical)
 
-**Purpose**: Establish comparison baseline per FR-022. **Phase 8 is blocked** until this completes end-to-end.
+**Purpose**: Pre-Phase-10 flow proof. **Not** the active Phase 8 tuning baseline.
 
-- [x] T029 Run end-to-end baseline: calibrate → preview → dev-flag benchmark (`GAZEKEY_DEV_BENCHMARK=1`); save summary to `runs/baseline_pca4_summary.txt` (FR-022)
-- [x] T030 Document baseline metrics (key-hit, row accuracy, median error) and failure analysis note in `runs/baseline_pca4_summary.txt` (FR-023)
-- [ ] T031 If T029 **cannot** complete end-to-end, fix blocking flow issues in Phases 3–6 (crash, calibration won't pass, preview/benchmark won't start) — **do not** enter Phase 8 until T029 succeeds (not required; T029 completed end-to-end)
+- [x] T029 Run end-to-end baseline (pre-cleanup): calibrate → preview → dev-flag benchmark; saved to `runs/baseline_pca4_summary.txt` (FR-022, historical)
+- [x] T030 Document pre-cleanup baseline metrics in `runs/baseline_pca4_summary.txt` (FR-023, historical)
+- [x] T031 Flow completed end-to-end (not required for Phase 8 restart)
 
-**Checkpoint**: Saved baseline summary exists. If not, fix flow only (no accuracy iterations).
+**Checkpoint**: Historical only. Active tuning baseline = **T061 two-run set** (Phase 11).
 
 ---
 
@@ -114,26 +114,28 @@
 
 **Purpose**: Improve accuracy within PCA4 pipeline. **No mapper variant hunts.**
 
-> **PAUSED (decision 2026-06-10, revised)**: Mapping accuracy and layout experiments are
-> paused until **Phase 10** (active-code cleanup & architecture refactor) completes. The
-> Candidate A/B layouts `keyboard_full9` (Candidate A) and `keyboard_wide9` (Candidate B) in
-> `gazekey/calibration2/targets.py` are **retained**, kept behind `GAZEKEY_CALIB_MODE`
-> (default active layout stays `keyboard15`). **Do not delete** layout candidates during
-> Phase 10. Resume T032–T035 after Phase 10 behavior gate (T056) passes.
+> **CLEAN RESTART (2026-06-10)**: `runs/` reset for fresh evidence. T029, old
+> `iteration_*` files, and pre-restart tuning experiments (row-Y, alpha, layout, local-Y)
+> are **historical only** — do not use as comparison evidence. **No T032–T035 before
+> T061A–T061D complete.**
 
-**Iteration rule (tasks-only)**: Apply **at most one accuracy-related change** per
-cycle, then re-benchmark. Tasks T032–T035 are marked `[P]` as **conditional
-alternatives** — pick **one** per iteration using the failure-pattern guide in
-`plan.md` §Benchmark failure pattern → allowed fix. **Do not run T032–T035 in
-parallel.** If failure analysis later justifies a post-fit correction layer
-(e.g. row bias), document it in the T036 iteration note only — no dedicated task
-until benchmark evidence supports it.
+**Prerequisite**: T061D complete; first lever chosen. Compare every iteration vs
+**T061 two-run baseline** (`runs/t061_baseline_comparison.md`).
 
-- [ ] T032 [P] **Layout iteration** (if guide points to calibration density/placement): one layout change in `gazekey/calibration2/targets.py`; re-benchmark vs T029 baseline
-- [ ] T033 [P] **Collection iteration** (if guide points to fixation/drift): adjust `gazekey/calibration2/fixation_gate.py` or `session.py`; re-benchmark vs baseline
-- [ ] T034 [P] **Geometry iteration** (if guide points to hitbox/center mismatch): fix `gazekey/layout/layout_inspector.py` / hit test alignment; re-benchmark vs baseline
-- [ ] T035 [P] **PCA4 fit iteration** (if failure analysis justifies mapping Y/X bias, ridge α, or feature smoothing — not a new mapper): adjust `gazekey/mapping/ridge.py` and/or `gazekey/mapping/typing_candidate.py` only; re-benchmark vs baseline
-- [x] T036 Document iteration outcome (improved / unchanged / regressed) in `runs/` vs T029 baseline; cite which single change (T032–T035) was applied (FR-022, FR-023)
+**Iteration rule**: T062 implements **exactly one** of T032–T035 per cycle; T036 documents vs T061.
+
+| Area | Task | Modules |
+|------|------|---------|
+| Layout | T032 | `gazekey/calibration/targets.py` |
+| Fixation / collection | T033 | `gazekey/calibration/fixation_gate.py`, `session.py` |
+| Geometry / hitboxes | T034 | `gazekey/layout/layout_inspector.py`, `key_hit_tester.py` |
+| PCA4 fit / smoothing / row bias | T035 | `gazekey/mapping/ridge.py`, `config.py`, `row_bias.py` |
+
+- [ ] T032 [P] **Layout** — one layout change; re-benchmark vs T061 baseline set
+- [ ] T033 [P] **Collection** — fixation/collection change; re-benchmark vs T061
+- [ ] T034 [P] **Geometry** — hitbox/center alignment; re-benchmark vs T061
+- [ ] T035 [P] **PCA4 fit** — ridge/config/row_bias only; re-benchmark vs T061
+- [ ] T036 Per iteration: document in `runs/iteration_NN_<change>.txt` vs T061; one change cited (FR-022, FR-023)
 
 **Checkpoint**: Stop when SC-001–SC-004 met or no justified single-change lever remains.
 
@@ -201,39 +203,40 @@ behavior gate (T060) passed. **Then** resume Phase 8.
 
 ---
 
-## Phase 11: Resume Phase 8 — Mapping Experiments
+## Phase 11: T061 Baseline Set + First Tuning (blocks Phase 8)
 
-**Purpose**: Return to result-driven accuracy work with a clean active path.
+**Purpose**: Two-run evidence baseline, AR triage, lever selection, then first one-change iteration.
 
-- [ ] T061 Resume Phase 8 — pick one of T032–T035 per failure-pattern guide; re-benchmark vs T029 baseline; document via T036
+**Frozen during T061**: no changes to α, row bias, smoothing, layout, fixation gate, hitboxes, or features.
+
+- [ ] T061A **Baseline run 1** — calibrate → read-only preview → benchmark (`GAZEKEY_DEV_BENCHMARK=1`); artifacts in `runs/<session_id_A>/`. No tuning. (FR-022)
+- [ ] T061B **Baseline run 2** — same setup, new app session, **no code/config changes**; `runs/<session_id_B>/`
+- [ ] T061C **Baseline comparison + AR triage** — write `runs/t061_baseline_comparison.md`: key-hit, row, median_err, failed keys, per-key dx/dy, both `coverage.json` files, live geometry sanity (AR-5, AR-6), session variance (AR-7), regional bias (AR-2), AR-8 recommendation; trigger AR-3/AR-4 notes if baselines noisy; defer AR-1 unless unexplained mapping bias on both runs (FR-023)
+- [ ] T061D **Choose first lever** — from T061C, confirm testing order and select **exactly one** of T032–T035 for T062; record rationale in `t061_baseline_comparison.md`
+- [ ] T062 **First tuning iteration** — implement **only** T061D choice; re-benchmark; complete T036 (`runs/iteration_01_<lever>.txt`) vs T061 baseline set
 
 ---
 
 ## Phase 12: Acceptance
 
-- [ ] T062 Run 3-session repeatability test per `specs/001-calibration-mapping-mvp/quickstart.md` §8; record in `runs/acceptance_3session.md` (SC-004, CQ-1)
-- [ ] T063 Verify constitution alignment checklist in `specs/001-calibration-mapping-mvp/plan.md` — all gates still pass
+- [ ] T063 Run 3-session repeatability test per `quickstart.md` §8–9; record in `runs/acceptance_3session.md` (SC-004, CQ-1)
+- [ ] T064 Verify constitution alignment checklist in `plan.md` — all gates still pass
 
 ---
 
 ## Dependencies & Execution Order
 
 ```text
-Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6 (incl. T028 integration)
-  → Phase 7 (baseline; T031 loops to 3–6 if blocked)
-  → Phase 9 (disconnect) ✅
-  → Phase 10 (inventory → plan → approval → refactor T046–T051 → cleanup T052–T058 → T060 gate)
-  → Phase 11 (resume Phase 8: T032–T035 / T036 via T061)
-  → Phase 12 (acceptance T062–T063)
+Phase 1 → … → Phase 10 (T060) ✅
+  → Phase 11: T061A → T061B → T061C → T061D → T062 (first iteration)
+  → Phase 8 cycles: further T032–T035 + T036 (one change each, vs T061)
+  → Phase 12: T063–T064 acceptance
 ```
 
-- **Phase 8 (T032–T036) PAUSED** until Phase 10 completes (T060 behavior gate)
-- **T028** after Phases 3–6 complete and **before T029** baseline (full flow wired)
-- **T029–T030** MUST succeed before Phase 10 execution (T046+)
-- **T040–T041** MUST pass before T042 (inventory)
-- **T045** user approval MUST pass before T046+ (refactor + cleanup execution)
-- **T060** MUST pass before **T061** (resume Phase 8)
-- **US2** depends on **US1**; **US3** depends on **US2** (CQ-3)
+- **T061A–T061D** MUST complete before **T062** or any code tuning
+- **T061** two-run set = **only** active comparison baseline for Phase 8
+- **T029**, deleted `iteration_*`, pre-restart tuning = historical only
+- **US2** depends on **US1**; **US3** depends on **US2** (CQ-3 dev benchmark)
 
 ## Parallel Opportunities
 
@@ -244,10 +247,10 @@ Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6 (incl. T028 
 
 ## Implementation Strategy
 
-1. Complete Phases 1–2, then US1 → US4 (incl. T028 integration test)
-2. **Baseline (T029)** must finish end-to-end; else T031 fix flow, retry T029
-3. **Phase 10** before resuming accuracy work: inventory → plan → approval → VK refactor (T046–T051) → cleanups (T052–T058) → T060 gate
-4. **Phase 11 (T061)**: resume Phase 8 — one change from decision guide → re-benchmark → T036 document
-5. Acceptance last (Phase 12, T062–T063)
+1. Phases 1–10 complete ✅; `runs/` cleaned for fresh Phase 8 evidence
+2. **T061A–T061D** — two baselines, comparison doc, lever pick; no tuning during T061
+3. **T062** — first one-change iteration vs T061; then Phase 8 cycles + T036
+4. AR checks: analysis in T061C only; no tooling until approved
+5. Acceptance last (Phase 12, T063–T064)
 
 **MVP demo**: US1 + US2 + US3 + baseline summary — minimum validation loop.

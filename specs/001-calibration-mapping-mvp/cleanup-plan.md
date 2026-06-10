@@ -3,7 +3,11 @@
 **Feature**: `001-calibration-mapping-mvp`  
 **Date**: 2026-06-10  
 **Source inventory**: [cleanup-inventory.md](./cleanup-inventory.md)  
-**Status**: **AWAITING USER APPROVAL (T045)** — do not execute T046+ until approved
+**Status**: **COMPLETE** (T045 approved, T046–T060 executed 2026-06-10).
+
+> **Historical snapshot** — paths below use pre-rename names (`calibration2`, `typing_candidate`).
+> Post-cleanup active paths: `gazekey/calibration/`, `gazekey/mapping/config.py`.
+> Current accuracy/tuning workflow: `plan.md` (revised 5) and `quickstart.md`.
 
 ## Principles (from plan.md)
 

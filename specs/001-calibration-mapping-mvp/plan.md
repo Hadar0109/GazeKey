@@ -1,6 +1,6 @@
 # Implementation Plan: Calibration & Gaze Mapping MVP
 
-**Branch**: `001-calibration-mapping-mvp` | **Date**: 2026-06-10 (revised 4) | **Spec**: [spec.md](./spec.md)
+**Branch**: `001-calibration-mapping-mvp` | **Date**: 2026-06-10 (revised 6 — T061 two-run baseline) | **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `specs/001-calibration-mapping-mvp/spec.md`
 
@@ -9,18 +9,23 @@
 Deliver a **simple, testable pipeline** that answers one question: after calibration,
 does mapped gaze land on the correct virtual-keyboard key? The redesign reuses the
 existing MediaPipe/OpenCV tracking stack and PySide6 keyboard shell, but **simplifies**
-the active path: one calibration flow (v2), **one PCA4-based mapper** at runtime,
+the active path: one calibration flow, **one PCA4-based mapper** at runtime,
 read-only preview, a **separate** benchmark validation set, and lightweight run summaries.
+
+**Status (2026-06-10)**: Phase 10 cleanup **complete** (T060). Phase 8 restarts from a
+**clean evidence slate** — old `runs/` baselines and iteration artifacts are historical
+only. **No tuning** until T061A–T061D complete (two-run baseline + triage + lever pick).
+Then T062 implements exactly one change; every iteration compares vs T061.
 
 **Technical approach**:
 
 1. **Separate calibration targets from benchmark keys** — calibration learns mapping;
-   benchmark validates it using the existing 15-key sample set (`DEFAULT_SAMPLE_KEYS`
-   in `gazekey/debug/keyboard_accuracy.py`), independent of calibration layout.
+   benchmark validates it using the fixed 15-key sample set (`DEFAULT_SAMPLE_KEYS` in
+   `gazekey/evaluation/benchmark_runner.py`), independent of calibration layout.
 2. **PCA4 as the chosen mapping direction** — active MVP uses `pca4_baseline` ridge
-   on PCA u/v features (`gazekey/mapping/ridge.py`, `typing_candidate.py`). No
-   mapper variant hunt: poly12, decoupled, IDW, and multi-candidate ranking stay
-   out of the active path.
+   on PCA u/v features (`gazekey/mapping/ridge.py`, frozen constants in
+   `gazekey/mapping/config.py`). No mapper variant hunt: poly12, decoupled, IDW, and
+   multi-candidate ranking stay out of the active path (variants under `archive/`).
 3. **Result-driven improvement** — use benchmark per-key results (which keys/rows fail,
    pixel error patterns) to guide targeted fixes to **calibration collection, target
    layout, and the single PCA4 fit path**. Add a correction layer only when a benchmark
@@ -32,10 +37,11 @@ read-only preview, a **separate** benchmark validation set, and lightweight run 
 6. **Active-code cleanup & refactor (Phase 10)** — inventory every major module first;
    then isolate future interaction code, thin `virtual_keyboard.py`, and execute
    **approved** delete/archive tasks only (one task per removal; no blind deletion).
-7. **Mapping experiments deferred** — Phase 8 accuracy/layout work stays **paused**
-   until Phase 10 completes; resume with a cleaner active path.
-8. **Minimal evaluation module** — thin benchmark + run summary + failure analysis only;
-   not a diagnostics framework.
+7. **Phase 10 complete** — active path refactored (`gazekey/calibration/`,
+   `gazekey/runtime/`, thin `VirtualKeyboard`); v1 calibration and experimental
+   mappers archived.
+8. **Minimal evaluation module** — thin benchmark + run summary + failure analysis +
+   coverage diagnostics; not a diagnostics framework.
 
 ## Technical Context
 
@@ -46,8 +52,8 @@ read-only preview, a **separate** benchmark validation set, and lightweight run 
 **Storage**: Lightweight files only — reuse/extend `calibration_summary.csv` pattern
 and optional per-session folder under `runs/`; no database
 
-**Testing**: pytest (`tests/`, 61 existing tests); add MVP acceptance tests for
-benchmark scoring, calibration pass/fail, and preview read-only behavior
+**Testing**: pytest (`tests/`, 89 tests post-cleanup); MVP acceptance tests for
+benchmark scoring, calibration pass/fail, preview read-only, and integration flow
 
 **Target Platform**: Windows desktop (primary dev environment)
 
@@ -113,7 +119,7 @@ specs/001-calibration-mapping-mvp/
 │   ├── evaluation.md
 │   └── run-summary.md
 ├── spec.md
-└── tasks.md             # Phase 2 (/speckit-tasks — not yet created)
+└── tasks.md             # Phase 2 task list
 ```
 
 ### Source Code (repository root — MVP target layout)
@@ -121,40 +127,40 @@ specs/001-calibration-mapping-mvp/
 ```text
 main.py                          # Entry unchanged
 gazekey/
-  tracking/                      # KEEP — MediaPipe pipeline (reuse)
-  features/                      # KEEP — FrameFeatures, smoother (reuse)
-  layout/                        # KEEP — key geometry (reuse)
-  calibration2/                  # EVOLVE — sole active calibration path
-  mapping/                       # SIMPLIFY — one active mapper + fit path
-  evaluation/                    # NEW — minimal: benchmark, summary, failure analysis only
-  ui/
-    virtual_keyboard.py          # SHRINK — orchestration only; delegate to controllers
-    calibration_overlay.py       # EVOLVE — minimal fixation UI
-    gaze_preview.py              # NEW (or extract) — read-only preview dot
-  calibration/                   # DEPRECATE from active flow (v1 — keep code, unreachable)
-  intent/                        # OUT OF MVP flow (keep code, not wired)
-  selection/                     # OUT OF MVP flow (keep code, not wired)
-  typing/                        # OUT OF MVP flow except TextBuffer for mouse clicks
-  debug/                         # KEEP — keyboard_accuracy reused by evaluation/
+  tracking/                      # MediaPipe pipeline + tracking_bridge
+  features/                      # FrameFeatures, smoother
+  layout/                        # Key geometry (layout_inspector)
+  calibration/                   # Active calibration path (targets, session, quality)
+  mapping/                       # PCA4 ridge + config.py + row_bias
+  runtime/                       # mapper_runtime, gaze_loop, tracking_controller
+  evaluation/                    # benchmark, summary, failure analysis, coverage
+  ui/                            # Thin orchestrator + extracted controllers
+  future/                        # Dormant dwell/intent/selection (isolated)
+  typing/                        # key_hit_tester active; gaze typing dormant
+  debug/                         # Offline geometry/mapper inspection only
 tests/
   unit/                          # Extend for MVP contracts
   integration/                   # NEW — calibration → preview → benchmark flow
 runs/                            # Per-session summaries (optional subfolders)
 ```
 
-**Structure Decision**: Evolve in place under `gazekey/` rather than a parallel
-package. New `gazekey/evaluation/` is a **thin layer** — extract only benchmark
-execution, pass/fail scoring, per-key failure summary, and run-summary writing from
-`gazekey/debug/keyboard_accuracy.py` and `virtual_keyboard.py`. It MUST NOT grow
-into a diagnostics platform (no dashboards, replay engines, multi-mapper compare
-tools, or layered analysis frameworks). Deeper offline analysis stays in `scripts/`
-and existing `debug/` — out of the MVP user path.
+**Structure Decision**: Evolve in place under `gazekey/`. `gazekey/evaluation/` is a
+**thin layer** for benchmark execution, pass/fail scoring, per-key failure summary,
+run-summary writing, and calibration coverage reports. It MUST NOT grow into a
+diagnostics platform. Deeper offline analysis stays in `scripts/` and `debug/`.
+
+**Session artifacts**: `runs/<session_id>/` — `calibration_summary.txt`,
+`benchmark_summary.txt`, `benchmark_diag.json`, `coverage.json`, `calibration_v2.json`.
+
+**Aggregated accuracy docs**: `runs/t061_baseline_comparison.md` (active T061 reference),
+`runs/iteration_NN_<change>.txt` (per tuning cycle). T029 and pre-restart artifacts are
+**historical only** (may be deleted from `runs/` during clean restart).
 
 **Keyboard geometry** (verify before trusting benchmark scores):
 
 - `gazekey/layout/layout_inspector.py` — key centers, rows, hitboxes (`KeyGeometryRow`)
 - `gazekey/typing/key_hit_tester.py` — gaze point vs key hitbox
-- Calibration targets (`calibration2/targets.py`) and benchmark keys must align
+- Calibration targets (`gazekey/calibration/targets.py`) and benchmark keys must align
   with the same layout snapshot used for hit testing
 
 ## Pipeline Design
@@ -166,12 +172,12 @@ main.py
   └─ VirtualKeyboard (thin orchestrator)
        ├─ TrackingManager + TrackingBridge  → EyeData
        ├─ FeatureExtractor                  → FrameFeatures
-       ├─ CalibrationController           → CalibrationSession (calibration2)
+       ├─ CalibrationController           → CalibrationSession (calibration/)
        │     └─ CalibrationOverlay        → dot + progress only
-       ├─ MapperFit (pca4_baseline)      → GazeMapper (PCA4 ridge only in active path)
+       ├─ MapperRuntime (pca4_baseline)   → GazeMapper (PCA4 ridge + row bias)
        ├─ GazePreviewController           → read-only dot on keyboard
-       ├─ BenchmarkRunner (evaluation/)  → KeyAccuracyResult + pass/fail
-       └─ RunSummaryWriter (evaluation/)  → console + lightweight file
+       ├─ BenchmarkController (evaluation/) → KeyAccuracyResult + pass/fail
+       └─ RunSummaryWriter (evaluation/)  → console + runs/<session_id>/ files
 ```
 
 ### Calibration vs benchmark (separate concerns)
@@ -190,15 +196,17 @@ main.py
 |--------|------------|
 | Core mapper | `pca4_baseline` — ridge on PCA u/v (`pca_uL`, `pca_uR`, `pca_vL`, `pca_vR`) |
 | Fit entry point | `fit_calibration_mapper()` wired to PCA4 only; no multi-candidate ranking |
-| Post-fit layers | Start with **PCA4 only**. Existing row bias / local Y in repo are **not** in the active path unless a benchmark-driven change proves they fix a measured failure mode |
+| Post-fit layers | **Row Y bias** active (`APPLY_ROW_Y_BIAS=True` in `config.py`). Local-Y and other variants archived — add at most one new layer per benchmark-approved task |
 | Out of active path | `poly12`, `decoupled_split`, `idw_*`, `row_aware`, v1 affine/IDW, LOOCV-based mapper switching |
 
 **Improvement loop** (result-driven, not variant-hunting):
 
 ```text
-calibrate → preview → benchmark → read per-key failures (row, dx/dy patterns)
-  → hypothesize fix (calibration targets, collection, fit params, one justified layer)
-  → re-benchmark → compare to prior run summary
+T061A baseline run 1 → T061B baseline run 2 (same config, no code changes)
+  → T061C compare + AR triage → write runs/t061_baseline_comparison.md
+  → T061D pick exactly ONE lever (T032 | T033 | T034 | T035)
+  → T062 implement that one change → re-benchmark → T036 vs T061 baseline set
+  → repeat T062 + T036 per further iteration (one change each)
 ```
 
 Do **not** reopen a broad mapper comparison matrix. Benchmark answers *what* fails;
@@ -272,12 +280,10 @@ by LOOCV alone. Ship one layout in the active path at a time.
 
 ### Run summary (lightweight)
 
-- **Console**: One block per run — `[calibration] PASS/FAIL …` / `[benchmark] PASS/FAIL X/N keys …`
-- **File**: Append row to existing `calibration_summary.csv` for calibration; add
-  `benchmark_summary.csv` (same schema style) OR single `runs/<session_id>/summary.txt`
-  with both outcomes — **one readable record per run**, not multiple parallel dumps
-- **Verbose**: `GAZEKEY_VERBOSE=1` (consolidate existing env vars gradually) exposes
-  per-target detail; default off
+- **Console**: One block per run — `[calibration] PASSED/FAILED …` / `[benchmark] PASSED/FAILED X/N keys …`
+- **File**: One folder per session — `runs/<session_id>/calibration_summary.txt` and
+  `benchmark_summary.txt` (plus optional `benchmark_diag.json`, `coverage.json`)
+- **Verbose**: `GAZEKEY_VERBOSE=1` exposes per-target detail; default off
 
 ### Targeted cleanup (three phases)
 
@@ -292,11 +298,12 @@ by LOOCV alone. Ship one layout in the active path at a time.
 | Multi-mode env toggles | Debug-only; not in user flow |
 | Camera preview during calibration | Hidden/off by default; never on fixation overlay (CQ-4) |
 
-**Phase 10 — active-code cleanup & architecture refactor** (see dedicated section below):
+**Phase 10 — active-code cleanup & architecture refactor** ✅ **complete** (T060 passed):
 
-Inventory first; plan second; implement only after user approves the cleanup plan.
-Goals: clear active MVP path, isolate future interaction code, thin orchestrator —
-**not** a broad redesign or mass deletion.
+Renamed `calibration2/` → `calibration/`, `typing_candidate.py` → `config.py`;
+extracted `gazekey/runtime/`; archived v1 calibration and experimental mappers;
+removed `keyboard_accuracy*` from active path. See `CURRENT_PIPELINE.md` for as-built
+layout.
 
 **Phase 10+ — approved removals** (after inventory + plan + approval):
 
@@ -332,10 +339,12 @@ proven *flow* and *path*, not final accuracy, unlock cleanup/refactor work.
 | `BenchmarkRunner` — run 15-key test, score hits | Multi-mapper comparison runners |
 | `RunSummaryWriter` — console + one file record | Dashboards, HTML reports |
 | `FailureAnalysis` — per-key dx/dy, row, miss list in summary | Replay engines, session diff UI |
-| Pass/fail vs SC-001–004 | LOOCV-primary gating, geom debug overlays |
+| `CoverageDiagnostics` — hull/extrapolation report at cal finish | — |
+| Pass/fail vs SC-001–SC-003 per run; SC-004 across sessions (manual until evaluator added) | LOOCV-primary gating, geom debug overlays |
 
-Reuse logic from `keyboard_accuracy.py`; do not duplicate `keyboard_accuracy_mapper_diag.py`
-or compare tooling in the MVP module.
+Benchmark scoring lives in `evaluation/benchmark_runner.py` (replaces deleted
+`debug/keyboard_accuracy.py`). Do not reintroduce multi-mapper compare tooling in
+the MVP module.
 
 ## Phase 0 & Phase 1 Artifacts
 
@@ -371,7 +380,7 @@ Scan the repository and classify every major folder/file. Output:
 | **Active MVP path** | Required for calibrate → PCA4 mapping → read-only preview → dev benchmark |
 | **Future interaction** | Not active now; preserve for later (dwell, intent, selection, gaze typing) |
 | **Debug/offline tooling** | Developer-only; not reachable from normal user flow |
-| **Legacy/replaced** | Superseded by calibration2 / PCA4 / evaluation; archive/delete candidate |
+| **Legacy/replaced** | Superseded by `gazekey/calibration/` / PCA4 / evaluation; archive/delete candidate |
 | **Unknown** | Needs investigation — **no delete/move until resolved** |
 
 Each inventory row MUST document:
@@ -393,17 +402,17 @@ Each inventory row MUST document:
 | `gazekey/tracking/` | Active MVP | MediaPipe pipeline |
 | `gazekey/features/` | Active MVP | FrameFeatures, smoother |
 | `gazekey/layout/` | Active MVP | Key geometry |
-| `gazekey/calibration2/` | Active MVP | Sole active calibration path |
-| `gazekey/mapping/ridge.py`, `typing_candidate.py`, `base.py` | Active MVP | PCA4 fit/predict |
-| `gazekey/mapping/row_bias.py`, `local_y_correction.py`, `idw_*.py`, `row_aware.py` | Legacy/dormant or investigate | Not in active MVP path unless benchmark adopts |
+| `gazekey/calibration/` | Active MVP | Sole active calibration path (renamed from calibration2) |
+| `gazekey/mapping/ridge.py`, `config.py`, `base.py`, `row_bias.py` | Active MVP | PCA4 fit/predict + row bias |
+| `archive/mapping_variants/` (`idw_*`, `row_aware`, poly12) | Legacy/archived | Not in active MVP path |
 | `gazekey/evaluation/` (benchmark, summary, failure) | Active MVP | Thin evaluation layer |
 | `gazekey/evaluation/benchmark_diagnostics.py`, `coverage_diagnostics.py` | Debug/offline | Dev diagnostics; verify import chain |
 | `gazekey/ui/virtual_keyboard.py` | Active MVP (refactor target) | Mixed orchestrator — split in Step 3 |
 | `gazekey/ui/calibration_controller.py`, `gaze_preview.py`, `calibration_overlay.py`, `camera_preview_window.py` | Active MVP | Already extracted boundaries |
-| `gazekey/calibration/` (v1) | Legacy/replaced | Superseded by calibration2 |
+| `archive/calibration_v1/` | Legacy/archived | Superseded by `gazekey/calibration/` |
 | `gazekey/intent/`, `gazekey/selection/` | Future interaction | Preserve; isolate |
 | `gazekey/typing/` (gaze path: dwell, gaze_typing_controller, gaze_ui_mapper) | Future interaction + partial MVP | `TextBuffer` / `key_hit_tester` active; gaze typing dormant |
-| `gazekey/debug/` | Debug/offline | Benchmark source, mapper compare, runtime logs |
+| `gazekey/debug/` | Debug/offline | Geometry check, mapper store, layout CSV |
 | `gazekey/mvp_log.py` | Active MVP | Quiet logging |
 | `scripts/` | Debug/offline | Offline analysis; not in user flow |
 | `tests/` | Active MVP support | Must map test → module dependencies in inventory |
@@ -438,8 +447,8 @@ Planned extractions (one task each; preserve behavior):
 |------------|---------------------------------------------|
 | `gazekey/ui/keyboard_layout.py` | Widget creation: control bar, letter/symbol rows, text display, suggestion bar placeholders, minimized view, key styles |
 | `gazekey/ui/benchmark_controller.py` | MVP dev benchmark + optional debug keyboard-accuracy session; banner/highlight; diagnostics writes |
-| `gazekey/ui/mapper_runtime.py` | Post-calibration mapper fit orchestration, predict/clamp helpers, mapper store access |
-| `gazekey/ui/gaze_loop.py` | `_on_eye_data_main_thread` dispatch: preview vs dormant typing; tracking bridge callbacks |
+| `gazekey/runtime/mapper_runtime.py` | Post-calibration mapper fit orchestration, predict/clamp helpers |
+| `gazekey/runtime/gaze_loop.py` | Per-frame dispatch: preview vs dormant typing |
 | `gazekey/ui/env_flags.py` | `GAZEKEY_VERBOSE`, `GAZEKEY_DEV_BENCHMARK`, `GAZEKEY_CALIB_MODE`, and related reads |
 
 After extraction, `VirtualKeyboard` retains: window lifecycle, wiring controllers,
@@ -466,26 +475,85 @@ cleanup plan. Representative expected actions (final list comes from inventory):
 | Keep | `scripts/`, `gazekey/debug/`, layout candidates | Reachable only via env flags or CLI |
 | Investigate | Any module with unclear MVP test linkage | Resolve before delete |
 
-### Phase 8 resume (after Phase 10)
+### Phase 8: Accuracy improvement (clean restart — **ready after T061**)
 
-Phase 8 accuracy/layout experiments remain **paused** until Phase 10 completes
-(inventory → plan approval → refactor → approved cleanup → behavior gate T056).
-Then resume T032–T035 per failure-pattern guide. Layout comparison (`keyboard_full9`
-vs `keyboard_wide9` vs `keyboard15`) runs in Phase 8, not Phase 10.
+Phase 10 complete (T060). **`runs/` cleaned for a fresh start** — do not use deleted or
+archived T029 / `iteration_*` files as active evidence.
+
+#### Clean-slate rules
+
+| Rule | Detail |
+|------|--------|
+| No tuning before T061D | T061A → T061B → T061C → T061D must finish first |
+| Active comparison baseline | **T061 two-run set** documented in `runs/t061_baseline_comparison.md` |
+| Historical only | T029, `iteration_01–04_*`, pre-restart row-Y/alpha/layout/local-Y experiments |
+| One change per iteration | T062 picks one of T032–T035; T036 documents vs T061 |
+| Artifacts | New runs only under `runs/<session_id>/` |
+| Frozen during T061 | No changes to α, row bias, smoothing, layout, fixation gate, hitboxes, features |
+
+#### T061 — Two-run baseline + triage (mandatory before T062)
+
+| Step | Task | Action |
+|------|------|--------|
+| 1 | **T061A** | Baseline run 1: calibrate → read-only preview → benchmark (`GAZEKEY_DEV_BENCHMARK=1`). Record `runs/<session_id_A>/`. |
+| 2 | **T061B** | Baseline run 2: **same setup**, restart app, no code/config changes. Record `runs/<session_id_B>/`. |
+| 3 | **T061C** | Compare both runs; write `runs/t061_baseline_comparison.md`. Metrics: key-hit, row, median_err, failed keys, per-key dx/dy, `coverage.json`, live geometry sanity, session-to-session variance. **AR triage** (analysis level only — no new tooling): |
+| | | **Always in T061C**: AR-2 regional bias, AR-5 calibration dot position, AR-6 key centers/hitboxes, AR-7 natural variance between the two runs, AR-8 whether repeatability evaluator needed before acceptance |
+| | | **Trigger if noisy/unstable baselines**: AR-3 fixation gate, AR-4 mean/outlier representativeness |
+| | | **Defer AR-1** until geometry/layout/collection checked — unless both baselines show unexplained persistent mapping bias |
+| 4 | **T061D** | From T061C, confirm Phase 8 lever order and **select exactly one** first change: T032 layout \| T033 collection \| T034 geometry \| T035 PCA4 fit/smoothing/row bias |
+
+#### T062 — First tuning iteration (and template for later cycles)
+
+Implement **only** the lever chosen in T061D. Re-benchmark (full flow). Document via
+T036 in `runs/iteration_01_<lever>.txt` — compare vs **T061 baseline set**, cite the
+single change, state improved / unchanged / regressed.
+
+Subsequent iterations: repeat T062 pattern (one T032–T035 change) + T036 per cycle.
+
+#### Signals for lever choice (T061D and later)
+
+| Signal | Where | Informs |
+|--------|-------|---------|
+| Per-key `dx` / `dy` | `benchmark_summary.txt`, `benchmark_diag.json` | horizontal vs vertical bias; AR-2 regional patterns |
+| Row errors | row accuracy, per-key `row_correct` | Y mapping vs layout |
+| Failed key clusters | failure analysis | edge vs interior |
+| Coverage gaps | `coverage.json` | extrapolation / layout |
+| Geometry | live UI, AR-5/AR-6 notes | T034 before T035 when misaligned |
+
+**Not allowed per iteration**: multiple areas; mapper variant swap; poly12 / decoupled / local-Y.
+
+Layout comparison (`keyboard_full9`, `keyboard_wide9`, `keyboard15`) via T032 only.
+
+### Accuracy-risk checks (planned — documentation / analysis only)
+
+Answer in `runs/t061_baseline_comparison.md` (T061C) and iteration notes. **Do not
+implement tooling** until explicitly approved.
+
+| # | Check | When | T061C? |
+|---|-------|------|--------|
+| AR-1 | PCA4 feature sufficiency / relevance | Defer until geometry/layout/collection ruled out; unless both baselines show unexplained mapping bias | Optional |
+| AR-2 | Regional bias (left/right, top/bottom dx/dy) | Always at triage | **Yes** |
+| AR-3 | Fixation gate skips bad samples | If baselines noisy or unstable | Conditional |
+| AR-4 | Per-target mean vs outliers | If baselines noisy or inconsistent | Conditional |
+| AR-5 | Calibration dot vs expected key position | Always at triage | **Yes** |
+| AR-6 | Key centers/hitboxes vs visible keyboard | Always at triage | **Yes** |
+| AR-7 | Natural variance (two baselines) | Always — core purpose of two-run T061 | **Yes** |
+| AR-8 | SC-004 repeatability evaluator before acceptance? | Always at triage; implement later if approved | **Yes** |
 
 ## Implementation Phases (for `/speckit-tasks`)
 
-1. **Geometry verification** — confirm layout inspector centers/hitboxes vs on-screen keys; align calibration targets and benchmark hit tests
-2. **Foundation** — minimal `evaluation/` (benchmark + summary + failure fields); contract tests
-3. **Baseline PCA4 run** — wire PCA4-only path end-to-end; run benchmark; **save baseline summary**; if blocked, fix flow before iteration
-4. **Calibration UX** — minimal overlay (no camera preview on fixation); sanity-only pass/fail
-5. **Preview** — read-only default post-calibration; camera preview **open/available** in normal UI (CQ-4); hidden during calibration only
-6. **Benchmark + failure analysis** — dev-flag benchmark; per-key failure in summary; **analysis task** after each run
-7. **Iterate (PAUSED)** — result-driven accuracy work; **resume after Phase 10**
-8. **Disconnect (Phase 9)** — legacy paths unreachable from user flow ✅
-9. **Active-code cleanup & refactor (Phase 10)** — inventory → plan → approval → refactor VK → approved removals → behavior gate
-10. **Resume iteration (Phase 8)** — mapping/layout experiments with clean active path
-11. **Acceptance** — 3-session repeatability vs SC-001–SC-004 (CQ-1 thresholds)
+1. **Geometry verification** ✅
+2. **Foundation** — `evaluation/` module ✅
+3. **Pre-cleanup baseline (T029)** ✅ — **historical only**; not active tuning evidence
+4. **Calibration UX** ✅
+5. **Preview** ✅
+6. **Benchmark + failure analysis** ✅
+7. **Disconnect (Phase 9)** ✅
+8. **Active-code cleanup (Phase 10)** ✅
+9. **T061A–T061D** — two-run baseline + triage + lever pick — **next**
+10. **T062 + Phase 8 cycles** — one change per iteration vs T061
+11. **Acceptance (T063–T064)** — 3-session repeatability vs SC-004
 
 ## Post-Design Constitution Re-check
 
