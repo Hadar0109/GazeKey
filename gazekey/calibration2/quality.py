@@ -214,6 +214,8 @@ def _keyboard_blocking_reason(reason: str) -> bool:
         return True
     if "catastrophic" in lower:
         return True
+    if "head drift:" in lower and ("face_x" in lower or "face_y" in lower):
+        return True
     return False
 
 
@@ -410,13 +412,15 @@ def evaluate_calibration_quality(
     warnings: List[str] = []
     row_stats = analyze_vertical_features(samples=samples, targets=targets)
     head_warnings = analyze_head_pose_drift(samples=samples, targets=targets)
-    if max_head_drift_eye_h is not None:
-        for msg in head_warnings:
-            if "eye_box" in msg:
-                reasons.append(msg)
-            else:
-                warnings.append(msg)
-                mvp_log(f"[calib2]   quality (warning): {msg}")
+    for msg in head_warnings:
+        if "face_x" in msg or "face_y" in msg:
+            reasons.append(msg)
+            mvp_log(f"[calib2]   quality (reject): {msg}")
+        elif max_head_drift_eye_h is not None and "eye_box" in msg:
+            reasons.append(msg)
+        elif max_head_drift_eye_h is not None:
+            warnings.append(msg)
+            mvp_log(f"[calib2]   quality (warning): {msg}")
 
     mono_reports = [
         check_vertical_monotonicity(row_stats, feature_attr="avg_v", min_separation=min_vertical_separation),

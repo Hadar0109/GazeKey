@@ -126,7 +126,7 @@ until benchmark evidence supports it.
 - [ ] T033 [P] **Collection iteration** (if guide points to fixation/drift): adjust `gazekey/calibration2/fixation_gate.py` or `session.py`; re-benchmark vs baseline
 - [ ] T034 [P] **Geometry iteration** (if guide points to hitbox/center mismatch): fix `gazekey/layout/layout_inspector.py` / hit test alignment; re-benchmark vs baseline
 - [ ] T035 [P] **PCA4 fit iteration** (if failure analysis justifies mapping Y/X bias, ridge α, or feature smoothing — not a new mapper): adjust `gazekey/mapping/ridge.py` and/or `gazekey/mapping/typing_candidate.py` only; re-benchmark vs baseline
-- [ ] T036 Document iteration outcome (improved / unchanged / regressed) in `runs/` vs T029 baseline; cite which single change (T032–T035) was applied (FR-022, FR-023)
+- [x] T036 Document iteration outcome (improved / unchanged / regressed) in `runs/` vs T029 baseline; cite which single change (T032–T035) was applied (FR-022, FR-023)
 
 **Checkpoint**: Stop when SC-001–SC-004 met or no justified single-change lever remains.
 

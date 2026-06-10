@@ -105,12 +105,14 @@ def test_calibration_run_summary_format(tmp_path):
         layout="keyboard15",
         targets_collected=15,
         targets_total=15,
+        ridge_alpha=0.5,
         loocv_rms_px=48.5,
         quality_warnings=["LOOCV RMS 120.0px > 95.0px"],
     )
     text = writer.format_console(summary)
     assert "[calibration] PASS" in text
     assert "targets=15/15" in text
+    assert "ridge_alpha=0.5" in text
     assert "loocv_rms=48.5px (supplementary)" in text
     assert "quality_warnings=1" in text
 

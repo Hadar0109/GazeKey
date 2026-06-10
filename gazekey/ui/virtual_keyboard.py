@@ -22,6 +22,10 @@ from gazekey.ui.calibration_controller import CalibrationController
 from gazekey.ui.calibration_overlay import CalibrationOverlay
 from gazekey.ui.gaze_preview import GazePreviewController
 from gazekey.evaluation.benchmark_runner import build_benchmark_run, evaluate_benchmark_pass
+from gazekey.evaluation.benchmark_diagnostics import (
+    build_benchmark_diagnostics,
+    write_benchmark_diagnostics,
+)
 from gazekey.evaluation.failure_analysis import format_failure_analysis, infer_likely_cause
 from gazekey.evaluation.run_summary import RunSummaryWriter
 from gazekey.mvp_log import mvp_log
@@ -1027,6 +1031,7 @@ class VirtualKeyboard(QWidget):
         passed: bool,
         failure_reason: Optional[str] = None,
         loocv_rms_px: Optional[float] = None,
+        ridge_alpha: Optional[float] = None,
         quality_warnings: Optional[list[str]] = None,
     ) -> None:
         session = self._calibration_v2_session
@@ -1043,6 +1048,7 @@ class VirtualKeyboard(QWidget):
             targets_total=len(session.targets),
             failure_reason=failure_reason,
             loocv_rms_px=loocv_rms_px,
+            ridge_alpha=ridge_alpha,
             quality_warnings=quality_warnings,
         )
 
@@ -1301,6 +1307,7 @@ class VirtualKeyboard(QWidget):
                 passed=False,
                 failure_reason=gate_reason,
                 loocv_rms_px=quality.loocv_rms_px,
+                ridge_alpha=ridge_alpha,
                 quality_warnings=quality.warnings,
             )
             self._show_recalibrate_prompt(
@@ -1325,8 +1332,10 @@ class VirtualKeyboard(QWidget):
         self._write_calibration_run_summary(
             passed=True,
             loocv_rms_px=quality.loocv_rms_px,
+            ridge_alpha=ridge_alpha,
             quality_warnings=quality.warnings,
         )
+        self._last_calibration_loocv_rms = quality.loocv_rms_px
         self._gaze_mapper_v2 = ridge_fit.model
         self._set_post_calibration_controls(True)
         try:
@@ -1700,13 +1709,63 @@ class VirtualKeyboard(QWidget):
         likely_cause = infer_likely_cause(rows) if status == "failed" else "none"
         analysis = format_failure_analysis(rows, likely_cause=likely_cause)
         self._log_verbose(analysis)
+        session_id = self._benchmark_session_id()
         self._run_summary_writer.write_benchmark_summary(
-            session_id=self._benchmark_session_id(),
+            session_id=session_id,
             metrics=run.metrics,
             status=status,
             failure_reason=reason or None,
             failure_analysis=analysis,
         )
+        self._write_benchmark_diagnostics(
+            session_id=session_id,
+            rows=rows,
+            metrics=run.metrics,
+            status=status,
+            failure_reason=reason or None,
+            likely_cause=likely_cause,
+        )
+
+    def _write_benchmark_diagnostics(
+        self,
+        *,
+        session_id: str,
+        rows,
+        metrics,
+        status: str,
+        failure_reason: Optional[str],
+        likely_cause: str,
+    ) -> None:
+        """Persist the full all-target diagnostics record (reporting only; never raises)."""
+        try:
+            cal_targets = None
+            if self._calibration_v2_session is not None:
+                cal_targets = self._calibration_v2_session.targets
+            feat_alpha = getattr(self._feature_smoother, "alpha", None)
+            gaze_alpha = getattr(
+                self._gaze_smoother,
+                "alpha",
+                getattr(self._gaze_smoother, "_default_alpha", None),
+            )
+            diagnostics = build_benchmark_diagnostics(
+                session_id=session_id,
+                rows=rows,
+                metrics=metrics,
+                status=status,
+                failure_reason=failure_reason,
+                likely_cause=likely_cause,
+                model=self._gaze_mapper_v2,
+                calibration_targets=cal_targets,
+                calibration_loocv_rms_px=getattr(self, "_last_calibration_loocv_rms", None),
+                feature_smoother_alpha=feat_alpha,
+                gaze_smoother_alpha=gaze_alpha,
+                gaze_bias_x=float(self._gaze_bias_x),
+                gaze_bias_y=float(self._gaze_bias_y),
+            )
+            path = write_benchmark_diagnostics(diagnostics, session_id=session_id)
+            self._log_verbose(f"[benchmark] diagnostics written -> {path}")
+        except Exception as e:
+            self._log_verbose(f"[benchmark] diagnostics write failed: {e}")
 
     def _finish_keyboard_accuracy_debug(self) -> None:
         session = self._keyboard_accuracy_session

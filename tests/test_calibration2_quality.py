@@ -186,7 +186,8 @@ def _keyboard_samples_from_avg_v(avg_vs: list[float]) -> list:
                     pca_vL=pca_v - 0.02,
                     pca_uR=u + 0.01,
                     pca_vR=pca_v + 0.02,
-                    face_y=0.5 + 0.05 * row,
+                    face_x=0.6,
+                    face_y=0.55,
                 ),
                 (t.screen_x, t.screen_y),
             )
@@ -311,6 +312,50 @@ def test_keyboard_high_train_error_is_warning_not_blocker():
     assert q.accepted
     assert not q.reasons
     assert any("train error" in w.lower() or "loocv" in w.lower() for w in q.warnings)
+
+
+def test_face_xy_session_drift_hard_fail():
+    """Session-level face_x/face_y span above threshold rejects calibration."""
+    targets = _keyboard_targets_3x3()
+    samples = _keyboard_samples_from_avg_v(
+        [0.10, 0.12, 0.14, 0.20, 0.22, 0.24, 0.30, 0.32, 0.34]
+    )
+    drifted = []
+    for i, (feat, pos) in enumerate(samples):
+        face_x = 0.50 + 0.02 * (i % 3)
+        drifted.append((_feat(**{**feat.__dict__, "face_x": face_x}), pos))
+    model = _ExactTrainMapper(drifted)
+    q = evaluate_calibration_quality(
+        model=model,
+        samples=drifted,
+        targets=targets,
+        screen_rect=(0.0, 0.0, 500.0, 500.0),
+        calibration_mode="keyboard15",
+        loocv_detail=model.leave_one_out_detail_px(),
+        require_any_vertical_monotonic=False,
+    )
+    assert not q.usable
+    assert not q.accepted
+    assert any("face_x" in r for r in q.reasons)
+
+
+def test_face_xy_session_drift_within_limits_not_blocker():
+    """Stable face_x/face_y across targets does not hard-fail on drift alone."""
+    samples = _keyboard_samples_from_avg_v(
+        [0.10, 0.12, 0.14, 0.20, 0.22, 0.24, 0.30, 0.32, 0.34]
+    )
+    targets = _keyboard_targets_3x3()
+    model = _ExactTrainMapper(samples)
+    q = evaluate_calibration_quality(
+        model=model,
+        samples=samples,
+        targets=targets,
+        screen_rect=(0.0, 0.0, 500.0, 500.0),
+        calibration_mode="keyboard15",
+        loocv_detail=model.leave_one_out_detail_px(),
+        require_any_vertical_monotonic=False,
+    )
+    assert not any("face_x" in r or "face_y" in r for r in q.reasons)
 
 
 def test_keyboard_region_gate_failure_is_warning_not_blocker():

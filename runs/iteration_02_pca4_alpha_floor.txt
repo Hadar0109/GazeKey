@@ -1,0 +1,225 @@
+# Phase 8 Iteration 2 — T036 outcome record
+# Feature: 001-calibration-mapping-mvp
+# Date: 2026-06-09
+# Change applied: T035 — lower PCA4 ridge MIN_ALPHA + extended ALPHA_GRID
+# Files: gazekey/mapping/typing_candidate.py
+# Baseline reference: runs/baseline_pca4_summary.txt (T029–T030)
+# Prior iteration: runs/iteration_01_collection_drift_gate.txt (T033)
+# Launch: GAZEKEY_DEV_BENCHMARK=1, python main.py
+# Flow: calibrate → preview → auto benchmark (when calibration passes)
+
+---
+
+## Single change (T035)
+
+Extend `ALPHA_GRID` with lower regularization values and lower `MIN_ALPHA`:
+
+| Constant | Before (T029) | After (Iter 2) |
+|----------|-----------------|----------------|
+| `ALPHA_GRID` | `(1.0, 10.0, 50.0, 100.0, 200.0, 400.0)` | `(0.15, 0.3, 0.5, 1.0, 10.0, 50.0, 100.0, 200.0, 400.0)` |
+| `MIN_ALPHA` | `1.0` | `0.15` |
+
+LOOCV still selects the largest α within 5 px of the grid minimum. No mapper family
+change, no correction layers, no layout/geometry/collection/benchmark/smoothing changes.
+
+Alpha reporting added after Run 1 (`ridge_alpha=` in `runs/calibration_*.txt`).
+
+---
+
+## Post-change runs (3 sessions)
+
+### Run 1 — best iter-2 benchmark
+
+**Calibration** (`02e375d63f85`):
+[calibration] PASSED session=02e375d63f85 layout=keyboard15 targets=15/15 loocv_rms=59.0px (supplementary) quality_warnings=8
+
+Source: runs/calibration_02e375d63f85.txt
+
+**ridge_alpha**: **0.5** (not in run file — recorded before alpha reporting; confirmed via
+`calibration_v2.json` saved after this session; LOOCV selected 0.5 from extended grid)
+
+**Benchmark** (`02e375d63f85-bench1781024781`):
+
+| Metric           | Result     | CQ-1 threshold | Status |
+|------------------|------------|----------------|--------|
+| Key-hit accuracy | 7/15 (47%) | ≥ 10/15 (~67%) | FAIL   |
+| Row accuracy     | 7/15 (47%) | ≥ 80%          | FAIL   |
+| Median error     | 55 px      | ≤ 55 px        | FAIL   |
+| Overall          | FAILED     | all three      | FAIL   |
+
+[benchmark] FAILED session=02e375d63f85-bench1781024781 keys=7/15 (47%) row=7/15 median_err=55px reason=key-hit 7/15 (47%) < 10/15 (~67%); median_err 55.4px > 55px; row 7/15 (47%) < 80%
+
+Source: runs/benchmark_02e375d63f85-bench1781024781.txt
+
+Keys correct (7/15): Q, P, U, D, G, L, C
+
+Failure analysis: likely_cause=mapping; keys_failed=8/15; rows_failed=8/15
+dx/dy pattern: mostly −dx (left), mixed dy; median 55.4 px just above 55 px threshold
+
+---
+
+### Run 2
+
+**Calibration** (`7267f2ebb53b`):
+[calibration] PASSED session=7267f2ebb53b layout=keyboard15 targets=15/15 ridge_alpha=1 loocv_rms=62.7px (supplementary) quality_warnings=9
+
+Source: runs/calibration_7267f2ebb53b.txt
+
+**Benchmark** (`7267f2ebb53b-bench1781025340`):
+
+| Metric           | Result     | CQ-1 threshold | Status |
+|------------------|------------|----------------|--------|
+| Key-hit accuracy | 6/15 (40%) | ≥ 10/15 (~67%) | FAIL   |
+| Row accuracy     | 8/15 (53%) | ≥ 80%          | FAIL   |
+| Median error     | 68 px      | ≤ 55 px        | FAIL   |
+| Overall          | FAILED     | all three      | FAIL   |
+
+[benchmark] FAILED session=7267f2ebb53b-bench1781025340 keys=6/15 (40%) row=8/15 median_err=68px
+
+Source: runs/benchmark_7267f2ebb53b-bench1781025340.txt
+
+Keys correct (6/15): Q, P, U, T, L, C
+
+Failure analysis: likely_cause=mapping; keys_failed=9/15; rows_failed=7/15
+dx/dy pattern: mixed +dx/−dx; row 53% best of three iter-2 runs
+
+---
+
+### Run 3
+
+**Calibration** (`b23f0fdf2eb9`):
+[calibration] PASSED session=b23f0fdf2eb9 layout=keyboard15 targets=15/15 ridge_alpha=1 loocv_rms=78.1px (supplementary) quality_warnings=12
+
+Source: runs/calibration_b23f0fdf2eb9.txt
+
+**Benchmark** (`b23f0fdf2eb9-bench1781025576`):
+
+| Metric           | Result     | CQ-1 threshold | Status |
+|------------------|------------|----------------|--------|
+| Key-hit accuracy | 6/15 (40%) | ≥ 10/15 (~67%) | FAIL   |
+| Row accuracy     | 6/15 (40%) | ≥ 80%          | FAIL   |
+| Median error     | 60 px      | ≤ 55 px        | FAIL   |
+| Overall          | FAILED     | all three      | FAIL   |
+
+[benchmark] FAILED session=b23f0fdf2eb9-bench1781025576 keys=6/15 (40%) row=6/15 median_err=60px
+
+Source: runs/benchmark_b23f0fdf2eb9-bench1781025576.txt
+
+Keys correct (6/15): Q, P, T, D, G, C
+
+Failure analysis: likely_cause=mapping; keys_failed=9/15; rows_failed=9/15
+dx/dy pattern: mostly −dx (left), mixed dy; large A/M/Space errors (91–133 px)
+
+---
+
+## Cross-session comparison
+
+### Iteration 2 (all 3 benchmark-completed)
+
+| Metric           | Run 1 (02e375) | Run 2 (7267f2) | Run 3 (b23f0) |
+|------------------|----------------|----------------|---------------|
+| ridge_alpha      | 0.5            | 1.0            | 1.0           |
+| Key-hit          | 7/15 (47%)     | 6/15 (40%)     | 6/15 (40%)    |
+| Row accuracy     | 7/15 (47%)     | 8/15 (53%)     | 6/15 (40%)    |
+| Median error     | 55 px          | 68 px          | 60 px         |
+| LOOCV RMS        | 59.0 px        | 62.7 px        | 78.1 px       |
+| Quality warnings | 8              | 9              | 12            |
+| Overall          | FAIL           | FAIL           | FAIL          |
+
+**Key-hit range:** 40% → 47% (spread **7 pp**; SC-004 limit ≤ 20 pp) — **PASS**
+
+**ridge_alpha note:** LOOCV selected **0.5** on the best benchmark run (7/15); **1.0**
+on runs scoring 6/15. Lower α did not uniformly improve outcomes — selection is
+session-dependent.
+
+Keys correct in all three: Q, P, C (3/3)
+Keys correct in R1 and R2 only: U, L
+Keys correct in R1 and R3 only: D, G
+Keys correct in R2 and R3 only: T
+
+---
+
+### vs T029 baseline (3 benchmark runs)
+
+| Metric              | Baseline (A/B/C)     | Iteration 2 (3 runs)   |
+|---------------------|----------------------|------------------------|
+| Key-hit range       | 20% → 67% (47 pp)    | 40% → 47% (**7 pp**)   |
+| Pass rate SC-001–003| 1/3 (Session B)      | 0/3                    |
+| Best key-hit        | 10/15 (67%)          | 7/15 (47%)             |
+| Median error range  | 44 → 85 px           | 55 → 68 px             |
+| Calibration pass    | 3/3                  | 3/3                    |
+
+### vs Iteration 1 (T033; 2 benchmark-completed)
+
+| Metric              | Iteration 1          | Iteration 2            |
+|---------------------|----------------------|------------------------|
+| Key-hit             | 33% / 33%            | 47% / 40% / 40%        |
+| Best key-hit        | 5/15 (33%)           | **7/15 (47%)**         |
+| Key-hit spread      | 0 pp (n=2)           | 7 pp (n=3)             |
+| Median (best)       | 66 px                | **55 px** (0.4 px over)|
+| Pass rate           | 0/2                  | 0/3                    |
+
+---
+
+## Outcome verdict: **PARTIALLY IMPROVED**
+
+### Improved
+- **Best key-hit** rose from 5/15 (Iter 1) to **7/15** (+2 keys); vs baseline degraded
+  sessions (3/15, 6/15) and approaching baseline Session C (6/15).
+- **SC-004 repeatability** on key-hit: **7 pp spread** (40%–47%) — within the ≤ 20 pp
+  limit across three benchmark-completed runs.
+- **Median error** on best run: 55.4 px — essentially at the 55 px threshold (failed by
+  0.4 px only on key-hit / row gates).
+- **ridge_alpha=0.5** on best run shows extended grid can select below the old 1.0 floor.
+
+### Unchanged / not improved
+- **SC-001–SC-003**: 0/3 benchmark runs passed; capability bound (Session B 10/15, 44 px)
+  not reproduced.
+- **Row accuracy** still far below 80% on all runs (40%–53%).
+- **Failure cause** remains mapping (`likely_cause=mapping` on all three); common miss
+  cluster: E, A, J, Z, B, M, Space.
+
+### Regressed (minor)
+- **Ceiling vs baseline**: no run reached baseline Session B (10/15); peak 47% vs 67%.
+- Runs 2–3 with **ridge_alpha=1.0** scored 6/15 — same as baseline Session C tier, not
+  better than Iter 1 best when α stayed at old floor.
+
+---
+
+## SC-004 repeatability assessment
+
+Three benchmark-completed runs: key-hit **40%, 40%, 47%** → spread **7 pp** (≤ 20 pp).
+**SC-004 key-hit repeatability: PASS** for this cycle.
+
+SC-001–SC-003 and overall CQ-1 acceptance: **FAIL** (0/3 sessions pass all three thresholds).
+
+---
+
+## Conclusion
+
+T035 iteration 2 (lower `MIN_ALPHA` + extended `ALPHA_GRID`) **raised the floor and
+narrowed spread** versus Iteration 1 and T029 instability, and produced the best
+post-Phase-8 benchmark so far (**7/15**, median 55.4 px with α=0.5). It did **not**
+restore baseline Session B (10/15) or achieve a full CQ-1 pass.
+
+LOOCV α selection varied (0.5 vs 1.0) without a clear monotonic “lower α = better” rule
+across sessions — further PCA4 α tuning alone is weak justification for Iteration 3.
+
+**Phase 8 checkpoint:** SC-001–SC-003 not met; SC-004 key-hit spread met on this
+3-run sample. **Do not start Iteration 3 without explicit approval and updated
+failure-pattern review.**
+
+**Next planning options** (not executed):
+- T032: reduce calibration layout density if head-travel / target fatigue suspected
+- T034: geometry verification if preview-on-key looks better than benchmark scoring
+- T033 follow-up: per-target fixation tightening (if cal quality warnings correlate with misses)
+- T035 follow-up: only if a stable α band emerges from more runs — evidence mixed this cycle
+
+---
+
+## Sources
+
+- Baseline: runs/baseline_pca4_summary.txt
+- Iteration 1: runs/iteration_01_collection_drift_gate.txt
+- Iteration 2 cal: runs/calibration_02e375d63f85.txt, runs/calibration_7267f2ebb53b.txt, runs/calibration_b23f0fdf2eb9.txt
+- Iteration 2 bench: runs/benchmark_02e375d63f85-bench1781024781.txt, runs/benchmark_7267f2ebb53b-bench1781025340.txt, runs/benchmark_b23f0fdf2eb9-bench1781025576.txt

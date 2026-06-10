@@ -62,6 +62,9 @@ class RunSummaryWriter:
             layout = summary.primary_metrics.get("layout", "n/a")
             targets = summary.primary_metrics.get("targets", "n/a")
             line = f"[{tag}] {st} session={sid} layout={layout} targets={targets}"
+            ridge_alpha = summary.primary_metrics.get("ridge_alpha")
+            if ridge_alpha is not None:
+                line = f"{line} ridge_alpha={float(ridge_alpha):g}"
             loocv = summary.primary_metrics.get("loocv_rms_px")
             if loocv is not None:
                 line = f"{line} loocv_rms={float(loocv):.1f}px (supplementary)"
@@ -109,20 +112,24 @@ class RunSummaryWriter:
         targets_total: int,
         failure_reason: Optional[str] = None,
         loocv_rms_px: Optional[float] = None,
+        ridge_alpha: Optional[float] = None,
         quality_warnings: Optional[list[str]] = None,
     ) -> RunSummary:
         warnings = list(quality_warnings or [])
+        metrics: dict[str, Any] = {
+            "layout": layout,
+            "targets": f"{targets_collected}/{targets_total}",
+            "loocv_rms_px": loocv_rms_px,
+            "quality_warning_count": len(warnings),
+            "quality_warnings": warnings[:5],
+        }
+        if ridge_alpha is not None:
+            metrics["ridge_alpha"] = float(ridge_alpha)
         summary = RunSummary(
             session_id=session_id,
             run_type="calibration",
             status=status,
-            primary_metrics={
-                "layout": layout,
-                "targets": f"{targets_collected}/{targets_total}",
-                "loocv_rms_px": loocv_rms_px,
-                "quality_warning_count": len(warnings),
-                "quality_warnings": warnings[:5],
-            },
+            primary_metrics=metrics,
             failure_reason=failure_reason,
         )
         self.write(summary)

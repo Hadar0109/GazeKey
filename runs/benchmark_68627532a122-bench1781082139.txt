@@ -1,0 +1,9 @@
+[benchmark] PASSED session=68627532a122-bench1781082139 keys=12/15 (80%) row=13/15 median_err=29px
+failure_analysis:
+  likely_cause: none
+  keys_failed: 3/15
+  rows_failed: 2/15
+  per_key_misses:
+    P -> ⌫ dx=+63.0 dy=+88.7 err=108.8px
+    J -> U dx=-0.1 dy=-40.4 err=40.4px
+    M -> N dx=-62.6 dy=+27.0 err=68.2px

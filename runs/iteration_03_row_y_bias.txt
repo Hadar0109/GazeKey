@@ -1,0 +1,331 @@
+# Phase 8 Iteration 3 — T036 outcome record
+# Feature: 001-calibration-mapping-mvp
+# Date: 2026-06-10
+# Change applied: T035 (follow-up) — enable post-fit per-row Y bias correction layer
+# Files: gazekey/mapping/typing_candidate.py (APPLY_ROW_Y_BIAS=True),
+#        gazekey/mapping/row_bias.py (MapperWithRowBias / attach_row_y_bias),
+#        wired in gazekey/mapping/ridge.py (_keyboard_assessment_model),
+#        residuals from gazekey/calibration2/region_quality.py (compute_row_y_residuals)
+# Baseline reference: runs/baseline_pca4_summary.txt (T029–T030)
+# Prior iterations: runs/iteration_01_collection_drift_gate.txt (T033),
+#                   runs/iteration_02_pca4_alpha_floor.txt (T035 alpha floor)
+# Tests: tests/test_row_y_bias_path.py (Y-only correction, active-path wrap, save/load round-trip)
+# Launch: GAZEKEY_DEV_BENCHMARK=1, python main.py
+# Flow: calibrate → preview → auto benchmark (when calibration passes)
+
+---
+
+## Single change (T035 follow-up — row-Y bias)
+
+Enable one post-fit correction layer on the active `pca4_baseline` path:
+`APPLY_ROW_Y_BIAS = True` (was `False`); `APPLY_LOCAL_Y_CORRECTION` stays `False`
+(single lever per iteration).
+
+| Config (`typing_candidate.py`) | Before (Iter 2) | After (Iter 3) |
+|--------------------------------|-----------------|----------------|
+| `APPLY_ROW_Y_BIAS`             | `False`         | **`True`**     |
+| `APPLY_LOCAL_Y_CORRECTION`     | `False`         | `False`        |
+| `ALPHA_GRID` / `MIN_ALPHA`     | (Iter 2 grid)   | unchanged      |
+
+Mechanism: after the ridge fit, `compute_row_y_residuals()` measures the mean
+`(pred_y − target_y)` over the top / middle / bottom calibration rows and stores
+`(row_y_centers, row_y_bias)`. `MapperWithRowBias` then subtracts the nearest-row
+bias from predicted **Y only** at predict time. **X is never touched**; mapper
+family stays `pca4_baseline` (no new mapper, no local-Y layer, no layout / geometry /
+collection / benchmark / smoothing change).
+
+Justification (from prior records): baseline + iterations 1–2 showed a persistent
+vertical row-compression / row-error signature (`row` accuracy 40%–53% on every
+benchmark run; failure analysis dominated by row misses), motivating a Y-axis row
+correction rather than another α sweep.
+
+---
+
+## Verification — dx/dy & row_y_bias definitions, and data scope (no code changed)
+
+Confirmed directly against source before drawing any dy conclusion:
+
+1. **Benchmark dx/dy** (`gazekey/evaluation/benchmark_runner.py`, `build_result_row`):
+   - `dx = predicted_x − target_center_x`
+   - `dy = predicted_y − target_center_y`
+   - Screen Y increases downward, so `dy > 0` ⇒ prediction landed **below** the target
+     key center. These are **post-correction** residuals (the benchmark runs the active
+     mapper, which already wraps the row-Y bias when `APPLY_ROW_Y_BIAS=True`) and are
+     measured against the **intended target key's** center even when another key was hit.
+
+2. **row_y_bias** (`gazekey/calibration2/region_quality.py`, `compute_row_y_residuals`;
+   applied in `gazekey/mapping/row_bias.py`):
+   - `bias[row] = mean(predicted_y − target_y)` over that row's **calibration-train** samples
+   - `corrected_y = predicted_y − bias[nearest row center]`
+   - Same `(predicted − target)` sign convention as benchmark `dy`, so the two are directly
+     comparable. The bias is fit on **calibration**, not benchmark.
+
+3. **Data scope — important limitation:** the saved benchmark files record `dx/dy` for
+   **failed keys only** (`failure_analysis` writes `per_key_misses = rows where not
+   is_correct`). The full 15-target `dx/dy`, the **hits' dy**, and **per-row dy across all
+   targets** are produced at runtime (`KeyAccuracyResultRow`) but are **NOT persisted**
+   anywhere in `runs/`. From the saved artifacts I therefore **cannot** report mean /
+   median / min / max dy over all 15, dy-by-row across all targets, or hits-vs-misses dy.
+
+4. **Scope of the dy-sign statements below:** every dy-sign note is **"dy sign among
+   failed keys only."** It is **not** a full-session vertical-bias estimate.
+
+5. **Re-evaluation — overcorrection vs. miss-selection artifact:** the earlier framing
+   ("benchmark row residual dy flips sign per session ⇒ the static bias overcorrected") is
+   **NOT supported** by the saved data:
+   - Misses are selected partly by large **horizontal (dx)** error (e.g. Run 3 misses reach
+     dx ≈ −130 px), so the dy sign among misses is **contaminated by X** and is not a clean
+     read of vertical bias.
+   - **No pre-correction** benchmark residuals are saved, so the post-correction dy sign
+     cannot be attributed to the bias layer vs. session posture/collection differences.
+   - **Hits' dy is unknown**, so a "uniform session dy direction" cannot be established.
+   - What survives the data: **among failed keys only**, Run 1 residuals are all +dy, Run 2
+     all −dy, Run 3 mixed. That is a between-session difference **in miss residuals**,
+     consistent with session-to-session instability — it does **not** by itself show the
+     row-Y bias overcorrected. Confirming/refuting overcorrection requires saving all-15
+     pre- and post-correction dy (future instrumentation, not done here).
+
+---
+
+## Post-change runs (3 sessions)
+
+### Run 1 — calibration pass, benchmark fail (worst of three)
+
+**Calibration** (`f49bac5646c0`):
+[calibration] PASSED session=f49bac5646c0 layout=keyboard15 targets=15/15 ridge_alpha=0.5 loocv_rms=73.7px (supplementary) quality_warnings=8
+
+Source: runs/calibration_f49bac5646c0.txt
+
+**Benchmark** (`f49bac5646c0-bench1781076089`):
+
+| Metric           | Result     | CQ-1 threshold | Status |
+|------------------|------------|----------------|--------|
+| Key-hit accuracy | 4/15 (27%) | ≥ 10/15 (~67%) | FAIL   |
+| Row accuracy     | 5/15 (33%) | ≥ 80%          | FAIL   |
+| Median error     | 61 px      | ≤ 55 px        | FAIL   |
+| Overall          | FAILED     | all three      | FAIL   |
+
+[benchmark] FAILED session=f49bac5646c0-bench1781076089 keys=4/15 (27%) row=5/15 median_err=61px reason=key-hit 4/15 (27%) < 10/15 (~67%); median_err 61.0px > 55px; row 5/15 (33%) < 80%
+
+Source: runs/benchmark_f49bac5646c0-bench1781076089.txt
+
+Keys correct (4/15): Q, B, M, Space
+
+Failure analysis: likely_cause=mapping; keys_failed=11/15; rows_failed=10/15
+dx/dy pattern (**failed keys only** — hits' dy not saved): dy positive on all 11 misses
+(+27 to +142 px), i.e. these misses landed below their target rows. dx mixed (−139 to +61).
+This is a miss-residual observation, **not** a full-session bias estimate (see Verification §3–5).
+
+---
+
+### Run 2 — calibration pass, benchmark fail (best key-hit; median gate passed)
+
+**Calibration** (`ee34c5c0a443`):
+[calibration] PASSED session=ee34c5c0a443 layout=keyboard15 targets=15/15 ridge_alpha=0.3 loocv_rms=50.8px (supplementary) quality_warnings=7
+
+Source: runs/calibration_ee34c5c0a443.txt
+
+**Benchmark** (`ee34c5c0a443-bench1781076270`):
+
+| Metric           | Result     | CQ-1 threshold | Status |
+|------------------|------------|----------------|--------|
+| Key-hit accuracy | 7/15 (47%) | ≥ 10/15 (~67%) | FAIL   |
+| Row accuracy     | 9/15 (60%) | ≥ 80%          | FAIL   |
+| Median error     | 55 px      | ≤ 55 px        | **PASS** |
+| Overall          | FAILED     | all three      | FAIL   |
+
+[benchmark] FAILED session=ee34c5c0a443-bench1781076270 keys=7/15 (47%) row=9/15 median_err=55px reason=key-hit 7/15 (47%) < 10/15 (~67%); row 9/15 (60%) < 80%
+
+Source: runs/benchmark_ee34c5c0a443-bench1781076270.txt
+
+Keys correct (7/15): Q, E, T, U, P, D, C
+
+Failure analysis: likely_cause=mapping; keys_failed=8/15; rows_failed=6/15
+dx/dy pattern (**failed keys only** — hits' dy not saved): dy negative on all 8 misses
+(−14 to −73 px), i.e. these misses landed above their target rows (opposite sign to Run 1's
+misses). dx mixed (−90 to +38). Median 55.4→55 px **met the median gate** (first
+post-Phase-8 run to pass median); reason line drops median, leaving key-hit and row as the
+only failing gates. The Run 1↔Run 2 miss-sign difference is between-session miss behavior,
+not a demonstrated bias direction (see Verification §3–5).
+
+---
+
+### Run 3 — calibration pass, benchmark fail (best row accuracy; worst median)
+
+**Calibration** (`14040dde48d0`):
+[calibration] PASSED session=14040dde48d0 layout=keyboard15 targets=15/15 ridge_alpha=1 loocv_rms=53.2px (supplementary) quality_warnings=6
+
+Source: runs/calibration_14040dde48d0.txt
+
+**Benchmark** (`14040dde48d0-bench1781077214`):
+
+| Metric           | Result      | CQ-1 threshold | Status |
+|------------------|-------------|----------------|--------|
+| Key-hit accuracy | 6/15 (40%)  | ≥ 10/15 (~67%) | FAIL   |
+| Row accuracy     | 10/15 (67%) | ≥ 80%          | FAIL   |
+| Median error     | 82 px       | ≤ 55 px        | FAIL   |
+| Overall          | FAILED      | all three      | FAIL   |
+
+[benchmark] FAILED session=14040dde48d0-bench1781077214 keys=6/15 (40%) row=10/15 median_err=82px reason=key-hit 6/15 (40%) < 10/15 (~67%); median_err 81.9px > 55px; row 10/15 (67%) < 80%
+
+Source: runs/benchmark_14040dde48d0-bench1781077214.txt
+
+Keys correct (6/15): Q, U, A, G, B, Space
+
+Failure analysis: likely_cause=mapping; keys_failed=9/15; rows_failed=5/15
+dx/dy pattern (**failed keys only** — hits' dy not saved): mixed dy (+89, +67, +65, +49,
++20, +16 / −48, −14, −7) with dx strongly negative (−25 to −130 px). **Row accuracy 10/15
+(67%) is the best of any post-baseline run**; the high median (82 px) is driven by large
+*horizontal* (X) misses that row-Y bias cannot touch (P→O −112 px, L→K −130 px, M→N
+−123 px, Z→Shift −104 px). The large dx here also illustrates why miss-only dy sign is
+not a clean vertical-bias signal (misses are partly selected by X error).
+
+---
+
+## Cross-session comparison
+
+### Iteration 3 (all 3 benchmark-completed)
+
+| Metric           | Run 1 (f49bac) | Run 2 (ee34c5) | Run 3 (14040d) |
+|------------------|----------------|----------------|----------------|
+| ridge_alpha      | 0.5            | 0.3            | 1.0            |
+| Key-hit          | 4/15 (27%)     | 7/15 (47%)     | 6/15 (40%)     |
+| Row accuracy     | 5/15 (33%)     | 9/15 (60%)     | 10/15 (67%)    |
+| Median error     | 61 px          | **55 px**      | 82 px          |
+| LOOCV RMS        | 73.7 px        | 50.8 px        | 53.2 px        |
+| Quality warnings | 8              | 7              | 6              |
+| Miss dy sign¹    | all +dy        | all −dy        | mixed          |
+| Overall          | FAIL           | FAIL           | FAIL           |
+
+**Key-hit range:** 27% → 47% (spread **20 pp**; SC-004 limit ≤ 20 pp) — **PASS (at the limit)**
+**Row range:** 33% → 67% (spread 34 pp)
+**Median range:** 55 → 82 px
+
+¹ **Miss dy sign = dy among failed keys only** (hits' dy and all-15 dy are not saved; see
+Verification §3). Not a full-session vertical-bias estimate.
+
+Keys correct in all three: **Q** (1/1 reliable)
+Keys correct in R1 and R3 only: B, Space
+Keys correct in R2 and R3 only: U
+(No other key is correct in more than one run — instability dominates.)
+
+**Row-Y bias transfer note (qualified):** the per-row bias is fit from *calibration-train*
+residuals; it raised benchmark **row accuracy** on 2/3 runs (Run 2 60%, Run 3 67%) but not
+on Run 1 (33%). The *miss* residual dy sign differs between Run 1 (+dy) and Run 2 (−dy),
+which is consistent with session-to-session instability. **It is not established** that the
+bias overcorrected: misses are partly selected by X error, no pre-correction benchmark
+residuals are saved, and hits' dy is unknown (Verification §5). Whether the train-fit bias
+transfers to benchmark therefore remains **unproven from saved data**, pending all-15
+pre/post-correction dy instrumentation.
+
+---
+
+### vs Iteration 2 (T035 alpha floor; 3 benchmark runs)
+
+| Metric              | Iteration 2 (3 runs) | Iteration 3 (3 runs)   |
+|---------------------|----------------------|------------------------|
+| Best key-hit        | 7/15 (47%)           | 7/15 (47%) — unchanged |
+| Best row accuracy   | 8/15 (53%)           | **10/15 (67%)** — improved |
+| Key-hit spread      | 7 pp                 | 20 pp — widened        |
+| Best median         | 55 px (0.4 px over)  | **55 px (gate met)**   |
+| Pass rate SC-001–003| 0/3                  | 0/3                    |
+| Calibration pass    | 3/3                  | 3/3                    |
+
+### vs T029 baseline (3 benchmark runs)
+
+| Metric              | Baseline (A/B/C)     | Iteration 3 (3 runs)   |
+|---------------------|----------------------|------------------------|
+| Key-hit range       | 20% → 67% (47 pp)    | 27% → 47% (20 pp)      |
+| Best key-hit        | 10/15 (67%)          | 7/15 (47%)             |
+| Best row accuracy   | 12/15 (80%)          | 10/15 (67%)            |
+| Pass rate SC-001–003| 1/3 (Session B)      | 0/3                    |
+| Median error range  | 44 → 85 px           | 55 → 82 px             |
+| Calibration pass    | 3/3                  | 3/3                    |
+
+---
+
+## Outcome verdict: **PARTIALLY IMPROVED (row accuracy)**; **UNCHANGED (key-hit ceiling, CQ-1 acceptance)**
+
+### Improved
+- **Row accuracy** — the metric this lever targets — rose to a post-baseline best of
+  **10/15 (67%)** (Run 3) and **9/15 (60%)** (Run 2), versus Iteration 2's best of 53%.
+  Two of three runs improved row accuracy vs the prior cycle.
+- **Median gate first pass**: Run 2 reached **55 px**, the first post-Phase-8 run to
+  satisfy the ≤ 55 px median threshold.
+- **X untouched / no family change** verified by `tests/test_row_y_bias_path.py`
+  (Y-only correction, active fit wraps `pca4_baseline` with `MapperWithRowBias`,
+  local-Y stays disabled, save/load round-trip preserves centers + bias).
+
+### Unchanged / not improved
+- **SC-001–SC-003**: 0/3 benchmark runs passed (same as Iteration 2; baseline had 1/3).
+- **Best key-hit** stays at **7/15 (47%)** — identical to Iteration 2; baseline Session B
+  (10/15, 67%) still not reproduced.
+- **Failure cause** remains `likely_cause=mapping` on all three runs; the dominant
+  residual driver on the worst-median run (Run 3) is **horizontal (X) error**, which a
+  row-Y bias cannot correct.
+
+### Regressed (minor)
+- **Key-hit spread widened** to **20 pp** (27%–47%) vs Iteration 2's 7 pp — sits exactly
+  at the SC-004 limit. Row-Y bias did not stabilize key-hit; the worst session (Run 1)
+  dropped to 4/15 (27%), a new post-baseline low (its misses were all +dy, but see the
+  dy-scope caveat — this is not proof the bias was the cause).
+- Run 3's median rose to **82 px** despite best row accuracy — row-Y correction can
+  pull predictions onto the correct row while leaving large X misses (and even inflating
+  total pixel error) untouched.
+
+---
+
+## SC-004 repeatability assessment
+
+Three benchmark-completed runs: key-hit **27%, 47%, 40%** → spread **20 pp** (= SC-004
+≤ 20 pp limit, boundary). **SC-004 key-hit repeatability: PASS at the limit** — weaker
+than Iteration 2 (7 pp) and not robust (one opposing-offset session reached the 27% floor).
+
+SC-001–SC-003 and overall CQ-1 acceptance: **FAIL** (0/3 sessions pass all three thresholds).
+
+---
+
+## Conclusion
+
+T035 follow-up Iteration 3 (enable post-fit **row-Y bias** layer, X untouched, no mapper
+family change) **improved the targeted axis** — row accuracy reached a post-baseline best
+(10/15, 67%) and median met its gate on one run (55 px) — but **did not raise the key-hit
+ceiling** (still 7/15, 47%) or produce a CQ-1 pass (0/3).
+
+Observed limitation: the lever helped **row accuracy** on 2/3 runs but did not lift
+key-hit and leaves large **horizontal (X)** misses — the dominant error on the worst-median
+run — uncorrected. Among **failed keys only**, miss residual dy differs by session (Run 1
++dy, Run 2 −dy, Run 3 mixed). An earlier draft read this as the bias "overcorrecting / sign
+flipping per session"; that is **not supported by the saved data** (misses are partly
+X-selected, no pre-correction or all-15 dy is stored — Verification §3–5). Whether the
+calibration-train bias transfers to benchmark is **unproven** and should be tested with
+all-15 pre/post-correction dy logging before drawing a transfer conclusion.
+
+**Phase 8 checkpoint:** SC-001–SC-003 not met; SC-004 key-hit spread at the 20 pp limit
+(degraded vs Iter 2). Single justified lever (row-Y bias) applied and documented.
+**Do not start Iteration 4 without explicit approval and an updated failure-pattern review.**
+
+**Next planning options** (not executed):
+- **Instrument all-15 dy first**: persist per-target dx/dy (hits + misses) and, ideally,
+  pre- vs post-correction benchmark dy, so the row-Y bias transfer/overcorrection question
+  can be answered with data instead of miss-only inference.
+- The dominant remaining error on the best-row run is **horizontal (X)**, not row — a
+  Y-only lever is now low-leverage; consider whether the failure guide points to X/geometry.
+- T034: geometry/hitbox verification if preview-on-key looks better than benchmark scoring
+  (large negative dx cluster: P→O, L→K, M→N, Z→Shift).
+- T033 follow-up: collection/posture stability, given the between-session instability seen
+  in key-hit (27%–47%) and in the differing miss-residual dy signs.
+- T035 row-Y follow-up only if all-15 dy logging shows a stable, transferable row offset —
+  not justified on the miss-only evidence available this cycle.
+
+---
+
+## Sources
+
+- Baseline: runs/baseline_pca4_summary.txt
+- Iteration 1: runs/iteration_01_collection_drift_gate.txt
+- Iteration 2: runs/iteration_02_pca4_alpha_floor.txt
+- Iteration 3 cal: runs/calibration_f49bac5646c0.txt, runs/calibration_ee34c5c0a443.txt, runs/calibration_14040dde48d0.txt
+- Iteration 3 bench: runs/benchmark_f49bac5646c0-bench1781076089.txt, runs/benchmark_ee34c5c0a443-bench1781076270.txt, runs/benchmark_14040dde48d0-bench1781077214.txt
+- Change: gazekey/mapping/typing_candidate.py (APPLY_ROW_Y_BIAS=True), gazekey/mapping/row_bias.py, gazekey/mapping/ridge.py (_keyboard_assessment_model), gazekey/calibration2/region_quality.py (compute_row_y_residuals)
+- Tests: tests/test_row_y_bias_path.py

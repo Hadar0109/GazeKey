@@ -66,7 +66,8 @@ def test_typing_candidate_pipeline_constants():
     from gazekey.mapping.typing_candidate import ENABLE_TYPING_ON_BEST_EFFORT
 
     assert CALIBRATION_MODE == "keyboard15"
-    assert APPLY_ROW_Y_BIAS is False
+    # Phase 8 Iteration 3: row-Y bias enabled; local-Y stays disabled (single lever).
+    assert APPLY_ROW_Y_BIAS is True
     assert APPLY_LOCAL_Y_CORRECTION is False
     assert FEATURE_SMOOTHER_ALPHA == 0.28
     assert GAZE_SMOOTHER_ALPHA == 0.35

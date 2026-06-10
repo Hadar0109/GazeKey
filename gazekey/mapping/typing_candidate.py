@@ -17,14 +17,16 @@ ACTIVE_MAPPER = "pca4_baseline"
 # Calibration target layout (15 key-aligned points on letter region).
 CALIBRATION_MODE = "keyboard15"
 
-# Ridge regularization: alpha=1.0 selected in all 6 archived sessions within 5 px LOOCV band.
-ALPHA_GRID: tuple[float, ...] = (1.0, 10.0, 50.0, 100.0, 200.0, 400.0)
+# Ridge regularization: LOOCV picks from grid; Phase 8 iter 2 extended low-alpha floor.
+ALPHA_GRID: tuple[float, ...] = (0.15, 0.3, 0.5, 1.0, 10.0, 50.0, 100.0, 200.0, 400.0)
 ALPHA_SELECT_LOOCV_TOL_PX = 5.0
-MIN_ALPHA = 1.0
+MIN_ALPHA = 0.15
 
-# Post-fit correction layers — disabled for clean PCA4 baseline (MVP T029).
-# Re-enable only via Phase 8 after benchmark failure analysis justifies one layer.
-APPLY_ROW_Y_BIAS = False
+# Post-fit correction layers.
+# Phase 8 Iteration 3 (T035 follow-up): row-Y bias enabled after documented vertical
+# row-compression failure across baseline + iterations 1–2 (runs/iteration_02_pca4_alpha_floor.txt).
+# Local-Y correction stays disabled (single lever per iteration).
+APPLY_ROW_Y_BIAS = True
 APPLY_LOCAL_Y_CORRECTION = False
 
 # Runtime smoothing (matches keyboard-accuracy eval pipeline).
