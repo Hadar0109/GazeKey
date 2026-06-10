@@ -225,6 +225,7 @@ behavior gate (T060) passed. **Then** resume Phase 8.
 - [x] T062c **Iteration 03 fit** — T035D implemented + benchmarked (2/4 cal → 2 bench); T036 in `runs/iteration_03_row_bias_letter_rows.txt` (historical)
 - [x] T062d **Restore T061 safe baseline** — revert Phase 8 active code; decision in `runs/phase8_baseline_restore_decision.txt`; verify with fresh T061A/B runs
 - [x] T062e **Keyboard face_x/face_y usability** — session drift → warning on `keyboard*` modes only; eye_box gate unchanged; mapping baseline unchanged
+- [x] T062f **Per-target collection strictness** — timeout/partial → retry same target; clear weak samples; fail on retry limit; no mapper change
 
 ---
 

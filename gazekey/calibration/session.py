@@ -33,7 +33,7 @@ class CalibrationSession:
         gate_cfg: Optional[FixationGateConfig] = None,
         max_timeouts_per_target: int = 1,
         max_outlier_retries_per_target: int = 2,
-        on_timeout: str = "advance",
+        on_timeout: str = "retry",
     ) -> None:
         if not targets:
             raise ValueError("Calibration requires at least one target")
@@ -102,58 +102,114 @@ class CalibrationSession:
             self._accepted_frames[self._target_index].append(features)
 
         if state == FixationState.TIMEOUT:
-            if self.target_mean_ready(self._target_index):
-                self._finish_target()
-            else:
-                self._timeouts_for_target[self._target_index] += 1
-                self.begin_target()
+            fail = self._handle_target_timeout()
+            if fail is not None:
+                return fail
             if self.is_finished:
-                return CalibrationResult(
-                    success=True,
-                    message="Target collection complete.",
-                    targets=self.targets,
-                    feature_means=self._compute_means(),
-                )
+                return self._success_result()
             return None
 
         if not self.is_finished and state == FixationState.COLLECTING:
             if self.target_mean_ready(self._target_index):
-                self._finish_target()
+                fail = self._finish_target()
+                if fail is not None:
+                    return fail
 
         if self.is_finished:
-            return CalibrationResult(
-                success=True,
-                message="Target collection complete.",
-                targets=self.targets,
-                feature_means=self._compute_means(),
-            )
+            return self._success_result()
         return None
 
-    def _finish_target(self) -> None:
+    def _handle_target_timeout(self) -> Optional[CalibrationResult]:
         idx = self._target_index
-        self._finalize_target_training_feature(idx)
-        if self._accepted_features[idx]:
-            peer_feats: List[Optional[FrameFeatures]] = []
-            for j, frames in enumerate(self._accepted_features):
-                peer_feats.append(frames[-1] if frames else None)
-            outlier_msg = check_target_mean_outlier(
-                idx=idx,
-                feature=self._accepted_features[idx][-1],
-                targets=self.targets,
-                peer_features=peer_feats,
+        label = self.targets[idx].label
+        if self._collection_satisfied(idx):
+            return self._finish_target()
+        self._timeouts_for_target[idx] += 1
+        if self._timeouts_for_target[idx] > self.max_timeouts_per_target:
+            return self._fail_calibration(
+                f"Target {label}: fixation timed out without a stable collection "
+                f"({self._timeouts_for_target[idx]} attempt(s))"
             )
-            if outlier_msg is not None:
-                self._outlier_retries[idx] += 1
-                mvp_log(f"[calib] target outlier: {outlier_msg}")
-                if self._outlier_retries[idx] <= self.max_outlier_retries_per_target:
-                    self._accepted_features[idx].clear()
-                    self._accepted_ratios[idx].clear()
-                    self._accepted_frames[idx].clear()
-                    self.begin_target()
-                    return
+        mvp_log(
+            f"[calib] target {label}: timeout with incomplete collection "
+            f"({self._timeouts_for_target[idx]}/{self.max_timeouts_per_target}), retrying"
+        )
+        self._clear_target_attempt(idx)
+        self.begin_target()
+        return None
+
+    def _clear_target_attempt(self, idx: int) -> None:
+        if idx < 0 or idx >= len(self.targets):
+            return
+        self._accepted_ratios[idx].clear()
+        self._accepted_frames[idx].clear()
+
+    def _fail_calibration(self, message: str) -> CalibrationResult:
+        self._target_index = len(self.targets)
+        mvp_log(f"[calib] calibration failed: {message}", always=True)
+        return CalibrationResult(
+            success=False,
+            message=message,
+            targets=list(self.targets),
+            feature_means=None,
+        )
+
+    def _success_result(self) -> CalibrationResult:
+        missing = [
+            i
+            for i in range(len(self.targets))
+            if not self._accepted_features[i]
+        ]
+        if missing:
+            labels = [self.targets[i].label for i in missing]
+            return self._fail_calibration(
+                f"Calibration incomplete: missing valid samples for {labels}"
+            )
+        return CalibrationResult(
+            success=True,
+            message="Target collection complete.",
+            targets=self.targets,
+            feature_means=self._compute_means(),
+        )
+
+    def _finish_target(self) -> Optional[CalibrationResult]:
+        idx = self._target_index
+        label = self.targets[idx].label
+        if not self._collection_satisfied(idx):
+            mvp_log(
+                f"[calib] target {label}: refusing partial collection "
+                f"(samples={len(self._accepted_ratios[idx])}, "
+                f"collect_ms={self.gate.debug_metrics().get('elapsed_collect_ms', 0.0):.0f})"
+            )
+            return None
+        self._finalize_target_training_feature(idx)
+        if not self._accepted_features[idx]:
+            return self._fail_calibration(f"Target {label}: no valid training sample")
+        peer_feats: List[Optional[FrameFeatures]] = []
+        for j, frames in enumerate(self._accepted_features):
+            peer_feats.append(frames[-1] if frames else None)
+        outlier_msg = check_target_mean_outlier(
+            idx=idx,
+            feature=self._accepted_features[idx][-1],
+            targets=self.targets,
+            peer_features=peer_feats,
+        )
+        if outlier_msg is not None:
+            self._outlier_retries[idx] += 1
+            mvp_log(f"[calib] target outlier: {outlier_msg}")
+            if self._outlier_retries[idx] <= self.max_outlier_retries_per_target:
+                self._accepted_features[idx].clear()
+                self._clear_target_attempt(idx)
+                self.begin_target()
+                return None
+            return self._fail_calibration(
+                f"Target {label}: unstable fixation after outlier retries "
+                f"({self._outlier_retries[idx]} attempt(s))"
+            )
         self._target_index += 1
         if not self.is_finished:
             self.begin_target()
+        return None
 
     def _finalize_target_training_feature(self, idx: int) -> None:
         if idx < 0 or idx >= len(self.targets):
@@ -237,16 +293,20 @@ class CalibrationSession:
     def target_means_count(self) -> int:
         return sum(1 for frames in self._accepted_features if len(frames) > 0)
 
-    def target_mean_ready(self, idx: int) -> bool:
+    def _collection_satisfied(self, idx: int) -> bool:
         if idx < 0 or idx >= len(self.targets):
-            return False
-        if self._last_fixation_state != FixationState.COLLECTING:
             return False
         samples = self._accepted_ratios[idx]
         gate_dbg = self.gate.debug_metrics()
         return bool(
             len(samples) >= int(self.gate.cfg.min_samples)
             and float(gate_dbg.get("elapsed_collect_ms", 0.0)) >= float(self.gate.cfg.complete_ms)
+        )
+
+    def target_mean_ready(self, idx: int) -> bool:
+        return (
+            self._last_fixation_state == FixationState.COLLECTING
+            and self._collection_satisfied(idx)
         )
 
     def print_training_means(self) -> None:
