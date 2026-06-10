@@ -1,6 +1,6 @@
 # Implementation Plan: Calibration & Gaze Mapping MVP
 
-**Branch**: `001-calibration-mapping-mvp` | **Date**: 2026-06-09 (revised 3) | **Spec**: [spec.md](./spec.md)
+**Branch**: `001-calibration-mapping-mvp` | **Date**: 2026-06-10 (revised 4) | **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `specs/001-calibration-mapping-mvp/spec.md`
 
@@ -29,9 +29,12 @@ read-only preview, a **separate** benchmark validation set, and lightweight run 
    benchmark evidence; dense `keyboard15` is a suspect, not a locked default.
 5. **MVP user flow** — launch → calibrate → **preview-only** → optional **dev-flag** benchmark →
    pass/fail summary. Dwell/intent/typing disabled in the normal flow.
-6. **Targeted cleanup** — one reachable calibration/mapping path first; **delete or
-   archive** unused code once the active path is proven (dedicated tasks per removal).
-7. **Minimal evaluation module** — thin benchmark + run summary + failure analysis only;
+6. **Active-code cleanup & refactor (Phase 10)** — inventory every major module first;
+   then isolate future interaction code, thin `virtual_keyboard.py`, and execute
+   **approved** delete/archive tasks only (one task per removal; no blind deletion).
+7. **Mapping experiments deferred** — Phase 8 accuracy/layout work stays **paused**
+   until Phase 10 completes; resume with a cleaner active path.
+8. **Minimal evaluation module** — thin benchmark + run summary + failure analysis only;
    not a diagnostics framework.
 
 ## Technical Context
@@ -88,7 +91,7 @@ Reference: `.specify/memory/constitution.md` (GazeKey v1.2.0)
 | Testable Architecture | Module boundaries defined below; orchestrator split planned | ✅ |
 | Run Clarity | Reuse summary CSV + console; no artifact sprawl | ✅ |
 | Documentation Hierarchy | Spec Kit docs are source of truth | ✅ |
-| Targeted Cleanup | Scoped to calibration/mapping path only | ✅ |
+| Targeted Cleanup | Phase 10: inventory-first cleanup + VK refactor; approved removals only | ✅ |
 | Simple Logging | Quiet default + single verbose flag; no logging framework | ✅ |
 | Minimal Calibration UI | Strip overlay debug text during fixation | ✅ |
 
@@ -276,46 +279,49 @@ by LOOCV alone. Ship one layout in the active path at a time.
 - **Verbose**: `GAZEKEY_VERBOSE=1` (consolidate existing env vars gradually) exposes
   per-target detail; default off
 
-### Targeted cleanup (in scope — two phases)
+### Targeted cleanup (three phases)
 
-**Phase A — disconnect** (before or during active-path wiring):
+**Phase 9 — disconnect** (complete):
 
 | Item | Action |
 |------|--------|
 | v1 calibration fallback | Unreachable from normal user flow |
 | Dwell typing / intent / selection | Not invoked in MVP gaze loop |
-| Placeholder suggestion bar, language toggle | Hidden from active flow |
+| Placeholder suggestion bar, language toggle, symbols switch | Behavior disabled in MVP; regions stay visible/layout-reserved (no geometry shrink) |
 | Experimental mappers | Not selectable at runtime |
 | Multi-mode env toggles | Debug-only; not in user flow |
 | Camera preview during calibration | Hidden/off by default; never on fixation overlay (CQ-4) |
 
-**Phase B — delete or archive** (only after **active PCA4 path proven** — see below):
+**Phase 10 — active-code cleanup & architecture refactor** (see dedicated section below):
 
-| Item | Action | Prerequisite |
-|------|--------|--------------|
-| Unused v1 calibration entry points | Delete or move to `archive/` | Active path proven |
-| Unused mapper wiring (poly12 ranking, etc.) | Delete or archive dead code paths | Active path proven |
-| Disconnected dwell/intent hooks in orchestrator | Remove dead branches | Active path proven |
-| Row bias + local Y | Delete/archive **or** keep dormant | Only if benchmark never adopts them |
+Inventory first; plan second; implement only after user approves the cleanup plan.
+Goals: clear active MVP path, isolate future interaction code, thin orchestrator —
+**not** a broad redesign or mass deletion.
+
+**Phase 10+ — approved removals** (after inventory + plan + approval):
+
+Each delete/archive/move = **one dedicated approved task** (constitution IX).
+Uncertain items stay `investigate` until resolved — never blind deletion.
 
 #### Definition: “active PCA4 path proven”
 
-All of the following MUST be true before Cleanup Phase B (delete/archive):
+All of the following MUST be true before Phase 10 execution (delete/archive/refactor):
 
 1. **End-to-end baseline completed** — Phase 7 saved summary in `runs/`
 2. **Single reachable user flow** — calibrate (v2) → preview (read-only) → dev-flag benchmark (`GAZEKEY_DEV_BENCHMARK=1`); PCA4 only; no v1/experimental mapper in path
 3. **Flow stability** — three consecutive manual runs complete without crash or blocked step (calibration pass → preview → benchmark finish)
 4. **Documented failure analysis** — at least one benchmark produced per-key failure detail in run summary
 
-Accuracy targets (SC-001–SC-004) do **not** need to be met for cleanup Phase B —
-proven *flow* and *path*, not final accuracy, unlock delete/archive.
+Accuracy targets (SC-001–SC-004) do **not** need to be met for Phase 10 —
+proven *flow* and *path*, not final accuracy, unlock cleanup/refactor work.
 
-Each Phase B item = **one dedicated approved task** (constitution IX). Disconnect
-alone is insufficient for final MVP cleanup — the goal is an unambiguous codebase,
-not a cemetery of `if False` branches.
+**Explicitly out of Phase 10 delete scope**:
 
-**Out of cleanup scope**: `scripts/`, full `debug/` tree purge, `pynput`, entire
-`virtual_keyboard.py` rewrite in one step.
+- `scripts/` — offline dev tooling; keep
+- Full `gazekey/debug/` purge — keep; disconnect from active import chain only if plan approves
+- Dwell / intent / selection — **preserve**; isolate from active path, do not delete
+- `keyboard_full9` / `keyboard_wide9` — keep behind `GAZEKEY_CALIB_MODE` for deferred layout experiments
+- Mapping accuracy parameters — no α, row-Y, local-Y, X correction, or smoothing changes during cleanup/refactor
 
 ### Evaluation module scope (minimal)
 
@@ -346,6 +352,127 @@ or compare tooling in the MVP module.
 > calibration layout in the active path at a time. Any post-fit layer requires
 > benchmark evidence before inclusion (document in tasks if added).
 
+## Phase 10: Active-Code Cleanup & Architecture Refactor
+
+**Purpose**: Before resuming Phase 8 mapping experiments, make the active MVP path
+obvious, maintainable, and free of mixed legacy/experimental/future code in the
+orchestrator. **Inventory and plan first; implement only after user approval.**
+
+**Not in scope**: Accuracy tuning, layout A/B runs, mapper variant changes, or a
+larger architectural redesign. Simplify the **existing** structure only.
+
+### Step 1 — Full cleanup inventory (mandatory before any deletion)
+
+Scan the repository and classify every major folder/file. Output:
+`specs/001-calibration-mapping-mvp/cleanup-inventory.md`.
+
+| Classification | Meaning |
+|----------------|---------|
+| **Active MVP path** | Required for calibrate → PCA4 mapping → read-only preview → dev benchmark |
+| **Future interaction** | Not active now; preserve for later (dwell, intent, selection, gaze typing) |
+| **Debug/offline tooling** | Developer-only; not reachable from normal user flow |
+| **Legacy/replaced** | Superseded by calibration2 / PCA4 / evaluation; archive/delete candidate |
+| **Unknown** | Needs investigation — **no delete/move until resolved** |
+
+Each inventory row MUST document:
+
+| Field | Content |
+|-------|---------|
+| `path` | File or directory |
+| `purpose` | Apparent role from code + imports |
+| `mvp_imported` | Yes/No — imported (directly or transitively) by active MVP path from `main.py` |
+| `tests_depend` | Test files that import or exercise this path |
+| `recommendation` | `keep` / `disconnect` / `archive` / `delete` / `investigate` |
+| `removal_risk` | What breaks or is lost if removed without further work |
+
+**Seed inventory** (to be verified and extended during T042 — not pre-judged):
+
+| Path | Likely class | Notes |
+|------|--------------|-------|
+| `main.py` | Active MVP | Entry point |
+| `gazekey/tracking/` | Active MVP | MediaPipe pipeline |
+| `gazekey/features/` | Active MVP | FrameFeatures, smoother |
+| `gazekey/layout/` | Active MVP | Key geometry |
+| `gazekey/calibration2/` | Active MVP | Sole active calibration path |
+| `gazekey/mapping/ridge.py`, `typing_candidate.py`, `base.py` | Active MVP | PCA4 fit/predict |
+| `gazekey/mapping/row_bias.py`, `local_y_correction.py`, `idw_*.py`, `row_aware.py` | Legacy/dormant or investigate | Not in active MVP path unless benchmark adopts |
+| `gazekey/evaluation/` (benchmark, summary, failure) | Active MVP | Thin evaluation layer |
+| `gazekey/evaluation/benchmark_diagnostics.py`, `coverage_diagnostics.py` | Debug/offline | Dev diagnostics; verify import chain |
+| `gazekey/ui/virtual_keyboard.py` | Active MVP (refactor target) | Mixed orchestrator — split in Step 3 |
+| `gazekey/ui/calibration_controller.py`, `gaze_preview.py`, `calibration_overlay.py`, `camera_preview_window.py` | Active MVP | Already extracted boundaries |
+| `gazekey/calibration/` (v1) | Legacy/replaced | Superseded by calibration2 |
+| `gazekey/intent/`, `gazekey/selection/` | Future interaction | Preserve; isolate |
+| `gazekey/typing/` (gaze path: dwell, gaze_typing_controller, gaze_ui_mapper) | Future interaction + partial MVP | `TextBuffer` / `key_hit_tester` active; gaze typing dormant |
+| `gazekey/debug/` | Debug/offline | Benchmark source, mapper compare, runtime logs |
+| `gazekey/mvp_log.py` | Active MVP | Quiet logging |
+| `scripts/` | Debug/offline | Offline analysis; not in user flow |
+| `tests/` | Active MVP support | Must map test → module dependencies in inventory |
+
+### Step 2 — Cleanup plan + approval gate
+
+From the inventory, produce `specs/001-calibration-mapping-mvp/cleanup-plan.md` listing
+**exactly** what will be kept, archived, deleted, moved aside as future code, or
+refactored. Rules:
+
+- **No blind deletion** — anything uncertain stays `investigate` with a follow-up task
+- **One approved task per deletion or archive** — add task IDs to `tasks.md` when plan is approved
+- **Future interaction preserved** — dwell/intent/selection/gaze-typing move to an isolated
+  package or facade (e.g. `gazekey/future/` or explicit `gazekey/interaction/`) so
+  `VirtualKeyboard` does not import scoring/dwell in the active MVP path
+- **Layout experiments preserved** — `keyboard_full9`, `keyboard_wide9` remain in
+  `targets.py` behind `GAZEKEY_CALIB_MODE`; no deletion
+
+**User approval required** (T045) before T046+ execution.
+
+### Step 3 — `virtual_keyboard.py` refactor (incremental, same behavior)
+
+`gazekey/ui/virtual_keyboard.py` (~2900 lines) currently mixes UI layout, calibration
+finish/mapper fit, preview, benchmark, env flags, debug keyboard-accuracy paths, and
+dormant gaze-typing/intent wiring. Goal: **thin orchestrator** that wires controllers.
+
+Already extracted: `CalibrationController`, `GazePreviewController`.
+
+Planned extractions (one task each; preserve behavior):
+
+| New module | Responsibility moved from `VirtualKeyboard` |
+|------------|---------------------------------------------|
+| `gazekey/ui/keyboard_layout.py` | Widget creation: control bar, letter/symbol rows, text display, suggestion bar placeholders, minimized view, key styles |
+| `gazekey/ui/benchmark_controller.py` | MVP dev benchmark + optional debug keyboard-accuracy session; banner/highlight; diagnostics writes |
+| `gazekey/ui/mapper_runtime.py` | Post-calibration mapper fit orchestration, predict/clamp helpers, mapper store access |
+| `gazekey/ui/gaze_loop.py` | `_on_eye_data_main_thread` dispatch: preview vs dormant typing; tracking bridge callbacks |
+| `gazekey/ui/env_flags.py` | `GAZEKEY_VERBOSE`, `GAZEKEY_DEV_BENCHMARK`, `GAZEKEY_CALIB_MODE`, and related reads |
+
+After extraction, `VirtualKeyboard` retains: window lifecycle, wiring controllers,
+mouse-click typing (`TextBuffer`), and high-level mode state — not mapping math or
+benchmark scoring.
+
+Refactor constraints (behavior preservation gate — T056):
+
+- No alpha, row-Y bias, local-Y, X correction, or feature-smoothing changes
+- No calibration layout default change (`keyboard15` stays default)
+- No benchmark pass/fail threshold changes
+- T028 integration test and T029 baseline metrics must match pre-refactor (within normal run variance)
+
+### Step 4 — Execute approved cleanup items
+
+Only items marked `archive`, `delete`, `disconnect`, or `move` in the **approved**
+cleanup plan. Representative expected actions (final list comes from inventory):
+
+| Action | Example | Rule |
+|--------|---------|------|
+| Archive | `gazekey/calibration/` v1 package | Move to `archive/calibration_v1/` if tests allow |
+| Disconnect | Debug imports in active path | `keyboard_accuracy_compare`, `mapper_diag` via dev-only entry |
+| Move aside | Dwell/intent/selection gaze wiring | Isolated module; not imported in MVP gaze loop |
+| Keep | `scripts/`, `gazekey/debug/`, layout candidates | Reachable only via env flags or CLI |
+| Investigate | Any module with unclear MVP test linkage | Resolve before delete |
+
+### Phase 8 resume (after Phase 10)
+
+Phase 8 accuracy/layout experiments remain **paused** until Phase 10 completes
+(inventory → plan approval → refactor → approved cleanup → behavior gate T056).
+Then resume T032–T035 per failure-pattern guide. Layout comparison (`keyboard_full9`
+vs `keyboard_wide9` vs `keyboard15`) runs in Phase 8, not Phase 10.
+
 ## Implementation Phases (for `/speckit-tasks`)
 
 1. **Geometry verification** — confirm layout inspector centers/hitboxes vs on-screen keys; align calibration targets and benchmark hit tests
@@ -353,11 +480,12 @@ or compare tooling in the MVP module.
 3. **Baseline PCA4 run** — wire PCA4-only path end-to-end; run benchmark; **save baseline summary**; if blocked, fix flow before iteration
 4. **Calibration UX** — minimal overlay (no camera preview on fixation); sanity-only pass/fail
 5. **Preview** — read-only default post-calibration; camera preview **open/available** in normal UI (CQ-4); hidden during calibration only
-6. **Benchmark + failure analysis** — manual-start benchmark; per-key failure in summary; **analysis task** after each run
-7. **Iterate** — result-driven accuracy work per decision guide; re-benchmark vs baseline (`tasks.md` Phase 8 defines iteration sequencing)
-8. **Cleanup phase A** — disconnect legacy paths from user flow
-9. **Cleanup phase B** — delete/archive after **active PCA4 path proven** (see definition)
-10. **Acceptance** — 3-session repeatability vs SC-001–SC-004 (CQ-1 thresholds)
+6. **Benchmark + failure analysis** — dev-flag benchmark; per-key failure in summary; **analysis task** after each run
+7. **Iterate (PAUSED)** — result-driven accuracy work; **resume after Phase 10**
+8. **Disconnect (Phase 9)** — legacy paths unreachable from user flow ✅
+9. **Active-code cleanup & refactor (Phase 10)** — inventory → plan → approval → refactor VK → approved removals → behavior gate
+10. **Resume iteration (Phase 8)** — mapping/layout experiments with clean active path
+11. **Acceptance** — 3-session repeatability vs SC-001–SC-004 (CQ-1 thresholds)
 
 ## Post-Design Constitution Re-check
 

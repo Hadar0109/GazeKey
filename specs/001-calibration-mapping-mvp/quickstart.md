@@ -106,6 +106,28 @@ set GAZEKEY_VERBOSE=1
 python main.py
 ```
 
+## 10. Debug-only environment variables (not in the user flow)
+
+These flags exist for development/diagnostics only. They are **off by default** and are
+**not** part of the normal calibrate → preview → benchmark user flow. Only
+`GAZEKEY_VERBOSE` (run clarity, FR-016) and `GAZEKEY_DEV_BENCHMARK` (developer benchmark,
+CQ-3) are intended for routine use; everything else below is debug-only.
+
+| Env var | Default | Purpose | Notes |
+|---------|---------|---------|-------|
+| `GAZEKEY_VERBOSE` | `0` | Extra per-target / per-run detail logging | User-facing clarity flag (FR-015/016) |
+| `GAZEKEY_DEV_BENCHMARK` | `0` | Auto-start the 15-key benchmark after preview | Developer flag (CQ-3); no UI control |
+| `GAZEKEY_CALIB_MODE` | unset | Override calibration target layout (e.g. `keyboard13`, `keyboard_full9`, `keyboard_wide9`) | Debug/experiment only; default active layout is `keyboard15`. Candidate layouts (`keyboard_full9`, `keyboard_wide9`) preserved for Phase 8 experiments after Phase 10 cleanup |
+| `GAZEKEY_KEYBOARD_ACCURACY_COMPARE` | `0` | Replay recorded gaze across mapper candidates and write a comparison CSV | Experimental multi-mapper tooling; **not** an active mapper selection path (active path is PCA4-only, FR-007). No longer triggered by `GAZEKEY_VERBOSE` |
+| `GAZEKEY_KEYBOARD_ACCURACY_DEBUG` | `0` | Extra keyboard-accuracy per-key debug output / CSV | Debug-only |
+| `GAZEKEY_CALIB_DEBUG` | `0` | Calibration overlay + fit debug detail | Debug-only |
+| `GAZEKEY_CALIB_GEOM_DEBUG` | `0` | Show post-fit calibration geometry overlay | Debug-only |
+| `GAZEKEY_GAZE_DEBUG` | `0` | Runtime gaze-mapping debug | Debug-only |
+| `GAZEKEY_GAZE_DEBUG_PRED` | `0` | Runtime gaze prediction debug | Debug-only |
+| `GAZEKEY_GAZE_DEBUG_SELECTION` | `0` | Runtime gaze selection debug | Debug-only |
+| `GAZEKEY_SELECTION_DEBUG` | `0` | Selection "follow best" debug | Debug-only |
+| `GAZEKEY_DIAG_EXTRACTOR` | `0` | Raw feature-extractor diagnostics | Debug-only; off to avoid console spam |
+
 ## Success checklist
 
 - [ ] Fixation UI distraction-free; no camera preview on calibration overlay (SC-006, CQ-4)

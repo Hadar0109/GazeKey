@@ -129,7 +129,7 @@ proves extraction is the bottleneck.
 3. **Failure analysis** after every benchmark (which keys/rows; mapping vs geometry vs collection)
 4. **PCA4 fit iteration** (T033) allowed only when failure analysis justifies — not mapper variant hunts
 5. **Keyboard geometry verification** before trusting scores
-6. **Cleanup phase B** after **active PCA4 path proven** (plan definition) — delete/archive, not disconnect-only
+6. **Phase 10 active-code cleanup** after **active PCA4 path proven** — inventory → approved plan → refactor `virtual_keyboard.py` → one task per deletion/archive; no blind deletion; Phase 8 resumes after behavior gate
 7. **Minimal `evaluation/`** — benchmark + summary + failure fields only
 
 **Rationale**: Prevents parallel accuracy changes, refactors without baselines, or
