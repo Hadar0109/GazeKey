@@ -5,13 +5,11 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from PySide6.QtCore import QRect
 from PySide6.QtWidgets import QPushButton, QWidget
 
-from gazekey.calibration2.calibration_csv import CalibrationCsvLogger
-from gazekey.calibration2.fixation_gate import FixationGateConfig
-from gazekey.calibration2.session import CalibrationV2Result, CalibrationV2Session
-from gazekey.calibration2.targets import CalibrationTarget
+from gazekey.calibration.fixation_gate import FixationGateConfig
+from gazekey.calibration.session import CalibrationResult, CalibrationSession
+from gazekey.calibration.targets import CalibrationTarget
 from gazekey.evaluation.run_summary import RunSummaryWriter
 from gazekey.ui.calibration_controller import CalibrationController
 from gazekey.ui.calibration_overlay import CalibrationOverlay
@@ -39,9 +37,9 @@ def test_calibration_overlay_minimal_progress_only(qapp):
         finished.append(res)
 
     dots = [(100.0, 200.0), (150.0, 200.0), (200.0, 200.0)]
-    session = CalibrationV2Session(
+    session = CalibrationSession(
         targets=_targets(3),
-        csv_logger=CalibrationCsvLogger(enabled=False),
+        session_id="test-session",
         calibration_mode="keyboard15",
     )
     overlay = CalibrationOverlay(
@@ -68,16 +66,13 @@ def test_calibration_overlay_closes_without_pass_message_on_collection_complete(
         dot_targets=[(10.0, 10.0)],
         screen_targets=[(10.0, 10.0)],
         on_finished=lambda r: finished.append(r),
-        session=CalibrationV2Session(
-            targets=_targets(1),
-            csv_logger=CalibrationCsvLogger(enabled=False),
-        ),
+        session=CalibrationSession(targets=_targets(1), session_id="t1"),
         minimal_fixation_ui=True,
     )
     overlay.show()
     qapp.processEvents()
 
-    result = CalibrationV2Result(success=True, message="Target collection complete.", targets=_targets(1))
+    result = CalibrationResult(success=True, message="Target collection complete.", targets=_targets(1))
     overlay._show_result(result)
     qapp.processEvents()
 
@@ -118,17 +113,13 @@ def test_calibration_run_summary_format(tmp_path):
 
 
 def test_calibration_overlay_hides_before_finish_callback(qapp):
-    """Mapper fit runs in on_finished; overlay must not stay fullscreen during that work."""
     visibility = []
 
     def on_finished(_res):
         visibility.append(overlay.isVisible())
 
     dots = [(100.0, 200.0)]
-    session = CalibrationV2Session(
-        targets=_targets(1),
-        csv_logger=CalibrationCsvLogger(enabled=False),
-    )
+    session = CalibrationSession(targets=_targets(1), session_id="t2")
     overlay = CalibrationOverlay(
         dot_targets=dots,
         screen_targets=dots,
@@ -140,7 +131,7 @@ def test_calibration_overlay_hides_before_finish_callback(qapp):
     qapp.processEvents()
 
     overlay._show_result(
-        CalibrationV2Result(success=True, message="Target collection complete.", targets=_targets(1))
+        CalibrationResult(success=True, message="Target collection complete.", targets=_targets(1))
     )
     qapp.processEvents()
 

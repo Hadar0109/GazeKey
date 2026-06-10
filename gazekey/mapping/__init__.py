@@ -1,10 +1,7 @@
-"""Active MVP mapping API: PCA4 ridge calibration and predict (T054).
-
-Dormant mapper variants (IDW, row_aware) live under `archive/mapping_variants/`
-for offline tests; poly12 helpers remain in `gazekey.mapping.poly_features`.
-"""
+"""Active MVP mapping API: PCA4 ridge calibration and predict."""
 
 from gazekey.mapping.base import Mapper, MapperFitResult, MapperPrediction
+from gazekey.mapping.config import ACTIVE_MAPPER, MAPPER_ID, TYPING_CANDIDATE_ID
 from gazekey.mapping.ridge import (
     FROZEN_ACTIVE_MAPPER,
     Pca4BaselineMapper,
@@ -12,11 +9,11 @@ from gazekey.mapping.ridge import (
     RidgeRegressionMapper,
     fit_calibration_mapper,
 )
-from gazekey.mapping.typing_candidate import ACTIVE_MAPPER, TYPING_CANDIDATE_ID
 
 __all__ = [
     "ACTIVE_MAPPER",
     "FROZEN_ACTIVE_MAPPER",
+    "MAPPER_ID",
     "Mapper",
     "MapperFitResult",
     "MapperPrediction",

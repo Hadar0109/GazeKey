@@ -118,6 +118,6 @@ def test_write_benchmark_summary_appends_failure_analysis(tmp_path):
         failure_reason="key-hit",
         failure_analysis=analysis,
     )
-    body = (tmp_path / "benchmark_bench02.txt").read_text(encoding="utf-8")
+    body = (tmp_path / "bench02" / "benchmark_summary.txt").read_text(encoding="utf-8")
     assert "failure_analysis:" in body
     assert "likely_cause: mapping" in body

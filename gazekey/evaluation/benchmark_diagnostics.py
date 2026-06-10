@@ -169,7 +169,7 @@ def _mapper_metadata(model: Any) -> dict[str, Any]:
 
 def _config_metadata() -> dict[str, Any]:
     """Frozen pca4_baseline config that explains experiment differences."""
-    from gazekey.mapping import typing_candidate as tc
+    from gazekey.mapping import config as tc
 
     return {
         "typing_candidate_id": getattr(tc, "TYPING_CANDIDATE_ID", None),
@@ -271,8 +271,9 @@ def build_benchmark_diagnostics(
 
 
 def diagnostics_path(session_id: str, runs_dir: Optional[Path] = None) -> Path:
-    base = runs_dir or (_repo_root() / "runs")
-    return base / f"benchmark_diag_{session_id}.json"
+    from gazekey.evaluation.session_paths import benchmark_diag_path, runs_root
+
+    return benchmark_diag_path(session_id, runs_dir=runs_dir or runs_root())
 
 
 def write_benchmark_diagnostics(
@@ -281,9 +282,11 @@ def write_benchmark_diagnostics(
     session_id: str,
     runs_dir: Optional[Path] = None,
 ) -> Path:
-    """Persist the diagnostics dict as pretty JSON in runs/. Returns the path."""
-    base = runs_dir or (_repo_root() / "runs")
-    base.mkdir(parents=True, exist_ok=True)
-    path = diagnostics_path(session_id, runs_dir=base)
+    """Persist diagnostics JSON under ``runs/<session_id>/benchmark_diag.json``."""
+    from gazekey.evaluation.session_paths import benchmark_diag_path, ensure_session_dir, runs_root
+
+    root = runs_dir or runs_root()
+    ensure_session_dir(session_id, runs_dir=root)
+    path = benchmark_diag_path(session_id, runs_dir=root)
     path.write_text(json.dumps(diagnostics, indent=2, sort_keys=False), encoding="utf-8")
     return path

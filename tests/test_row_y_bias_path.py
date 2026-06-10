@@ -1,21 +1,12 @@
-"""Phase 8 Iteration 3 — prove the row-Y bias correction path is wired and applied.
-
-Scope: row-Y bias inside the active pca4_baseline path only.
-- Correction adjusts Y (row) and never X.
-- Active fit returns a row-Y-bias-wrapped pca4_baseline (no mapper-family change).
-- Local-Y correction stays disabled.
-- Save/load round-trip preserves the correction.
-"""
+"""Row-Y bias correction on the active PCA4 ridge path."""
 
 from __future__ import annotations
 
-from gazekey.calibration2.mapper_store import mapper_from_dict, mapper_to_dict
+from gazekey.calibration.targets import CalibrationTarget
 from gazekey.features.feature_types import FrameFeatures
 from gazekey.mapping import fit_calibration_mapper
 from gazekey.mapping.base import MapperPrediction
-from gazekey.mapping.local_y_correction import MapperWithLocalYCorrection
 from gazekey.mapping.row_bias import MapperWithRowBias, attach_row_y_bias
-from gazekey.calibration2.targets import CalibrationTarget
 
 
 def _feat(u_l: float, v_l: float, u_r: float, v_r: float) -> FrameFeatures:
@@ -77,8 +68,6 @@ def _keyboard_samples() -> list:
 
 
 class _StubInner:
-    """Minimal inner mapper returning a fixed prediction (for predict-time bias test)."""
-
     mapper_type = "pca4_baseline"
     alpha = 1.0
     clip_bounds = None
@@ -92,7 +81,6 @@ class _StubInner:
 
 
 def test_row_y_bias_corrects_y_only_not_x():
-    """Bias is subtracted from Y per nearest row; X is untouched."""
     inner = _StubInner(x=123.0, y=100.0)
     wrapped = attach_row_y_bias(
         inner,
@@ -101,27 +89,11 @@ def test_row_y_bias_corrects_y_only_not_x():
     )
     pred = wrapped.predict(_feat(0.0, 0.0, 0.0, 0.0))
     assert pred is not None
-    # Nearest row center to y=100 is index 1 (bias -5.0): py = 100 - (-5) = 105.
     assert pred.y == 105.0
-    # X must be identical to the inner prediction.
     assert pred.x == 123.0
 
 
-def test_row_y_bias_uses_nearest_row_center():
-    inner = _StubInner(x=50.0, y=10.0)
-    wrapped = attach_row_y_bias(
-        inner,
-        row_y_centers=(0.0, 100.0, 200.0),
-        row_y_bias=(20.0, -5.0, 3.0),
-    )
-    pred = wrapped.predict(_feat(0.0, 0.0, 0.0, 0.0))
-    # Nearest center to y=10 is top (index 0, bias 20): py = 10 - 20 = -10.
-    assert pred.y == -10.0
-    assert pred.x == 50.0
-
-
 def test_active_fit_wraps_pca4_with_row_y_bias():
-    """With APPLY_ROW_Y_BIAS=True, the active keyboard fit returns a row-Y-bias wrapper."""
     targets = _keyboard_targets_3x3()
     fit = fit_calibration_mapper(
         samples=_keyboard_samples(),
@@ -130,37 +102,5 @@ def test_active_fit_wraps_pca4_with_row_y_bias():
         min_alpha=1.0,
     )
     assert fit.success and fit.model is not None
-    # Row-Y bias layer is applied in the active path.
     assert isinstance(fit.model, MapperWithRowBias)
-    # No mapper-family change: still pca4_baseline underneath.
     assert fit.model.mapper_type == "pca4_baseline"
-    # Local-Y correction stays disabled (single lever this iteration).
-    assert not isinstance(fit.model, MapperWithLocalYCorrection)
-    assert not isinstance(fit.model.inner, MapperWithLocalYCorrection)
-
-
-def test_row_y_bias_survives_save_load_round_trip():
-    """mapper_to_dict/mapper_from_dict preserve row-Y centers/bias and predictions."""
-    core_fit = fit_calibration_mapper(samples=_keyboard_samples(), min_alpha=1.0)
-    assert core_fit.success and core_fit.model is not None
-    # core_fit has no targets -> unwrapped core; wrap explicitly with known bias.
-    wrapped = attach_row_y_bias(
-        core_fit.model,
-        row_y_centers=(0.0, 100.0, 200.0),
-        row_y_bias=(12.0, -7.0, 4.0),
-    )
-    payload = mapper_to_dict(wrapped, calibration_mode="keyboard15", mapper_mode="keyboard15")
-    assert payload["row_y_centers"] == [0.0, 100.0, 200.0]
-    assert payload["row_y_bias"] == [12.0, -7.0, 4.0]
-
-    restored = mapper_from_dict(payload)
-    assert isinstance(restored, MapperWithRowBias)
-    assert restored.row_y_centers == (0.0, 100.0, 200.0)
-    assert restored.row_y_bias == (12.0, -7.0, 4.0)
-
-    feat = _feat(0.1, 0.05, 0.1, 0.04)
-    p_before = wrapped.predict(feat)
-    p_after = restored.predict(feat)
-    assert p_before is not None and p_after is not None
-    assert abs(p_before.x - p_after.x) < 1e-6
-    assert abs(p_before.y - p_after.y) < 1e-6

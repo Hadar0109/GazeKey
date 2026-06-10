@@ -1,11 +1,4 @@
-"""Ridge mappers for calibration v2 with LOOCV-based model selection.
-
-Candidates:
-- pca4_baseline: screen X from [uL,uR], screen Y from raw [vL,vR]
-- pca4_decoupled_split: residualize v on [1,uL,uR], then split ridge X/Y
-- poly12_ridge_split: screen X from 12D polynomial features; screen Y from either
-  full 12D or decoupled [vL_res,vR_res] (chosen by LOOCV)
-"""
+"""PCA4 ridge mapper: fit, LOOCV alpha selection, and predict (active MVP path only)."""
 
 from __future__ import annotations
 
@@ -14,50 +7,52 @@ from typing import List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
-from gazekey.features.feature_types import FrameFeatures
-from gazekey.features.poly_features import extract_uv_arrays, poly12_from_uv
-from gazekey.features.vertical_decouple import (
-    apply_v_residualizers,
-    apply_v_residualizers_batch,
-    coupling_report,
-    fit_v_residualizers,
-)
-from gazekey.calibration2.region_quality import (
+from gazekey.calibration.region_quality import (
     assess_region_gates,
     compute_row_y_residuals,
-    region_gate_limits,
 )
+from gazekey.calibration.targets import CalibrationTarget
+from gazekey.features.feature_types import FrameFeatures
 from gazekey.mapping.base import MapperFitResult, MapperPrediction
-from gazekey.mvp_log import mvp_log, mvp_verbose
-from gazekey.mapping.local_y_correction import MapperWithLocalYCorrection, attach_local_y_correction
-from gazekey.mapping.row_bias import MapperWithRowBias, attach_row_y_bias
-from gazekey.mapping.typing_candidate import (
+from gazekey.mapping.config import (
     ACTIVE_MAPPER,
-    ALPHA_GRID as _TC_ALPHA_GRID,
-    ALPHA_SELECT_LOOCV_TOL_PX as _TC_ALPHA_SELECT_LOOCV_TOL_PX,
-    APPLY_LOCAL_Y_CORRECTION,
+    ALPHA_GRID,
+    ALPHA_SELECT_LOOCV_TOL_PX,
     APPLY_ROW_Y_BIAS,
+    MIN_ALPHA,
 )
+from gazekey.mapping.row_bias import MapperWithRowBias, attach_row_y_bias
+from gazekey.mvp_log import mvp_log, mvp_verbose
 
-if False:  # TYPE_CHECKING
-    from gazekey.calibration2.targets import CalibrationTarget
-
-ALPHA_GRID: Tuple[float, ...] = _TC_ALPHA_GRID
-# Among alphas with LOOCV RMS within this band of the grid minimum, pick the largest alpha.
-ALPHA_SELECT_LOOCV_TOL_PX = _TC_ALPHA_SELECT_LOOCV_TOL_PX
-LOOCV_TIE_TOL_PX = 2.0
-# Active runtime freeze: calibration always fits/selects this mapper only.
 FROZEN_ACTIVE_MAPPER = ACTIVE_MAPPER
-# Phase 9 cleanup (T038, FR-007): the only mapper permitted on the active calibration path.
-# Experimental candidates (decoupled, poly12, ...) stay in this module for offline comparison
-# but are disconnected from runtime selection; their dead wiring is removed in Phase 10 (T043).
-_ACTIVE_MAPPER_ALLOWLIST: frozenset[str] = frozenset({"pca4_baseline"})
-MAPPER_SIMPLICITY: Tuple[str, ...] = (
-    "pca4_baseline",
-    "pca4_decoupled_split",
-    "poly12_ridge",
-    "poly12_ridge_split",
-)
+
+
+def extract_uv_arrays(
+    samples: Sequence[Tuple[FrameFeatures, Tuple[float, float]]],
+) -> Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
+    """Return (u_l, u_r, v_l, v_r, Y) or None if insufficient PCA data."""
+    u_l_list: list[float] = []
+    u_r_list: list[float] = []
+    v_l_list: list[float] = []
+    v_r_list: list[float] = []
+    ys: list[np.ndarray] = []
+    for f, (x, y) in samples:
+        if f.pca_uL is None or f.pca_vL is None or f.pca_uR is None or f.pca_vR is None:
+            continue
+        u_l_list.append(float(f.pca_uL))
+        u_r_list.append(float(f.pca_uR))
+        v_l_list.append(float(f.pca_vL))
+        v_r_list.append(float(f.pca_vR))
+        ys.append(np.array([float(x), float(y)], dtype=np.float64))
+    if len(ys) < 5:
+        return None
+    return (
+        np.array(u_l_list, dtype=np.float64),
+        np.array(u_r_list, dtype=np.float64),
+        np.array(v_l_list, dtype=np.float64),
+        np.array(v_r_list, dtype=np.float64),
+        np.stack(ys, axis=0),
+    )
 
 
 def _raw_uv(f: FrameFeatures) -> Optional[Tuple[float, float, float, float]]:
@@ -65,42 +60,6 @@ def _raw_uv(f: FrameFeatures) -> Optional[Tuple[float, float, float, float]]:
     if u_l is None or v_l is None or u_r is None or v_r is None:
         return None
     return float(u_l), float(v_l), float(u_r), float(v_r)
-
-
-def _fit_ridge_1d(
-    X: np.ndarray,
-    y: np.ndarray,
-    *,
-    alpha: float,
-) -> Tuple[np.ndarray, float, np.ndarray, np.ndarray]:
-    Y = np.asarray(y, dtype=np.float64).reshape(-1, 1)
-    W, intercept, mu, sigma = _fit_ridge(np.asarray(X, dtype=np.float64), Y, alpha=alpha)
-    return W.reshape(-1), float(intercept[0]), mu, sigma
-
-
-def _predict_ridge_1d(
-    x_raw: np.ndarray,
-    *,
-    w: np.ndarray,
-    intercept: float,
-    mu: np.ndarray,
-    sigma: np.ndarray,
-) -> float:
-    xs = (np.asarray(x_raw, dtype=np.float64) - mu) / sigma
-    return float(xs @ w + intercept)
-
-
-def _predict_ridge_2d(
-    x_raw: np.ndarray,
-    *,
-    w: np.ndarray,
-    intercept: np.ndarray,
-    mu: np.ndarray,
-    sigma: np.ndarray,
-) -> Tuple[float, float]:
-    xs = (np.asarray(x_raw, dtype=np.float64) - mu) / sigma
-    out = xs @ w + np.asarray(intercept, dtype=np.float64).reshape(-1)
-    return float(out[0]), float(out[1])
 
 
 def _fit_ridge(
@@ -127,6 +86,29 @@ def _fit_ridge(
     return W, intercept, mu, sigma
 
 
+def _fit_ridge_1d(
+    X: np.ndarray,
+    y: np.ndarray,
+    *,
+    alpha: float,
+) -> Tuple[np.ndarray, float, np.ndarray, np.ndarray]:
+    Y = np.asarray(y, dtype=np.float64).reshape(-1, 1)
+    W, intercept, mu, sigma = _fit_ridge(np.asarray(X, dtype=np.float64), Y, alpha=alpha)
+    return W.reshape(-1), float(intercept[0]), mu, sigma
+
+
+def _predict_ridge_1d(
+    x_raw: np.ndarray,
+    *,
+    w: np.ndarray,
+    intercept: float,
+    mu: np.ndarray,
+    sigma: np.ndarray,
+) -> float:
+    xs = (np.asarray(x_raw, dtype=np.float64) - mu) / sigma
+    return float(xs @ w + intercept)
+
+
 def _bounds_from_screen_rect(
     screen_rect: Optional[Tuple[float, float, float, float]],
 ) -> Optional[Tuple[float, float, float, float]]:
@@ -147,93 +129,16 @@ def _clip_xy(
     return float(max(x0, min(x1, px))), float(max(y0, min(y1, py)))
 
 
-def _auto_alpha(
-    loocv_fn,
-    *,
-    min_alpha: float = 1.0,
-    candidate_label: str = "",
-) -> float:
-    """Pick ridge alpha: prefer stronger regularization when LOOCV is nearly tied."""
-    label = str(candidate_label).strip() or "ridge"
-    try:
-        scored = [(float(loocv_fn(a)), float(a)) for a in ALPHA_GRID]
-        scored = [t for t in scored if np.isfinite(t[0])]
-        if scored:
-            best_loocv = min(t[0] for t in scored)
-            tol = float(ALPHA_SELECT_LOOCV_TOL_PX)
-            near = [t for t in scored if t[0] <= best_loocv + tol]
-            chosen_alpha = max(t[1] for t in near)
-            chosen_loocv = min(t[0] for t in near if t[1] == chosen_alpha)
-            chosen_alpha = float(max(float(min_alpha), chosen_alpha))
-            parts = " ".join(f"a={a:.0f}:{rms:.1f}px" for rms, a in sorted(scored, key=lambda t: t[1]))
-            mvp_log(
-                f"[calib2] alpha grid {label}: {parts} "
-                f"-> selected {chosen_alpha:.1f} "
-                f"(best_loocv={best_loocv:.1f}px tol={tol:.1f}px "
-                f"chosen_loocv={chosen_loocv:.1f}px)"
-            )
-            return chosen_alpha
-    except Exception as e:
-        mvp_log(f"[calib2] alpha grid {label}: failed ({e}), using min_alpha={min_alpha:.1f}")
-    return float(min_alpha)
-
-
-def _train_rms_px(model: "RidgeCalibrationMapper", samples: Sequence[Tuple[FrameFeatures, Tuple[float, float]]]) -> Optional[float]:
-    errs: List[float] = []
-    for f, (tx, ty) in samples:
-        pred = model.predict(f)
-        if pred is None:
-            continue
-        errs.append(float(np.hypot(pred.x - tx, pred.y - ty)))
-    if not errs:
-        return None
+def _loocv_rms_from_detail(detail: Sequence[dict]) -> float:
+    errs = [float(d["err"]) for d in detail]
     return float(np.sqrt(np.mean(np.array(errs, dtype=np.float64) ** 2)))
-
-
-@dataclass(frozen=True)
-class MapperCandidateReport:
-    mapper_type: str
-    success: bool
-    message: str
-    train_rms_px: Optional[float]
-    loocv_rms_px: Optional[float]
-    worst_loocv_px: Optional[float]
-    max_train_px: Optional[float]
-    alpha: Optional[float]
-    loocv_detail: Tuple[dict, ...] = ()
-    model: Optional["RidgeCalibrationMapper"] = None
-    quality_gates_passed: Optional[bool] = None
-    quality_gate_reasons: Tuple[str, ...] = ()
-    region_train_wrong: int = 0
-    region_loocv_wrong: int = 0
-    worst_train_label: str = ""
-    worst_loocv_label: str = ""
 
 
 def _loocv_from_detail(detail: Sequence[dict]) -> Tuple[Optional[float], Optional[float]]:
     if not detail:
         return None, None
     errs = [float(d["err"]) for d in detail]
-    rms = float(np.sqrt(np.mean(np.array(errs, dtype=np.float64) ** 2)))
-    return rms, float(max(errs))
-
-
-def _max_train_from_samples(
-    model: "RidgeCalibrationMapper",
-    samples: Sequence[Tuple[FrameFeatures, Tuple[float, float]]],
-) -> Optional[float]:
-    errs: List[float] = []
-    for f, (tx, ty) in samples:
-        pred = model.predict(f)
-        if pred is None:
-            continue
-        errs.append(float(np.hypot(pred.x - tx, pred.y - ty)))
-    return max(errs) if errs else None
-
-
-# ---------------------------------------------------------------------------
-# LOOCV builders (refit decoupler inside each fold)
-# ---------------------------------------------------------------------------
+    return float(np.sqrt(np.mean(np.array(errs, dtype=np.float64) ** 2))), float(max(errs))
 
 
 def _loocv_pca4_baseline(
@@ -262,136 +167,52 @@ def _loocv_pca4_baseline(
     return detail
 
 
-def _loocv_pca4_decoupled(
-    u_l: np.ndarray,
-    u_r: np.ndarray,
-    v_l: np.ndarray,
-    v_r: np.ndarray,
-    Y: np.ndarray,
+def _auto_alpha(
+    loocv_fn,
     *,
-    alpha: float,
-    clip_bounds: Optional[Tuple[float, float, float, float]],
-) -> List[dict]:
-    n = int(Y.shape[0])
-    detail: List[dict] = []
-    for i in range(n):
-        mask = np.ones(n, dtype=bool)
-        mask[i] = False
-        bl, br = fit_v_residualizers(u_l[mask], u_r[mask], v_l[mask], v_r[mask])
-        vl_r, vr_r = apply_v_residualizers_batch(
-            u_l[mask], u_r[mask], v_l[mask], v_r[mask], beta_l=bl, beta_r=br
-        )
-        x_tr = np.column_stack([u_l[mask], u_r[mask]])
-        y_tr = np.column_stack([vl_r, vr_r])
-        wx, bx, mux, sigx = _fit_ridge_1d(x_tr, Y[mask, 0], alpha=alpha)
-        wy, by, muy, sigy = _fit_ridge_1d(y_tr, Y[mask, 1], alpha=alpha)
-        vl_i, vr_i = apply_v_residualizers(
-            float(u_l[i]), float(u_r[i]), float(v_l[i]), float(v_r[i]), beta_l=bl, beta_r=br
-        )
-        px = _predict_ridge_1d(np.array([u_l[i], u_r[i]]), w=wx, intercept=bx, mu=mux, sigma=sigx)
-        py = _predict_ridge_1d(np.array([vl_i, vr_i]), w=wy, intercept=by, mu=muy, sigma=sigy)
-        px, py = _clip_xy(px, py, clip_bounds)
-        detail.append({"i": i, "pred_x": px, "pred_y": py, "err": float(np.hypot(px - Y[i, 0], py - Y[i, 1]))})
-    return detail
+    min_alpha: float = MIN_ALPHA,
+) -> float:
+    try:
+        scored = [(float(loocv_fn(a)), float(a)) for a in ALPHA_GRID]
+        scored = [t for t in scored if np.isfinite(t[0])]
+        if scored:
+            best_loocv = min(t[0] for t in scored)
+            tol = float(ALPHA_SELECT_LOOCV_TOL_PX)
+            near = [t for t in scored if t[0] <= best_loocv + tol]
+            chosen_alpha = max(t[1] for t in near)
+            chosen_alpha = float(max(float(min_alpha), chosen_alpha))
+            if mvp_verbose():
+                parts = " ".join(f"a={a:.0f}:{rms:.1f}px" for rms, a in sorted(scored, key=lambda t: t[1]))
+                mvp_log(f"[calib] alpha grid pca4_baseline: {parts} -> selected {chosen_alpha:.1f}")
+            return chosen_alpha
+    except Exception as e:
+        mvp_log(f"[calib] alpha grid failed ({e}), using min_alpha={min_alpha:.1f}")
+    return float(min_alpha)
 
 
-def _loocv_poly12_joint(
-    u_l: np.ndarray,
-    u_r: np.ndarray,
-    v_l: np.ndarray,
-    v_r: np.ndarray,
-    Y: np.ndarray,
-    *,
-    alpha: float,
-    clip_bounds: Optional[Tuple[float, float, float, float]],
-) -> List[dict]:
-    """Joint ridge: both screen axes from the same 12D polynomial features."""
-    n = int(Y.shape[0])
-    poly = poly12_from_uv(u_l, v_l, u_r, v_r)
-    detail: List[dict] = []
-    for i in range(n):
-        mask = np.ones(n, dtype=bool)
-        mask[i] = False
-        w, intercept, mu, sigma = _fit_ridge(poly[mask], Y[mask], alpha=alpha)
-        px, py = _predict_ridge_2d(poly[i], w=w, intercept=intercept, mu=mu, sigma=sigma)
-        px, py = _clip_xy(px, py, clip_bounds)
-        detail.append({"i": i, "pred_x": px, "pred_y": py, "err": float(np.hypot(px - Y[i, 0], py - Y[i, 1]))})
-    return detail
-
-
-def _loocv_poly12_split(
-    u_l: np.ndarray,
-    u_r: np.ndarray,
-    v_l: np.ndarray,
-    v_r: np.ndarray,
-    Y: np.ndarray,
-    *,
-    alpha: float,
-    y_mode: str,
-    clip_bounds: Optional[Tuple[float, float, float, float]],
-) -> List[dict]:
-    n = int(Y.shape[0])
-    poly = poly12_from_uv(u_l, v_l, u_r, v_r)
-    detail: List[dict] = []
-    for i in range(n):
-        mask = np.ones(n, dtype=bool)
-        mask[i] = False
-        wx, bx, mux, sigx = _fit_ridge_1d(poly[mask], Y[mask, 0], alpha=alpha)
-        if y_mode == "poly12":
-            wy, by, muy, sigy = _fit_ridge_1d(poly[mask], Y[mask, 1], alpha=alpha)
-            x_y = poly[i]
-        else:
-            bl, br = fit_v_residualizers(u_l[mask], u_r[mask], v_l[mask], v_r[mask])
-            vl_r, vr_r = apply_v_residualizers_batch(
-                u_l[mask], u_r[mask], v_l[mask], v_r[mask], beta_l=bl, beta_r=br
-            )
-            y_tr = np.column_stack([vl_r, vr_r])
-            wy, by, muy, sigy = _fit_ridge_1d(y_tr, Y[mask, 1], alpha=alpha)
-            vl_i, vr_i = apply_v_residualizers(
-                float(u_l[i]), float(u_r[i]), float(v_l[i]), float(v_r[i]), beta_l=bl, beta_r=br
-            )
-            x_y = np.array([vl_i, vr_i], dtype=np.float64)
-        px = _predict_ridge_1d(poly[i], w=wx, intercept=bx, mu=mux, sigma=sigx)
-        py = _predict_ridge_1d(x_y, w=wy, intercept=by, mu=muy, sigma=sigy)
-        px, py = _clip_xy(px, py, clip_bounds)
-        detail.append({"i": i, "pred_x": px, "pred_y": py, "err": float(np.hypot(px - Y[i, 0], py - Y[i, 1]))})
-    return detail
-
-
-def _loocv_rms_from_detail(detail: Sequence[dict]) -> float:
-    errs = [float(d["err"]) for d in detail]
+def _train_rms_px(model: "RidgeCalibrationMapper", samples: Sequence[Tuple[FrameFeatures, Tuple[float, float]]]) -> Optional[float]:
+    errs: List[float] = []
+    for f, (tx, ty) in samples:
+        pred = model.predict(f)
+        if pred is None:
+            continue
+        errs.append(float(np.hypot(pred.x - tx, pred.y - ty)))
+    if not errs:
+        return None
     return float(np.sqrt(np.mean(np.array(errs, dtype=np.float64) ** 2)))
 
 
-def _pick_poly12_y_mode(
-    u_l: np.ndarray,
-    u_r: np.ndarray,
-    v_l: np.ndarray,
-    v_r: np.ndarray,
-    Y: np.ndarray,
-    *,
-    alpha: float,
-    clip_bounds: Optional[Tuple[float, float, float, float]],
-) -> str:
-    d_poly = _loocv_poly12_split(u_l, u_r, v_l, v_r, Y, alpha=alpha, y_mode="poly12", clip_bounds=clip_bounds)
-    d_dec = _loocv_poly12_split(
-        u_l, u_r, v_l, v_r, Y, alpha=alpha, y_mode="decoupled_v", clip_bounds=clip_bounds
-    )
-    r_poly = _loocv_rms_from_detail(d_poly)
-    r_dec = _loocv_rms_from_detail(d_dec)
-    if r_dec < r_poly - 1e-6:
-        mvp_log(f"[calib2] poly12 Y-mode: decoupled_v LOOCV={r_dec:.1f}px beats poly12={r_poly:.1f}px")
-        return "decoupled_v"
-    if r_poly < r_dec - 1e-6:
-        mvp_log(f"[calib2] poly12 Y-mode: poly12 LOOCV={r_poly:.1f}px beats decoupled_v={r_dec:.1f}px")
-        return "poly12"
-    mvp_log(f"[calib2] poly12 Y-mode: tie ({r_poly:.1f}px) — using poly12")
-    return "poly12"
-
-
-# ---------------------------------------------------------------------------
-# Mapper implementations
-# ---------------------------------------------------------------------------
+def _max_train_from_samples(
+    model: "RidgeCalibrationMapper",
+    samples: Sequence[Tuple[FrameFeatures, Tuple[float, float]]],
+) -> Optional[float]:
+    errs: List[float] = []
+    for f, (tx, ty) in samples:
+        pred = model.predict(f)
+        if pred is None:
+            continue
+        errs.append(float(np.hypot(pred.x - tx, pred.y - ty)))
+    return max(errs) if errs else None
 
 
 @dataclass(frozen=True)
@@ -451,223 +272,14 @@ class Pca4BaselineMapper:
         return rms
 
 
-@dataclass(frozen=True)
-class Pca4DecoupledSplitMapper:
-    w_x: np.ndarray
-    b_x: float
-    mu_x: np.ndarray
-    sigma_x: np.ndarray
-    w_y: np.ndarray
-    b_y: float
-    mu_y: np.ndarray
-    sigma_y: np.ndarray
-    beta_v_l: np.ndarray
-    beta_v_r: np.ndarray
-    alpha: float
-    train_u_l: np.ndarray
-    train_u_r: np.ndarray
-    train_v_l: np.ndarray
-    train_v_r: np.ndarray
-    train_Y: np.ndarray
-    clip_bounds: Optional[Tuple[float, float, float, float]] = None
-
-    @property
-    def mapper_type(self) -> str:
-        return "pca4_decoupled_split"
-
-    @property
-    def train_X(self) -> np.ndarray:
-        return np.column_stack([self.train_u_l, self.train_u_r, self.train_v_l, self.train_v_r])
-
-    def _decoupled_v(self, u_l: float, u_r: float, v_l: float, v_r: float) -> Tuple[float, float]:
-        return apply_v_residualizers(u_l, u_r, v_l, v_r, beta_l=self.beta_v_l, beta_r=self.beta_v_r)
-
-    def predict(self, features: FrameFeatures) -> Optional[MapperPrediction]:
-        raw = _raw_uv(features)
-        if raw is None:
-            return None
-        u_l, v_l, u_r, v_r = raw
-        vl_r, vr_r = self._decoupled_v(u_l, u_r, v_l, v_r)
-        px = _predict_ridge_1d(
-            np.array([u_l, u_r]), w=self.w_x, intercept=self.b_x, mu=self.mu_x, sigma=self.sigma_x
-        )
-        py = _predict_ridge_1d(
-            np.array([vl_r, vr_r]), w=self.w_y, intercept=self.b_y, mu=self.mu_y, sigma=self.sigma_y
-        )
-        px, py = _clip_xy(px, py, self.clip_bounds)
-        return MapperPrediction(x=px, y=py, quality=1.0)
-
-    def leave_one_out_detail_px(self) -> List[dict]:
-        return _loocv_pca4_decoupled(
-            self.train_u_l,
-            self.train_u_r,
-            self.train_v_l,
-            self.train_v_r,
-            self.train_Y,
-            alpha=float(self.alpha),
-            clip_bounds=self.clip_bounds,
-        )
-
-    def leave_one_out_rms_px(self) -> Optional[float]:
-        d = self.leave_one_out_detail_px()
-        rms, _ = _loocv_from_detail(d)
-        return rms
+RidgeCalibrationMapper = Union[Pca4BaselineMapper, MapperWithRowBias]
 
 
-@dataclass(frozen=True)
-class Poly12RidgeMapper:
-    """Single joint ridge model: (screen_x, screen_y) = f(poly12(u,v))."""
-
-    w: np.ndarray
-    intercept: np.ndarray
-    mu: np.ndarray
-    sigma: np.ndarray
-    alpha: float
-    train_u_l: np.ndarray
-    train_u_r: np.ndarray
-    train_v_l: np.ndarray
-    train_v_r: np.ndarray
-    train_Y: np.ndarray
-    clip_bounds: Optional[Tuple[float, float, float, float]] = None
-
-    @property
-    def mapper_type(self) -> str:
-        return "poly12_ridge"
-
-    @property
-    def train_X(self) -> np.ndarray:
-        return poly12_from_uv(self.train_u_l, self.train_v_l, self.train_u_r, self.train_v_r)
-
-    def _poly12(self, u_l: float, v_l: float, u_r: float, v_r: float) -> np.ndarray:
-        return poly12_from_uv(
-            np.array([u_l]), np.array([v_l]), np.array([u_r]), np.array([v_r])
-        ).reshape(-1)
-
-    def predict(self, features: FrameFeatures) -> Optional[MapperPrediction]:
-        raw = _raw_uv(features)
-        if raw is None:
-            return None
-        u_l, v_l, u_r, v_r = raw
-        px, py = _predict_ridge_2d(
-            self._poly12(u_l, v_l, u_r, v_r),
-            w=self.w,
-            intercept=self.intercept,
-            mu=self.mu,
-            sigma=self.sigma,
-        )
-        px, py = _clip_xy(px, py, self.clip_bounds)
-        return MapperPrediction(x=px, y=py, quality=1.0)
-
-    def leave_one_out_detail_px(self) -> List[dict]:
-        return _loocv_poly12_joint(
-            self.train_u_l,
-            self.train_u_r,
-            self.train_v_l,
-            self.train_v_r,
-            self.train_Y,
-            alpha=float(self.alpha),
-            clip_bounds=self.clip_bounds,
-        )
-
-    def leave_one_out_rms_px(self) -> Optional[float]:
-        d = self.leave_one_out_detail_px()
-        rms, _ = _loocv_from_detail(d)
-        return rms
-
-
-@dataclass(frozen=True)
-class Poly12RidgeSplitMapper:
-    w_x: np.ndarray
-    b_x: float
-    mu_x: np.ndarray
-    sigma_x: np.ndarray
-    w_y: np.ndarray
-    b_y: float
-    mu_y: np.ndarray
-    sigma_y: np.ndarray
-    y_feature_mode: str  # "poly12" | "decoupled_v"
-    beta_v_l: Optional[np.ndarray]
-    beta_v_r: Optional[np.ndarray]
-    alpha: float
-    train_u_l: np.ndarray
-    train_u_r: np.ndarray
-    train_v_l: np.ndarray
-    train_v_r: np.ndarray
-    train_Y: np.ndarray
-    clip_bounds: Optional[Tuple[float, float, float, float]] = None
-
-    @property
-    def mapper_type(self) -> str:
-        if self.y_feature_mode == "decoupled_v":
-            return "poly12_ridge_split_decoupled_y"
-        return "poly12_ridge_split"
-
-    @property
-    def train_X(self) -> np.ndarray:
-        return poly12_from_uv(self.train_u_l, self.train_v_l, self.train_u_r, self.train_v_r)
-
-    def _poly12(self, u_l: float, v_l: float, u_r: float, v_r: float) -> np.ndarray:
-        return poly12_from_uv(
-            np.array([u_l]), np.array([v_l]), np.array([u_r]), np.array([v_r])
-        ).reshape(-1)
-
-    def _y_features(self, u_l: float, u_r: float, v_l: float, v_r: float) -> np.ndarray:
-        if self.y_feature_mode == "poly12":
-            return self._poly12(u_l, v_l, u_r, v_r)
-        assert self.beta_v_l is not None and self.beta_v_r is not None
-        vl_r, vr_r = apply_v_residualizers(u_l, u_r, v_l, v_r, beta_l=self.beta_v_l, beta_r=self.beta_v_r)
-        return np.array([vl_r, vr_r], dtype=np.float64)
-
-    def predict(self, features: FrameFeatures) -> Optional[MapperPrediction]:
-        raw = _raw_uv(features)
-        if raw is None:
-            return None
-        u_l, v_l, u_r, v_r = raw
-        px = _predict_ridge_1d(
-            self._poly12(u_l, v_l, u_r, v_r),
-            w=self.w_x,
-            intercept=self.b_x,
-            mu=self.mu_x,
-            sigma=self.sigma_x,
-        )
-        py = _predict_ridge_1d(
-            self._y_features(u_l, u_r, v_l, v_r),
-            w=self.w_y,
-            intercept=self.b_y,
-            mu=self.mu_y,
-            sigma=self.sigma_y,
-        )
-        px, py = _clip_xy(px, py, self.clip_bounds)
-        return MapperPrediction(x=px, y=py, quality=1.0)
-
-    def leave_one_out_detail_px(self) -> List[dict]:
-        return _loocv_poly12_split(
-            self.train_u_l,
-            self.train_u_r,
-            self.train_v_l,
-            self.train_v_r,
-            self.train_Y,
-            alpha=float(self.alpha),
-            y_mode=self.y_feature_mode,
-            clip_bounds=self.clip_bounds,
-        )
-
-    def leave_one_out_rms_px(self) -> Optional[float]:
-        d = self.leave_one_out_detail_px()
-        rms, _ = _loocv_from_detail(d)
-        return rms
-
-
-RidgeCalibrationMapper = Union[
-    Pca4BaselineMapper,
-    Pca4DecoupledSplitMapper,
-    Poly12RidgeMapper,
-    Poly12RidgeSplitMapper,
-    MapperWithRowBias,
-]
-
-COUPLING_POLY12_THRESH = 0.55
-POLY12_MAPPER_PREFIX = "poly12"
+def _unwrap_core(model: RidgeCalibrationMapper) -> Pca4BaselineMapper:
+    core: RidgeCalibrationMapper = model
+    while isinstance(core, MapperWithRowBias):
+        core = core.inner
+    return core  # type: ignore[return-value]
 
 
 def _fit_pca4_baseline(
@@ -703,483 +315,89 @@ def _fit_pca4_baseline(
     )
 
 
-def _fit_pca4_decoupled(
-    u_l: np.ndarray,
-    u_r: np.ndarray,
-    v_l: np.ndarray,
-    v_r: np.ndarray,
-    Y: np.ndarray,
-    *,
-    alpha: float,
-    clip_bounds: Optional[Tuple[float, float, float, float]],
-    log_coupling: bool,
-) -> Pca4DecoupledSplitMapper:
-    beta_l, beta_r = fit_v_residualizers(u_l, u_r, v_l, v_r)
-    if log_coupling:
-        coupling_report(u_l, u_r, v_l, v_r, beta_l=beta_l, beta_r=beta_r)
-    vl_r, vr_r = apply_v_residualizers_batch(u_l, u_r, v_l, v_r, beta_l=beta_l, beta_r=beta_r)
-    x_tr = np.column_stack([u_l, u_r])
-    y_tr = np.column_stack([vl_r, vr_r])
-    wx, bx, mux, sigx = _fit_ridge_1d(x_tr, Y[:, 0], alpha=alpha)
-    wy, by, muy, sigy = _fit_ridge_1d(y_tr, Y[:, 1], alpha=alpha)
-    return Pca4DecoupledSplitMapper(
-        w_x=wx,
-        b_x=bx,
-        mu_x=mux,
-        sigma_x=sigx,
-        w_y=wy,
-        b_y=by,
-        mu_y=muy,
-        sigma_y=sigy,
-        beta_v_l=beta_l,
-        beta_v_r=beta_r,
-        alpha=float(alpha),
-        train_u_l=u_l,
-        train_u_r=u_r,
-        train_v_l=v_l,
-        train_v_r=v_r,
-        train_Y=Y,
-        clip_bounds=clip_bounds,
-    )
-
-
-def _fit_poly12_joint(
-    u_l: np.ndarray,
-    u_r: np.ndarray,
-    v_l: np.ndarray,
-    v_r: np.ndarray,
-    Y: np.ndarray,
-    *,
-    alpha: float,
-    clip_bounds: Optional[Tuple[float, float, float, float]],
-) -> Poly12RidgeMapper:
-    poly = poly12_from_uv(u_l, v_l, u_r, v_r)
-    w, intercept, mu, sigma = _fit_ridge(poly, Y, alpha=alpha)
-    return Poly12RidgeMapper(
-        w=w,
-        intercept=np.asarray(intercept, dtype=np.float64).reshape(-1),
-        mu=mu,
-        sigma=sigma,
-        alpha=float(alpha),
-        train_u_l=u_l,
-        train_u_r=u_r,
-        train_v_l=v_l,
-        train_v_r=v_r,
-        train_Y=Y,
-        clip_bounds=clip_bounds,
-    )
-
-
-def _fit_poly12_split(
-    u_l: np.ndarray,
-    u_r: np.ndarray,
-    v_l: np.ndarray,
-    v_r: np.ndarray,
-    Y: np.ndarray,
-    *,
-    alpha: float,
-    y_mode: str,
-    clip_bounds: Optional[Tuple[float, float, float, float]],
-) -> Poly12RidgeSplitMapper:
-    poly = poly12_from_uv(u_l, v_l, u_r, v_r)
-    wx, bx, mux, sigx = _fit_ridge_1d(poly, Y[:, 0], alpha=alpha)
-    beta_l = beta_r = None
-    if y_mode == "poly12":
-        wy, by, muy, sigy = _fit_ridge_1d(poly, Y[:, 1], alpha=alpha)
-    else:
-        beta_l, beta_r = fit_v_residualizers(u_l, u_r, v_l, v_r)
-        vl_r, vr_r = apply_v_residualizers_batch(u_l, u_r, v_l, v_r, beta_l=beta_l, beta_r=beta_r)
-        y_tr = np.column_stack([vl_r, vr_r])
-        wy, by, muy, sigy = _fit_ridge_1d(y_tr, Y[:, 1], alpha=alpha)
-    return Poly12RidgeSplitMapper(
-        w_x=wx,
-        b_x=bx,
-        mu_x=mux,
-        sigma_x=sigx,
-        w_y=wy,
-        b_y=by,
-        mu_y=muy,
-        sigma_y=sigy,
-        y_feature_mode=y_mode,
-        beta_v_l=beta_l,
-        beta_v_r=beta_r,
-        alpha=float(alpha),
-        train_u_l=u_l,
-        train_u_r=u_r,
-        train_v_l=v_l,
-        train_v_r=v_r,
-        train_Y=Y,
-        clip_bounds=clip_bounds,
-    )
-
-
-def assess_mapper_error_gates(
-    *,
-    train_rms_px: Optional[float],
-    loocv_rms_px: Optional[float],
-    worst_loocv_px: Optional[float],
-    max_train_px: Optional[float],
-    max_loocv_rms_px: float = 150.0,
-    max_target_loocv_px: float = 175.0,
-    max_train_error_px: float = 100.0,
-    keyboard_mode: bool = False,
-) -> Tuple[bool, List[str], List[str]]:
-    """Return (hard_pass, hard_fail_reasons, pixel_warnings)."""
-    hard: List[str] = []
-    warn: List[str] = []
-    if loocv_rms_px is not None and loocv_rms_px > max_loocv_rms_px:
-        msg = f"LOOCV RMS {loocv_rms_px:.1f}px > {max_loocv_rms_px:.1f}px"
-        (warn if keyboard_mode else hard).append(msg)
-    if worst_loocv_px is not None and worst_loocv_px > max_target_loocv_px:
-        msg = f"worst LOOCV {worst_loocv_px:.1f}px > {max_target_loocv_px:.1f}px"
-        (warn if keyboard_mode else hard).append(msg)
-    if max_train_px is not None and max_train_px > max_train_error_px:
-        msg = f"max train error {max_train_px:.1f}px > {max_train_error_px:.1f}px"
-        (warn if keyboard_mode else hard).append(msg)
-    return len(hard) == 0, hard, warn
-
-
-def _is_poly12_mapper(mapper_type: str) -> bool:
-    return str(mapper_type).startswith(POLY12_MAPPER_PREFIX)
-
-
-def _unwrap_ridge_core(model: RidgeCalibrationMapper) -> RidgeCalibrationMapper:
-    core: RidgeCalibrationMapper = model
-    while isinstance(core, (MapperWithRowBias, MapperWithLocalYCorrection)):
-        core = core.inner
-    return core
-
-
-def _keyboard_assessment_model(
-    model: RidgeCalibrationMapper,
+def _apply_row_bias_if_enabled(
+    model: Pca4BaselineMapper,
     *,
     samples: Sequence[Tuple[FrameFeatures, Tuple[float, float]]],
-    targets: Sequence["CalibrationTarget"],
-    verbose: bool = False,
+    targets: Sequence[CalibrationTarget],
 ) -> RidgeCalibrationMapper:
-    """Apply frozen correction layers for region-gate evaluation (same as runtime)."""
-    core = _unwrap_ridge_core(model)
-    wrapped: RidgeCalibrationMapper = core
-    if APPLY_ROW_Y_BIAS:
-        row_centers, row_bias = compute_row_y_residuals(
-            model=core, samples=samples, targets=targets
-        )
-        wrapped = attach_row_y_bias(
-            core,
-            row_y_centers=row_centers,
-            row_y_bias=row_bias,
-        )
-    if APPLY_LOCAL_Y_CORRECTION:
-        return attach_local_y_correction(wrapped, samples=samples, verbose=verbose)
-    return wrapped
-
-
-def _evaluate_candidate(
-    mapper_type: str,
-    model: RidgeCalibrationMapper,
-    samples: Sequence[Tuple[FrameFeatures, Tuple[float, float]]],
-    *,
-    targets: Optional[Sequence["CalibrationTarget"]] = None,
-    calibration_mode: str = "keyboard9",
-    max_loocv_rms_px: float = 150.0,
-    max_target_loocv_px: float = 175.0,
-    max_train_error_px: float = 100.0,
-    half_key_height_px: float = 34.0,
-) -> MapperCandidateReport:
-    detail = tuple(model.leave_one_out_detail_px())
-    loocv_rms, worst = _loocv_from_detail(detail)
-    train_rms = _train_rms_px(model, samples)
-    max_train = _max_train_from_samples(model, samples)
-    keyboard_mode = str(calibration_mode).lower().startswith("keyboard")
-    pixel_ok, pixel_hard, pixel_warn = assess_mapper_error_gates(
-        train_rms_px=train_rms,
-        loocv_rms_px=loocv_rms,
-        worst_loocv_px=worst,
-        max_train_px=max_train,
-        max_loocv_rms_px=max_loocv_rms_px,
-        max_target_loocv_px=max_target_loocv_px,
-        max_train_error_px=max_train_error_px,
-        keyboard_mode=keyboard_mode,
-    )
-    region_train_wrong = 0
-    region_loocv_wrong = 0
-    worst_train_label = ""
-    worst_loocv_label = ""
-    gate_reasons: List[str] = list(pixel_hard)
-    if keyboard_mode and targets is not None and len(targets) >= len(samples):
-        assess_model = _keyboard_assessment_model(
-            model,
-            samples=samples,
-            targets=targets,
-            verbose=False,
-        )
-        loocv_assess = tuple(assess_model.leave_one_out_detail_px())
-        region = assess_region_gates(
-            model=assess_model,
-            samples=samples,
-            targets=targets,
-            loocv_detail=loocv_assess,
-            keyboard_mode=True,
-            half_key_height_px=half_key_height_px,
-            calibration_mode=calibration_mode,
-            verbose=False,
-        )
-        region_train_wrong = region.train_region_wrong
-        region_loocv_wrong = region.loocv_region_wrong
-        worst_train_label = region.worst_train_label
-        worst_loocv_label = region.worst_loocv_label
-        gate_reasons.extend(f"(warning) {r}" for r in region.hard_fail_reasons)
-        gate_reasons.extend(f"(warning) {w}" for w in pixel_warn)
-        # Keyboard MVP: region/LOOCV/train gates are supplementary warnings only.
-        gates_ok = True
-    else:
-        gate_reasons.extend(pixel_hard)
-        gate_reasons.extend(f"(warning) {w}" for w in pixel_warn)
-        gates_ok = pixel_ok
-
-    return MapperCandidateReport(
-        mapper_type=mapper_type,
-        success=True,
-        message="ok",
-        train_rms_px=train_rms,
-        loocv_rms_px=loocv_rms,
-        worst_loocv_px=worst,
-        max_train_px=max_train,
-        alpha=float(getattr(model, "alpha", 0.0)),
-        loocv_detail=detail,
-        model=model,
-        quality_gates_passed=gates_ok,
-        quality_gate_reasons=tuple(gate_reasons),
-        region_train_wrong=region_train_wrong,
-        region_loocv_wrong=region_loocv_wrong,
-        worst_train_label=worst_train_label,
-        worst_loocv_label=worst_loocv_label,
-    )
-
-
-def print_mapper_candidate_reports(reports: Sequence[MapperCandidateReport]) -> None:
-    if not mvp_verbose():
-        return
-    mvp_log("[calib2] --- mapper candidate comparison (LOOCV refit per fold) ---")
-    for r in reports:
-        alpha_s = f"{r.alpha:.1f}" if r.alpha is not None else "n/a"
-        gates_s = (
-            "PASSED"
-            if r.quality_gates_passed
-            else ("FAILED" if r.quality_gates_passed is False else "n/a")
-        )
-        mvp_log(
-            f"[calib2] candidate mapper_type={r.mapper_type} success={r.success} "
-            f"train_RMS={_fmt_px(r.train_rms_px)} "
-            f"LOOCV_RMS={_fmt_px(r.loocv_rms_px)} "
-            f"worst_LOOCV={_fmt_px(r.worst_loocv_px)} "
-            f"max_train={_fmt_px(r.max_train_px)} "
-            f"alpha={alpha_s} quality_gates={gates_s}"
-            + (f" msg={r.message}" if not r.success else "")
-        )
-        if r.quality_gate_reasons:
-            for reason in r.quality_gate_reasons:
-                tag = "warning" if str(reason).startswith("(warning)") else "gate"
-                mvp_log(f"[calib2]   {tag}: {reason}")
-        if r.worst_train_label or r.region_train_wrong or r.region_loocv_wrong:
-            mvp_log(
-                f"[calib2]   region: train_wrong={r.region_train_wrong} "
-                f"loocv_wrong={r.region_loocv_wrong} "
-                f"worst_train={r.worst_train_label or 'n/a'} "
-                f"worst_loocv={r.worst_loocv_label or 'n/a'}"
-            )
-
-
-def _fmt_px(v: Optional[float]) -> str:
-    return f"{v:.1f}px" if v is not None and np.isfinite(v) else "n/a"
-
-
-def _simplicity_rank(mapper_type: str) -> int:
-    base = mapper_type.split("_decoupled")[0]
-    for i, name in enumerate(MAPPER_SIMPLICITY):
-        if base == name or mapper_type.startswith(name):
-            return i
-    return len(MAPPER_SIMPLICITY)
-
-
-def _rank_candidates(
-    reports: Sequence[MapperCandidateReport],
-    *,
-    v_u_corr: float = 0.0,
-    prefer_poly12_on_coupling: bool = True,
-) -> List[MapperCandidateReport]:
-    ok = [
-        r
-        for r in reports
-        if r.success
-        and r.model is not None
-        and r.loocv_rms_px is not None
-        and r.quality_gates_passed is True
-    ]
-    if not ok:
-        ok = [r for r in reports if r.success and r.model is not None and r.loocv_rms_px is not None]
-    if not ok:
-        return list(reports)
-
-    pool = list(ok)
-    if prefer_poly12_on_coupling and abs(float(v_u_corr)) >= COUPLING_POLY12_THRESH:
-        poly = [r for r in pool if _is_poly12_mapper(r.mapper_type)]
-        if poly:
-            mvp_log(
-                f"[calib2] mapper pool: high v–u coupling (r={v_u_corr:.3f}) — "
-                f"prefer poly12 candidates ({len(poly)}/{len(pool)})"
-            )
-            pool = poly
-
-    def sort_key(r: MapperCandidateReport) -> Tuple[int, float, float, float, int]:
-        region_wrong = int(r.region_train_wrong) + int(r.region_loocv_wrong)
-        return (
-            region_wrong,
-            float(r.loocv_rms_px or float("inf")),
-            float(r.worst_loocv_px or float("inf")),
-            float(r.max_train_px or float("inf")),
-            _simplicity_rank(r.mapper_type),
-        )
-
-    pool.sort(key=sort_key)
-    best = pool[0]
-    tied = [r for r in pool if abs(float(r.loocv_rms_px) - float(best.loocv_rms_px)) <= LOOCV_TIE_TOL_PX]
-    if len(tied) > 1:
-        tied.sort(key=sort_key)
-        best = tied[0]
-    ordered = [best] + [r for r in pool if r is not best]
-    failed = [r for r in reports if r not in pool]
-    return ordered + failed
+    if not APPLY_ROW_Y_BIAS:
+        return model
+    row_centers, row_bias = compute_row_y_residuals(model=model, samples=samples, targets=targets)
+    return attach_row_y_bias(model, row_y_centers=row_centers, row_y_bias=row_bias)
 
 
 def fit_calibration_mapper(
     *,
     samples: Sequence[Tuple[FrameFeatures, Tuple[float, float]]],
-    targets: Optional[Sequence["CalibrationTarget"]] = None,
-    calibration_mode: str = "keyboard9",
+    targets: Optional[Sequence[CalibrationTarget]] = None,
+    calibration_mode: str = "keyboard15",
     alpha: float = 10.0,
     screen_rect: Optional[Tuple[float, float, float, float]] = None,
-    min_alpha: float = 1.0,
+    min_alpha: float = MIN_ALPHA,
     max_loocv_rms_px: float = 150.0,
     max_target_loocv_px: float = 175.0,
     max_train_error_px: float = 100.0,
     half_key_height_px: float = 34.0,
 ) -> MapperFitResult:
-    """
-    Fit the frozen active mapper (pca4_baseline) and return it when quality gates pass.
-
-    Other ridge candidates (decoupled, poly12, etc.) remain in this module but are not
-    evaluated on the active calibration path while FROZEN_ACTIVE_MAPPER is set.
-
-    Phase 9 cleanup (T038, FR-007): this is the single active selection entry point and it
-    only ever fits/returns a mapper from ``_ACTIVE_MAPPER_ALLOWLIST``. Experimental mapper
-    selection / multi-candidate ranking is blocked here so it cannot reach the user path.
-    """
-    if FROZEN_ACTIVE_MAPPER not in _ACTIVE_MAPPER_ALLOWLIST:
-        raise RuntimeError(
-            f"Active mapper {FROZEN_ACTIVE_MAPPER!r} is not in the allowed set "
-            f"{sorted(_ACTIVE_MAPPER_ALLOWLIST)}; experimental mapper selection is blocked "
-            f"on the active path (FR-007)."
-        )
-    mvp_log(
-        f"[calib2] mapper freeze: active path locked to {FROZEN_ACTIVE_MAPPER} "
-        f"(LOOCV candidate ranking disabled)"
-    )
+    """Fit PCA4 baseline ridge and optional row-Y bias for keyboard calibration."""
+    del alpha  # LOOCV grid selects alpha; kept for API compatibility.
+    mvp_log(f"[calib] fitting active mapper: {FROZEN_ACTIVE_MAPPER}")
     extracted = extract_uv_arrays(samples)
     if extracted is None:
         return MapperFitResult(success=False, message="Need at least 5 samples with PCA u/v for Ridge.")
     u_l, u_r, v_l, v_r, Y = extracted
     clip_bounds = _bounds_from_screen_rect(screen_rect)
-    gate_kw = dict(
-        targets=targets,
-        calibration_mode=calibration_mode,
-        max_loocv_rms_px=max_loocv_rms_px,
-        max_target_loocv_px=max_target_loocv_px,
-        max_train_error_px=max_train_error_px,
-        half_key_height_px=half_key_height_px,
+    chosen_alpha = _auto_alpha(
+        lambda a: _loocv_rms_from_detail(
+            _loocv_pca4_baseline(u_l, u_r, v_l, v_r, Y, alpha=a, clip_bounds=clip_bounds)
+        ),
+        min_alpha=min_alpha,
     )
-
-    def alpha_for(candidate_label: str, loocv_builder):
-        return _auto_alpha(
-            lambda a: _loocv_rms_from_detail(loocv_builder(a)),
-            min_alpha=min_alpha,
-            candidate_label=candidate_label,
-        )
-
-    a_base = alpha_for(
-        FROZEN_ACTIVE_MAPPER,
-        lambda a: _loocv_pca4_baseline(u_l, u_r, v_l, v_r, Y, alpha=a, clip_bounds=clip_bounds),
-    )
-
-    reports: List[MapperCandidateReport] = []
     try:
-        m_base = _fit_pca4_baseline(u_l, u_r, v_l, v_r, Y, alpha=a_base, clip_bounds=clip_bounds)
-        reports.append(_evaluate_candidate(FROZEN_ACTIVE_MAPPER, m_base, samples, **gate_kw))
+        core = _fit_pca4_baseline(u_l, u_r, v_l, v_r, Y, alpha=chosen_alpha, clip_bounds=clip_bounds)
     except Exception as e:
-        reports.append(
-            MapperCandidateReport(FROZEN_ACTIVE_MAPPER, False, str(e), None, None, None, None, None, ())
-        )
+        return MapperFitResult(success=False, message=str(e))
 
-    print_mapper_candidate_reports(reports)
-    winner = next((r for r in reports if r.success and r.model is not None), None)
-    best_effort = False
+    train_rms = _train_rms_px(core, samples)
+    loocv_detail = core.leave_one_out_detail_px()
+    loocv_rms, worst_loocv = _loocv_from_detail(loocv_detail)
+    max_train = _max_train_from_samples(core, samples)
+    keyboard_mode = str(calibration_mode).lower().startswith("keyboard")
 
-    if winner is None or winner.model is None:
-        return MapperFitResult(
-            success=False,
-            message=f"{FROZEN_ACTIVE_MAPPER} failed to fit.",
-        )
-
-    if winner.quality_gate_reasons:
-        warn_preview = ", ".join(winner.quality_gate_reasons[:3])
+    if mvp_verbose():
         mvp_log(
-            "[calib2] mapper fit usable for preview/benchmark "
-            f"(supplementary quality warnings: {warn_preview})"
+            f"[calib] pca4_baseline train_RMS={train_rms:.1f}px "
+            f"LOOCV_RMS={loocv_rms:.1f}px alpha={chosen_alpha:.1f}"
+            if train_rms is not None and loocv_rms is not None
+            else f"[calib] pca4_baseline alpha={chosen_alpha:.1f}"
         )
+        if loocv_rms is not None and loocv_rms > max_loocv_rms_px:
+            mvp_log(f"[calib]   warning: LOOCV RMS {loocv_rms:.1f}px > {max_loocv_rms_px:.1f}px")
+        if worst_loocv is not None and worst_loocv > max_target_loocv_px:
+            mvp_log(f"[calib]   warning: worst LOOCV {worst_loocv:.1f}px > {max_target_loocv_px:.1f}px")
+        if max_train is not None and max_train > max_train_error_px:
+            mvp_log(f"[calib]   warning: max train {max_train:.1f}px > {max_train_error_px:.1f}px")
 
-    final_model: RidgeCalibrationMapper = winner.model
-    if targets is not None and len(targets) >= len(samples):
-        final_model = _keyboard_assessment_model(
-            final_model,
+    final_model: RidgeCalibrationMapper = core
+    if keyboard_mode and targets is not None and len(targets) >= len(samples):
+        final_model = _apply_row_bias_if_enabled(core, samples=samples, targets=targets)
+        loocv_after = final_model.leave_one_out_detail_px()
+        assess_region_gates(
+            model=final_model,
             samples=samples,
             targets=targets,
-            verbose=True,
+            loocv_detail=loocv_after,
+            keyboard_mode=True,
+            half_key_height_px=half_key_height_px,
+            calibration_mode=calibration_mode,
+            verbose=mvp_verbose(),
         )
-        if str(calibration_mode).lower().startswith("keyboard"):
-            loocv_after = final_model.leave_one_out_detail_px()
-            assess_region_gates(
-                model=final_model,
-                samples=samples,
-                targets=targets,
-                loocv_detail=loocv_after,
-                keyboard_mode=True,
-                half_key_height_px=half_key_height_px,
-                calibration_mode=calibration_mode,
-                verbose=True,
-            )
 
-    mvp_log(
-        f"[calib2] SELECTED mapper_type={FROZEN_ACTIVE_MAPPER} "
-        f"(frozen active mapper; inner_type={final_model.mapper_type}) "
-        f"LOOCV_RMS={_fmt_px(winner.loocv_rms_px)} "
-        f"worst_LOOCV={_fmt_px(winner.worst_loocv_px)} "
-        f"worst_train={winner.worst_train_label or 'n/a'} "
-        f"worst_loocv={winner.worst_loocv_label or 'n/a'} "
-        f"train_RMS={_fmt_px(winner.train_rms_px)} "
-        f"alpha={winner.alpha:.1f}"
-    )
-    return MapperFitResult(
-        success=True,
-        message=(
-            f"Selected {FROZEN_ACTIVE_MAPPER} (LOOCV={winner.loocv_rms_px:.1f}px, best-effort)."
-            if best_effort
-            else f"Selected {FROZEN_ACTIVE_MAPPER} (LOOCV={winner.loocv_rms_px:.1f}px)."
-        ),
-        model=final_model,
-        rms_px=winner.train_rms_px,
-        candidate_reports=tuple(reports),
-        best_effort=best_effort,
-    )
+    msg = f"Fitted {FROZEN_ACTIVE_MAPPER}"
+    if loocv_rms is not None:
+        msg += f" (LOOCV={loocv_rms:.1f}px)"
+    return MapperFitResult(success=True, message=msg, model=final_model, rms_px=train_rms)
 
 
 class RidgeRegressionMapper:
@@ -1192,7 +410,7 @@ class RidgeRegressionMapper:
         samples: Sequence[Tuple[FrameFeatures, Tuple[float, float]]],
         alpha: float = 10.0,
         screen_rect: Optional[Tuple[float, float, float, float]] = None,
-        min_alpha: float = 1.0,
+        min_alpha: float = MIN_ALPHA,
     ) -> MapperFitResult:
         return fit_calibration_mapper(
             samples=samples,

@@ -2,7 +2,7 @@
 
 from PySide6.QtCore import QRect
 
-from gazekey.calibration2.targets import keyboard_geometry_targets
+from gazekey.calibration.targets import keyboard_geometry_targets
 from gazekey.layout.layout_inspector import KeyGeometryRow
 
 

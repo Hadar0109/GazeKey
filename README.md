@@ -1,270 +1,122 @@
 # GazeKey
 
-Eye-tracking based virtual keyboard for hands-free typing using a standard webcam.
+Eye-tracking virtual keyboard using a standard webcam and MediaPipe face landmarks.
 
-## Overview
+## What it does today (MVP)
 
-GazeKey enables hands-free typing through eye tracking and gaze-based interaction. The system uses MediaPipe for precise eye and iris landmark detection, allowing users to type by looking at keys on a virtual keyboard.
+On launch the app **calibrates every session** (no loading saved mappers from disk), fits a **PCA4 ridge gaze mapper** on 15 keyboard-aligned targets, then enables **read-only gaze preview** — a dot that tracks where you look. Keys are activated by **mouse click** only; dwell-based gaze typing is dormant (`gazekey/future/`).
 
-## Features
+Optional dev tooling:
 
-### ✅ Completed
+- **`GAZEKEY_DEV_BENCHMARK=1`** — auto-runs a 15-key accuracy benchmark after calibration
+- **`GAZEKEY_VERBOSE=1`** — detailed calibration/runtime logs
 
-- **Virtual Keyboard Overlay**
-  - Frameless, transparent, always-on-top window
-  - Full QWERTY layout with letters and symbols
-  - Layout switching (ABC ↔ ?123)
-  - Uppercase/lowercase toggle (Shift)
-  - Minimize/restore functionality
-  - Draggable window positioning
+See **`CURRENT_PIPELINE.md`** for the exact runtime flow and **`TYPING_CANDIDATE.md`** for frozen mapper configuration.
 
-- **Real-Time Eye Tracking**
-  - MediaPipe Face Landmarker integration (v0.10.33)
-  - 42-point precision tracking (eyes + iris only)
-  - 97-100% detection rate at ~30 FPS
-  - Background thread processing for smooth UI
-
-- **Camera Preview**
-  - Separate floating window with live camera feed
-  - 300x225px preview at top-right corner
-  - Always-on-top, independent positioning
-  - Real-time frame updates
-
-- **Tracking Statistics**
-  - Face detection status
-  - Eye tracking confirmation
-  - Detection rate percentage
-  - Live console logging
-
-### ⏳ In Development
-
-- **Keyboard Input Injection** (Next: Phase 1)
-  - Mouse-based typing (MVP)
-  - pynput integration for cross-application typing
-  
-- **Calibration System** (Phase 2)
-  - 5-point gaze-to-screen mapping
-  - Drift detection and correction
-  
-- **Dwell-Time Selection** (Phase 3)
-  - Gaze-based key selection (~1 second dwell)
-  - Visual feedback for dwell progress
-  
-- **Advanced Features** (Future)
-  - Word prediction and auto-complete
-  - Hebrew/English language switching
-  - Configurable dwell-time thresholds
-
-## Setup
+## Quick start
 
 ### Requirements
 
-- Python 3.8+
-- Webcam (built-in or USB)
-- Windows/Linux/macOS
+- Python 3.10+ (tested on 3.14)
+- Webcam
+- Windows / Linux / macOS
 
-### Installation
+### Install
 
 ```bash
-# Clone the repository
 git clone <repository-url>
 cd "Virtual Keyboard"
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Download MediaPipe model (automatic on first run)
-# Model will be downloaded to: models/face_landmarker.task
 ```
 
-### Dependencies
+MediaPipe model: `models/face_landmarker.task` (downloaded on first run if missing).
 
-```
-PySide6>=6.6.0           # Qt GUI framework
-opencv-python>=4.8.0     # Computer vision
-mediapipe>=0.10.0        # Face and eye tracking
-numpy>=1.24.0            # Numerical operations
-pynput>=1.7.6            # Keyboard input injection
-```
-
-## Usage
-
-### Running the Application
+### Run
 
 ```bash
 python main.py
 ```
 
-### Basic Workflow
+1. App opens the virtual keyboard and starts calibration automatically.
+2. Fixate each on-screen dot until the session completes.
+3. On success, gaze preview is enabled (mapped dot on the keyboard).
+4. Click keys with the mouse to type into the text field.
+5. Use **Preview** to toggle the gaze dot; use **RECALIBRATE** to run calibration again.
 
-1. **Launch Application**
-   - Virtual keyboard appears at screen center
-   - Drag window to reposition if needed
-
-2. **Start Eye Tracking**
-   - Click the orange **"👁 CALIBRATE"** button
-   - Camera preview window opens (top-right corner)
-   - Status shows: "📷 Connected ✓ | 👁 Eyes Tracked"
-
-3. **Monitor Tracking**
-   - Watch live camera feed in preview window
-   - Check detection rate in status bar
-   - Console shows iris positions every 30 frames
-
-4. **Stop Tracking**
-   - Click red **"STOP"** button
-   - Camera preview closes
-   - Statistics printed to console
-
-5. **Keyboard Features**
-   - Click **?123** to switch to symbols/numbers
-   - Click **ABC** to return to letters
-   - Use **Shift** for uppercase
-   - Click **-** to minimize, **⌨** to restore
-
-### Testing Eye Tracking
-
-Run standalone test scripts:
-
-```bash
-# Test eye and iris tracking (recommended)
-python test_eye_tracking.py
-
-# Test basic camera access
-python test_camera_simple.py
-
-# Test face detection with OpenCV
-python test_camera_face.py
-```
-
-Press **Q** to quit test windows.
-
-## Project Architecture
+## Project layout
 
 ```
 Virtual Keyboard/
-├── main.py                          # Application entry point
-├── requirements.txt                 # Python dependencies
-├── models/
-│   └── face_landmarker.task        # MediaPipe model (auto-downloaded)
+├── main.py                      # Entry point
+├── CURRENT_PIPELINE.md          # Runtime flow (authoritative)
+├── TYPING_CANDIDATE.md          # Frozen mapper / gate configuration
+├── runs/<session_id>/           # Per-session artifacts (see below)
 ├── gazekey/
-│   ├── ui/
-│   │   ├── virtual_keyboard.py     # Main keyboard UI
-│   │   └── camera_preview_window.py # Camera preview window
-│   └── tracking/
-│       ├── video_capture.py        # OpenCV camera wrapper
-│       ├── eye_detector.py         # MediaPipe eye/iris detection
-│       └── tracking_manager.py     # Background tracking coordinator
-└── test_*.py                        # Standalone test scripts
+│   ├── ui/                      # VirtualKeyboard + calibration/benchmark UI
+│   ├── runtime/                 # Gaze loop, mapper fit, tracking lifecycle
+│   ├── calibration/             # Target collection, fixation gate, quality
+│   ├── mapping/                 # PCA4 ridge (config.py, ridge.py, row_bias.py)
+│   ├── features/                # EyeData → FrameFeatures + PCA smoother
+│   ├── tracking/                # Webcam + MediaPipe thread
+│   ├── evaluation/              # Benchmark scoring, run summaries, session paths
+│   ├── layout/                  # Key geometry inspection
+│   ├── typing/                  # Hit testing, text buffer, gaze smoother
+│   ├── debug/                   # Diagnostics exports (CSV, mapper snapshot, geometry)
+│   └── future/                  # Dormant intent / dwell typing (not on MVP path)
+├── archive/                     # Legacy v1 calibration and experiment code
+├── tests/                       # Pytest suite
+└── specs/                       # Spec Kit feature docs
 ```
 
-### Architecture Overview
+Deeper module map: **`docs/gazekey_code_structure.md`**.
 
-**UI Layer:**
-- `VirtualKeyboard`: Main keyboard window with controls
-- `CameraPreviewWindow`: Separate live camera feed display
+## Session artifacts
 
-**Tracking Layer:**
-- `VideoCapture`: Manages webcam access (OpenCV)
-- `EyeDetector`: Eye/iris landmark detection (MediaPipe)
-- `TrackingManager`: Orchestrates capture and detection in background thread
+All runtime-generated files go under **`runs/<session_id>/`** (not the repo root):
 
-**Data Flow:**
+| File | Purpose |
+|------|---------|
+| `calibration_summary.txt` | Console-style pass/fail summary |
+| `calibration_v2.json` | Fitted mapper snapshot (inspection only; not loaded on startup) |
+| `keyboard_layout.csv` | Key geometry at calibration time |
+| `coverage.json` | Calibration anchor vs key coverage |
+| `calibration_debug.csv` | Per-target train/LOOCV diagnostics |
+| `calibration_ratio_space.csv` | Row-level avg_v stats |
+| `benchmark_summary.txt` | 15-key benchmark result (dev) |
+| `benchmark_diag.json` | Full benchmark diagnostics (dev) |
+
+## Environment variables
+
+| Variable | Effect |
+|----------|--------|
+| `GAZEKEY_VERBOSE=1` | Verbose logs |
+| `GAZEKEY_DEV_BENCHMARK=1` | Auto 15-key benchmark after calibration |
+| `GAZEKEY_CALIB_MODE` | Override calibration layout (e.g. `keyboard15`) |
+| `GAZEKEY_CALIB_DEBUG=1` | Verbose calibration overlay |
+| `GAZEKEY_CALIB_GEOM_DEBUG=1` | Post-fit geometry overlay |
+| `GAZEKEY_GAZE_DEBUG=1` | Extra gaze/predict logs |
+
+## Tests
+
+```bash
+python -m pytest tests/ -q
 ```
-Camera → VideoCapture → TrackingManager → EyeDetector → UI Callback
-                              ↓
-                        CameraPreview
-```
 
-## Development Roadmap
+## Technical notes
 
-### Phase 1: Mouse-Based Typing (Next)
-- [ ] Create `keyboard_injector.py` with pynput
-- [ ] Connect mouse clicks to real typing
-- [ ] Test across applications (Notepad, browser, etc.)
-- [ ] Handle special keys (Space, Backspace, Enter)
-
-### Phase 2: Calibration System
-- [ ] Design 5-point calibration UI
-- [ ] Collect gaze samples at known positions
-- [ ] Calculate transformation matrix
-- [ ] Implement drift detection
-
-### Phase 3: Gaze-Based Selection
-- [ ] Implement dwell-time detection (~1 second)
-- [ ] Add visual feedback (progress indicator)
-- [ ] Connect to keyboard input injection
-- [ ] Fine-tune thresholds
-
-### Future Enhancements
-- [ ] Word prediction engine
-- [ ] Hebrew language support
-- [ ] Settings panel (dwell-time, sensitivity)
-- [ ] Session recording and replay
-- [ ] Multi-monitor support
-
-## Technical Details
-
-### Eye Tracking Specifications
-
-- **Model**: MediaPipe Face Landmarker (float16)
-- **Landmarks Tracked**: 42 points
-  - Left eye: 16 points
-  - Right eye: 16 points
-  - Left iris: 5 points
-  - Right iris: 5 points
-- **Detection Confidence**: 0.5 (50%)
-- **Tracking Confidence**: 0.5 (50%)
-- **Frame Rate**: ~30 FPS
-- **Resolution**: 640x480
-
-### Performance Metrics
-
-- **Detection Rate**: 97-100% (face present)
-- **Latency**: <50ms per frame
-- **CPU Usage**: Moderate (background thread)
-- **Memory**: ~200MB
+- **Eye tracking**: MediaPipe Face Landmarker, ~30 FPS background thread
+- **Features**: PCA eye-local `uL/vL/uR/vR` + ratio `avg_h/avg_v`
+- **Mapper**: `pca4_baseline` ridge regression; optional row-Y bias wrapper
+- **Default calibration**: `keyboard15` (15 points on real key centers)
 
 ## Troubleshooting
 
-### Camera Issues
+**Camera not opening** — check OS privacy settings; close other apps using the webcam.
 
-**Camera not opening:**
-1. Check Windows Settings → Privacy → Camera
-2. Enable "Camera access" and "Let desktop apps access your camera"
-3. Close other apps using the camera (Zoom, Teams, etc.)
+**Calibration fails / preview blocked** — keep head still, move eyes only, tap RECALIBRATE.
 
-**Low detection rate:**
-- Ensure good lighting
-- Face the camera directly
-- Remove glasses if possible (reflections can interfere)
-- Check camera is at eye level
-
-### Window Issues
-
-**Keyboard not visible:**
-- Window may be off-screen, check window positioning
-- Try dragging from edges
-- Restart application
-
-**Preview window covering keyboard:**
-- Preview is in separate window at top-right
-- Move it manually if needed
-
-## Contributing
-
-This project follows incremental development principles:
-1. Each feature is built and tested independently
-2. Complex features are broken into small, testable steps
-3. Mouse-based testing before gaze-based implementation
+**Low detection rate** — improve lighting; face the camera directly.
 
 ## License
 
 [Your License Here]
-
-## Acknowledgments
-
-- **MediaPipe** by Google for face landmark detection
-- **OpenCV** for computer vision
-- **PySide6** for Qt GUI framework
-- **pynput** for keyboard input injection

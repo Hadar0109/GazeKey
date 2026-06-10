@@ -11,7 +11,7 @@ from typing import Tuple
 
 from PySide6.QtCore import QRect
 
-from gazekey.calibration2.targets import (
+from gazekey.calibration.targets import (
     calibration_row_groups,
     keyboard_geometry_targets,
 )

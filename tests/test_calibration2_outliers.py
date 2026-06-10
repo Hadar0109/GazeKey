@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from gazekey.calibration2.outliers import check_target_mean_outlier
-from gazekey.calibration2.targets import CalibrationTarget
+from gazekey.calibration.outliers import check_target_mean_outlier
+from gazekey.calibration.targets import CalibrationTarget
 from gazekey.features.feature_types import FrameFeatures
 
 

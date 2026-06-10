@@ -530,7 +530,6 @@ class KeyboardLayoutBuilder:
 
         keyboard_layout.addLayout(new_layout)
         h.current_layout = layout_type
-        h._gaze_typing_controller.mark_keyboard_dirty()
         h._schedule_layout_export()
 
     @staticmethod
@@ -737,7 +736,7 @@ class KeyboardLayoutBuilder:
                 typing_region_rect=region_rect,
                 keys=keys,
             )
-            h._intent_keys = keys
+            h._layout_keys = keys
             h._keys_by_id = {k.key_id: k for k in keys}
             h._key_semantic_row = self.derive_key_semantic_rows(keys)
         except Exception as e:

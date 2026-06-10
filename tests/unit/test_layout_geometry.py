@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 from PySide6.QtCore import QPoint, QRect, Qt
 from PySide6.QtWidgets import QPushButton, QWidget
 
-from gazekey.calibration2.targets import keyboard_geometry_targets
-from gazekey.layout.geometry_check import format_geometry_report, verify_keyboard_geometry
+from gazekey.calibration.targets import keyboard_geometry_targets
+from gazekey.debug.layout_geometry_check import format_geometry_report, verify_keyboard_geometry
 from gazekey.layout.layout_inspector import inspect_keyboard_layout
 from gazekey.typing.gaze_ui_mapper import letter_keys_region_rect
 from gazekey.evaluation.benchmark_runner import predict_key_at
+from gazekey.evaluation.session_paths import ensure_session_dir, geometry_check_path
 from gazekey.typing.key_hit_tester import (
     GAZE_HIT_OBJECT_NAMES,
     KEY_OBJECT_NAME,
@@ -66,16 +66,16 @@ def _build_test_keyboard(qapp) -> QWidget:
     return root
 
 
-def test_layout_inspector_matches_key_hit_tester(qapp, tmp_path):
+def test_layout_inspector_matches_key_hit_tester(qapp, tmp_path):  # noqa: ARG001
     root = _build_test_keyboard(qapp)
     layout_keys, mismatches = verify_keyboard_geometry(root)
     assert layout_keys, "expected keys from test keyboard"
     assert not mismatches, format_geometry_report(layout_keys, mismatches)
 
     report = format_geometry_report(layout_keys, mismatches)
-    runs_dir = Path(__file__).resolve().parents[2] / "runs"
-    runs_dir.mkdir(parents=True, exist_ok=True)
-    (runs_dir / "geometry_check.txt").write_text(report, encoding="utf-8")
+    session_id = "layout-geometry"
+    ensure_session_dir(session_id, runs_dir=tmp_path)
+    geometry_check_path(session_id, runs_dir=tmp_path).write_text(report, encoding="utf-8")
 
 
 def test_benchmark_hit_test_matches_key_hit_tester(qapp):

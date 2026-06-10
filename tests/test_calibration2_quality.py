@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import numpy as np
 
-from gazekey.calibration2.quality import (
+from gazekey.calibration.quality import (
     check_vertical_monotonicity,
     evaluate_calibration_quality,
 )
-from gazekey.calibration2.targets import CalibrationTarget
+from gazekey.calibration.targets import CalibrationTarget
 from gazekey.features.feature_types import FrameFeatures
 from gazekey.mapping.base import MapperPrediction
 
@@ -68,7 +68,7 @@ def _targets_3x3():
 
 
 def test_monotonicity_valid():
-    from gazekey.calibration2.quality import VerticalRowStats
+    from gazekey.calibration.quality import VerticalRowStats
 
     stats = [
         VerticalRowStats("top", ("a",), 0.1, -0.4, -0.4, -0.4, 0.5, 0.02),
@@ -80,7 +80,7 @@ def test_monotonicity_valid():
 
 
 def test_monotonicity_invalid():
-    from gazekey.calibration2.quality import VerticalRowStats
+    from gazekey.calibration.quality import VerticalRowStats
 
     stats = [
         VerticalRowStats("top", ("a",), 0.2, None, None, None, None, None),

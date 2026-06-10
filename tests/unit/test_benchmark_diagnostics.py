@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 
-from gazekey.calibration2.targets import CalibrationTarget
+from gazekey.calibration.targets import CalibrationTarget
 from gazekey.evaluation.benchmark_diagnostics import (
     build_benchmark_diagnostics,
     compute_residual_stats,

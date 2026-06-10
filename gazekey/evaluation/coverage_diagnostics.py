@@ -164,19 +164,22 @@ def build_coverage_report(
     }
 
 
-def coverage_path(session_id: str, runs_dir: str = "runs") -> str:
-    safe = "".join(c for c in str(session_id) if c.isalnum() or c in ("-", "_")) or "session"
-    return os.path.join(runs_dir, f"coverage_{safe}.json")
+def coverage_path(session_id: str, runs_dir: Optional[str] = None) -> str:
+    from gazekey.evaluation.session_paths import coverage_path as _coverage_path
+
+    return str(_coverage_path(session_id, runs_dir=runs_dir))
 
 
 def write_coverage_diagnostics(
     report: Dict,
     *,
     session_id: str,
-    runs_dir: str = "runs",
+    runs_dir: Optional[str] = None,
 ) -> str:
-    os.makedirs(runs_dir, exist_ok=True)
-    path = coverage_path(session_id, runs_dir=runs_dir)
+    from gazekey.evaluation.session_paths import coverage_path as _coverage_path, ensure_session_dir
+
+    ensure_session_dir(session_id, runs_dir=runs_dir)
+    path = _coverage_path(session_id, runs_dir=runs_dir)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, ensure_ascii=False)
-    return path
+    return str(path)

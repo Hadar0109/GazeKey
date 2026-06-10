@@ -30,7 +30,7 @@ def test_gaze_preview_controller_updates_dot_only(qapp):
 
 def test_mvp_disables_gaze_typing_enables_preview(qapp):
     vk = VirtualKeyboard()
-    vk._gaze_mapper_v2 = MagicMock()
+    vk._gaze_mapper = MagicMock()
     vk._preview_mode = True
     vk._is_calibrating = False
     vk.is_expanded = True
@@ -42,7 +42,7 @@ def test_mvp_disables_gaze_typing_enables_preview(qapp):
 def test_process_gaze_preview_does_not_update_text_buffer(qapp, monkeypatch):
     vk = VirtualKeyboard()
     text_before = vk.text_display.text()
-    vk._gaze_mapper_v2 = MagicMock()
+    vk._gaze_mapper = MagicMock()
     vk._preview_mode = True
     vk._is_calibrating = False
     vk.is_expanded = True
@@ -66,7 +66,7 @@ def test_process_gaze_preview_does_not_update_text_buffer(qapp, monkeypatch):
 def test_preview_shows_single_mapped_dot_by_default(qapp, monkeypatch):
     monkeypatch.delenv("GAZEKEY_GAZE_DEBUG", raising=False)
     vk = VirtualKeyboard()
-    vk._gaze_mapper_v2 = MagicMock()
+    vk._gaze_mapper = MagicMock()
     vk._preview_mode = True
     vk._is_calibrating = False
     vk.is_expanded = True

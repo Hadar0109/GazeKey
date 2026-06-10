@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QApplication,
 )
 
-from gazekey.calibration2.session import CalibrationV2Result, CalibrationV2Session
+from gazekey.calibration.session import CalibrationResult, CalibrationSession
 from gazekey.features.feature_types import FrameFeatures
 from gazekey.mvp_log import mvp_log
 
@@ -80,8 +80,8 @@ class CalibrationOverlay(QWidget):
         self,
         dot_targets: List[Tuple[float, float]],
         screen_targets: List[Tuple[float, float]],
-        on_finished: Callable[[CalibrationV2Result], None],
-        session: CalibrationV2Session,
+        on_finished: Callable[[CalibrationResult], None],
+        session: CalibrationSession,
         minimal_fixation_ui: bool = True,
         parent=None,
     ):
@@ -91,7 +91,7 @@ class CalibrationOverlay(QWidget):
         self._on_finished = on_finished
         self._session = session
         self._minimal_fixation_ui = bool(minimal_fixation_ui)
-        self._result: Optional[CalibrationV2Result] = None
+        self._result: Optional[CalibrationResult] = None
         self._last_target_index: int = -1
         self._collect_enabled: bool = False
 
@@ -108,11 +108,11 @@ class CalibrationOverlay(QWidget):
         self._begin_current_point()
 
     @property
-    def session(self) -> CalibrationV2Session:
+    def session(self) -> CalibrationSession:
         return self._session
 
     @property
-    def session_v2(self) -> CalibrationV2Session:
+    def session_v2(self) -> CalibrationSession:
         """Alias retained for tests and transitional callers."""
         return self._session
 
@@ -322,7 +322,7 @@ class CalibrationOverlay(QWidget):
             f"(fixation lock-on ~{self._session.gate.cfg.lock_on_ms:.0f}ms before samples count)"
         )
 
-    def _show_result(self, result: CalibrationV2Result) -> None:
+    def _show_result(self, result: CalibrationResult) -> None:
         self._result = result
         self.dot_widget.hide()
         self._prepare_timer.stop()
@@ -349,7 +349,7 @@ class CalibrationOverlay(QWidget):
         self._begin_current_point()
 
     def _cancel(self) -> None:
-        self._result = CalibrationV2Result(
+        self._result = CalibrationResult(
             success=False,
             message="Calibration cancelled.",
             targets=list(self._session.targets),

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from gazekey.calibration2.fixation_gate import FixationGate, FixationGateConfig
+from gazekey.calibration.fixation_gate import FixationGate, FixationGateConfig
 from gazekey.features.feature_types import FrameFeatures
 
 

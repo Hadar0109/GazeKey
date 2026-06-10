@@ -7,12 +7,12 @@ from unittest.mock import MagicMock
 import pytest
 from PySide6.QtTest import QTest
 
-from gazekey.calibration2.quality import CalibrationQualityResult
-from gazekey.calibration2.session import CalibrationV2Result
+from gazekey.calibration.quality import CalibrationQualityResult
+from gazekey.calibration.session import CalibrationResult
 from gazekey.evaluation.benchmark_runner import KeyAccuracyResultRow, build_benchmark_run
 from gazekey.evaluation.run_summary import RunSummaryWriter
 from gazekey.layout.layout_inspector import inspect_keyboard_layout
-from gazekey.calibration2.targets import keyboard_geometry_targets
+from gazekey.calibration.targets import keyboard_geometry_targets
 from gazekey.typing.gaze_ui_mapper import letter_keys_region_rect
 from tests.unit.test_layout_geometry import _build_test_keyboard
 
@@ -56,7 +56,7 @@ def _mock_ridge_fit(monkeypatch):
         best_effort=False,
     )
     monkeypatch.setattr(
-        "gazekey.ui.mapper_runtime.fit_calibration_mapper",
+        "gazekey.runtime.mapper_runtime.fit_calibration_mapper",
         lambda **kwargs: mock_fit,
     )
     return mock_fit
@@ -71,7 +71,7 @@ def _mock_quality(monkeypatch):
         reasons=[],
     )
     monkeypatch.setattr(
-        "gazekey.ui.mapper_runtime.evaluate_calibration_quality",
+        "gazekey.runtime.mapper_runtime.evaluate_calibration_quality",
         lambda **kwargs: quality,
     )
     return quality
@@ -83,19 +83,16 @@ def _prepare_session(vk, qapp, monkeypatch):
     session.targets = targets
     session.accepted_count_for_target = lambda i: 1
     session.get_training_samples = _minimal_calibration_samples
-    session.csv.session_id = "mvp-int-001"
-    session.write_summary = MagicMock()
+    session.session_id = "mvp-int-001"
     session.print_training_means = MagicMock()
 
-    vk._calibration_v2_session = session
-    vk._calib2_mode = "keyboard15"
+    vk._calibration_session = session
+    vk._calib_mode = "keyboard15"
     vk._calib_clip_rect = (0.0, 0.0, 800.0, 400.0)
-    csv_logger = MagicMock(session_id="mvp-int-001")
-    vk._calibration_controller.csv_logger = csv_logger
+    vk._calibration_controller.session_id = "mvp-int-001"
     vk._is_calibrating = True
 
     monkeypatch.setattr(vk, "_ensure_camera_preview", MagicMock())
-    monkeypatch.setattr(vk, "_mapper_store", MagicMock())
     monkeypatch.setattr(vk, "_write_calibration_debug_csv", MagicMock())
     monkeypatch.setattr(vk, "_print_target_sample_quality", MagicMock())
     monkeypatch.setattr(vk, "_print_row_v_stats_and_export_ratio_space", MagicMock())
@@ -104,7 +101,7 @@ def _prepare_session(vk, qapp, monkeypatch):
         MagicMock(),
     )
     monkeypatch.setattr(
-        "gazekey.ui.mapper_runtime.assess_fullscreen_feasibility",
+        "gazekey.runtime.mapper_runtime.assess_fullscreen_feasibility",
         MagicMock(),
     )
 
@@ -118,7 +115,7 @@ def _prepare_session(vk, qapp, monkeypatch):
 
 
 def _finish_calibration(vk, qapp):
-    result = CalibrationV2Result(success=True, message="Target collection complete.", targets=vk._calibration_v2_session.targets)
+    result = CalibrationResult(success=True, message="Target collection complete.", targets=vk._calibration_session.targets)
     vk._on_calibration_finished(result)
     qapp.processEvents()
     from PySide6.QtTest import QTest
@@ -161,15 +158,15 @@ def test_normal_flow_calibrate_preview_only(qapp, tmp_path, monkeypatch, capsys)
     _prepare_session(vk, qapp, monkeypatch)
     _finish_calibration(vk, qapp)
 
-    assert vk._gaze_mapper_v2 is not None
+    assert vk._gaze_mapper is not None
     assert vk._preview_mode is True
     assert vk._gaze_preview_active() is True
-    assert vk._keyboard_accuracy_session is None
+    assert not vk._benchmark_controller.active()
     start_benchmark.assert_not_called()
 
-    cal_files = list(tmp_path.glob("calibration_*.txt"))
-    assert len(cal_files) == 1
-    assert "[calibration] PASS" in cal_files[0].read_text(encoding="utf-8")
+    cal_path = tmp_path / "mvp-int-001" / "calibration_summary.txt"
+    assert cal_path.is_file()
+    assert "[calibration] PASS" in cal_path.read_text(encoding="utf-8")
 
     out = capsys.readouterr().out
     assert out.count("[calibration] PASS") == 1
@@ -193,18 +190,23 @@ def test_dev_benchmark_flow_auto_start_and_summary(qapp, tmp_path, monkeypatch, 
     _finish_calibration(vk, qapp)
 
     assert vk._preview_mode is True
-    assert vk._keyboard_accuracy_session is not None
+    QTest.qWait(200)
+    qapp.processEvents()
+    assert vk._benchmark_controller.active()
 
     rows = [_bench_row(correct=True, err=25.0, target=f"K{i}") for i in range(15)]
-    vk._finish_mvp_benchmark(rows)
+    sess = vk._benchmark_controller._session
+    sess._results = list(rows)
+    sess._index = len(rows)
+    vk._benchmark_controller._finish_session()
     qapp.processEvents()
 
-    cal_files = list(tmp_path.glob("calibration_*.txt"))
-    bench_files = list(tmp_path.glob("benchmark_*.txt"))
-    assert len(cal_files) == 1
-    assert len(bench_files) == 1
-    assert "[calibration] PASS" in cal_files[0].read_text(encoding="utf-8")
-    bench_text = bench_files[0].read_text(encoding="utf-8")
+    cal_path = tmp_path / "mvp-int-001" / "calibration_summary.txt"
+    bench_path = tmp_path / "mvp-int-001" / "benchmark_summary.txt"
+    assert cal_path.is_file()
+    assert bench_path.is_file()
+    assert "[calibration] PASS" in cal_path.read_text(encoding="utf-8")
+    bench_text = bench_path.read_text(encoding="utf-8")
     assert "[benchmark]" in bench_text
     assert "keys=" in bench_text
 
@@ -229,4 +231,4 @@ def test_run_summary_writes_once_per_session(tmp_path):
         targets_collected=15,
         targets_total=15,
     )
-    assert len(list(tmp_path.glob("calibration_once.txt"))) == 1
+    assert len(list(tmp_path.glob("once/calibration_summary.txt"))) == 1

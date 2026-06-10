@@ -1,4 +1,4 @@
-"""Minimal calibration boundary: start session, overlay, and summary hooks (FR-017)."""
+"""Minimal calibration boundary: start session, overlay, and summary hooks."""
 
 from __future__ import annotations
 
@@ -7,12 +7,12 @@ from typing import Callable, List, Optional, Tuple
 
 from PySide6.QtWidgets import QApplication, QWidget
 
-from gazekey.calibration2.calibration_csv import CalibrationCsvLogger
-from gazekey.calibration2.fixation_gate import FixationGateConfig
-from gazekey.calibration2.session import CalibrationV2Result, CalibrationV2Session
-from gazekey.calibration2.targets import keyboard_geometry_targets
+from gazekey.calibration.fixation_gate import FixationGateConfig
+from gazekey.calibration.session import CalibrationResult, CalibrationSession
+from gazekey.calibration.targets import keyboard_geometry_targets
+from gazekey.evaluation.session import new_session_id
 from gazekey.layout.layout_inspector import inspect_keyboard_layout
-from gazekey.mapping.typing_candidate import CALIBRATION_MODE
+from gazekey.mapping.config import CALIBRATION_MODE
 from gazekey.typing.gaze_ui_mapper import letter_keys_region_rect
 from gazekey.ui.calibration_overlay import CalibrationOverlay
 from gazekey.ui.env_flags import calib_mode_override
@@ -21,8 +21,8 @@ from gazekey.ui.env_flags import calib_mode_override
 @dataclass(frozen=True)
 class CalibrationStartContext:
     overlay: CalibrationOverlay
-    session: CalibrationV2Session
-    csv_logger: CalibrationCsvLogger
+    session: CalibrationSession
+    session_id: str
     calib_mode: str
     calib_clip_rect: Tuple[float, float, float, float]
     dot_targets: List[Tuple[float, float]]
@@ -30,24 +30,14 @@ class CalibrationStartContext:
 
 
 class CalibrationController:
-    """
-    Owns calibration v2 session lifecycle boundaries.
-
-    App orchestration (mapper fit, quality gates, gaze loop) stays in VirtualKeyboard.
-    """
+    """Owns calibration session lifecycle boundaries."""
 
     def __init__(self) -> None:
-        self.session: Optional[CalibrationV2Session] = None
-        self.csv_logger: Optional[CalibrationCsvLogger] = None
+        self.session: Optional[CalibrationSession] = None
+        self.session_id: str = ""
         self.overlay: Optional[CalibrationOverlay] = None
         self.calib_mode: str = ""
         self.calib_clip_rect: Optional[Tuple[float, float, float, float]] = None
-
-    @property
-    def session_id(self) -> str:
-        if self.csv_logger is None:
-            return ""
-        return str(self.csv_logger.session_id)
 
     def reset(self) -> None:
         if self.overlay is not None:
@@ -56,7 +46,7 @@ class CalibrationController:
             except Exception:
                 pass
         self.session = None
-        self.csv_logger = None
+        self.session_id = ""
         self.overlay = None
         self.calib_mode = ""
         self.calib_clip_rect = None
@@ -65,21 +55,15 @@ class CalibrationController:
         self,
         *,
         keyboard_widget: QWidget,
-        on_finished: Callable[[CalibrationV2Result], None],
+        on_finished: Callable[[CalibrationResult], None],
         gate_cfg: FixationGateConfig,
         calibration_mode: str = CALIBRATION_MODE,
         max_timeouts_per_target: int = 1,
         on_timeout: str = "retry",
     ) -> CalibrationStartContext:
         self.reset()
-
-        # Dev override so T032 candidate layouts can be selected without editing config
-        # (mirrors GAZEKEY_DEV_BENCHMARK). Falls back to the configured mode.
         resolved_mode = calib_mode_override() or calibration_mode
-
         screen = QApplication.primaryScreen().geometry()
-        # letter_keys_region_rect() is the full keyboard-widget rect (all rows, no
-        # calibrate bar); it already spans the interactive keyboard vertically.
         region_rect = letter_keys_region_rect(keyboard_widget)
         self.calib_clip_rect = (
             float(region_rect.x()),
@@ -95,15 +79,14 @@ class CalibrationController:
             screen_rect=screen,
         )
         self.calib_mode = resolved_mode
+        self.session_id = new_session_id()
 
         dot_targets = [(t.screen_x - screen.x(), t.screen_y - screen.y()) for t in targets]
         screen_targets = [(t.screen_x, t.screen_y) for t in targets]
 
-        self.csv_logger = CalibrationCsvLogger(enabled=True)
-        self.csv_logger.begin_calibration_run()
-        self.session = CalibrationV2Session(
+        self.session = CalibrationSession(
             targets=targets,
-            csv_logger=self.csv_logger,
+            session_id=self.session_id,
             calibration_version=6,
             calibration_mode=self.calib_mode,
             gate_cfg=gate_cfg,
@@ -125,7 +108,7 @@ class CalibrationController:
         return CalibrationStartContext(
             overlay=self.overlay,
             session=self.session,
-            csv_logger=self.csv_logger,
+            session_id=self.session_id,
             calib_mode=self.calib_mode,
             calib_clip_rect=self.calib_clip_rect,
             dot_targets=dot_targets,

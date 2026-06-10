@@ -1,1 +1,0 @@
-[calibration] FAILED session=640f57277ded layout=keyboard_full9 targets=9/9 ridge_alpha=0.5 loocv_rms=88.1px (supplementary) quality_warnings=12 reason=head drift: face_x span 0.0121 > 0.0120 across targets

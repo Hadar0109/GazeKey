@@ -1,4 +1,4 @@
-"""Mapper interfaces for calibration v2."""
+"""Shared mapper types for the active PCA4 ridge path."""
 
 from __future__ import annotations
 
@@ -21,9 +21,6 @@ class MapperFitResult:
     message: str
     model: Optional["Mapper"] = None
     rms_px: Optional[float] = None
-    # Ridge selection only: all fitted candidates from the same calibration session.
-    candidate_reports: Tuple[object, ...] = ()
-    # True when mapper is returned despite failing quality gates (typing evaluation mode).
     best_effort: bool = False
 
 
@@ -39,4 +36,3 @@ class Mapper(Protocol):
         *,
         samples: Sequence[Tuple[FrameFeatures, Tuple[float, float]]],
     ) -> MapperFitResult: ...
-

@@ -50,14 +50,6 @@ def calib_geom_debug(*, calib_debug_cached: bool = False) -> bool:
     return calib_debug_cached or env_bool("GAZEKEY_CALIB_GEOM_DEBUG")
 
 
-def keyboard_accuracy_debug(*, verbose: bool = False) -> bool:
-    return verbose or env_bool("GAZEKEY_KEYBOARD_ACCURACY_DEBUG")
-
-
-def keyboard_accuracy_compare() -> bool:
-    return env_bool("GAZEKEY_KEYBOARD_ACCURACY_COMPARE")
-
-
 def verbose_fixation_ui() -> bool:
     return verbose() or calib_debug()
 
@@ -72,8 +64,6 @@ class EnvFlags:
     rt2_debug_pred: bool
     rt2_debug_selection: bool
     calib_debug: bool
-    keyboard_accuracy_debug: bool
-    keyboard_accuracy_compare: bool
 
     @classmethod
     def load(cls) -> EnvFlags:
@@ -86,6 +76,4 @@ class EnvFlags:
             rt2_debug_pred=rt2 or gaze_debug_pred(),
             rt2_debug_selection=v or gaze_debug_selection(),
             calib_debug=v or calib_debug(),
-            keyboard_accuracy_debug=keyboard_accuracy_debug(verbose=v),
-            keyboard_accuracy_compare=keyboard_accuracy_compare(),
         )

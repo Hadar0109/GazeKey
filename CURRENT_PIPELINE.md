@@ -1,225 +1,219 @@
-## CURRENT_PIPELINE (exact runtime flow as of now)
+## CURRENT_PIPELINE
 
-This file documents the **actual** execution flow in the repo today (calibration + runtime typing), based on the current entrypoint and code paths.
+Authoritative description of the **active MVP runtime** after the post-cleanup refactor (2026-06).
 
-### Entry point (what runs when you start the app)
-
-- **Entrypoint**: `main.py`
-  - Creates a `QApplication`
-  - Instantiates `gazekey/ui/virtual_keyboard.py::VirtualKeyboard`
-  - Calls `keyboard.show()` then `keyboard.on_app_started()`
-
-### Simple diagram
+### Entry point
 
 ```
-Camera -> EyeData -> FeatureExtractor -> PcaFeatureSmoother (runtime)
-       -> CalibrationV2Session (during calib)
-       -> fit_calibration_mapper (LOOCV + region gates + row/local Y correction)
-       -> _gaze_mapper_v2 -> Preview / Intent scoring -> SelectionPolicy -> Typing
+main.py
+  → QApplication
+  → VirtualKeyboard.show()
+  → VirtualKeyboard.on_app_started()
+       → schedule layout inspect (in memory)
+       → start calibration if no usable mapper
 ```
 
-### 1) Which files are actually active (calibration + runtime)
-
-#### Always active in the main app
-
-- **UI orchestrator**: `gazekey/ui/virtual_keyboard.py`
-  - Owns tracking lifecycle, calibration lifecycle, mapper fit/load, preview mode, typing, runtime logging.
-- **Calibration UI**: `gazekey/ui/calibration_overlay.py`
-  - Fullscreen dot overlay; v2 path delegates gating/advancement to `CalibrationV2Session`.
-- **Tracking thread**: `gazekey/tracking/tracking_manager.py`
-  - Background capture loop → `EyeDetector.detect(...)` → `EyeData`.
-- **Eye landmark detector**: `gazekey/tracking/eye_detector.py`
-  - MediaPipe FaceLandmarker → iris centers, eye contours, blink.
-- **Thread boundary bridge**: `gazekey/calibration/tracking_bridge.py`
-  - `TrackingBridge.forward(eye_data)` → Qt signal → main thread.
-- **Feature extraction**: `gazekey/features/extractor.py`
-  - `EyeData` → `FrameFeatures` (ratio `avg_h/avg_v` + PCA eye-local `pca_uL/vL/uR/vR`).
-- **Runtime feature smoothing**: `gazekey/features/feature_smoother.py`
-  - `PcaFeatureSmoother` applied in `_process_gaze_typing` before mapper predict.
-- **Layout geometry**: `gazekey/layout/layout_inspector.py`
-  - `inspect_keyboard_layout()` snapshots key centers/rows for calibration targets and intent scoring.
-
-#### Active during calibration (default path)
-
-- **Calibration v2 session**: `gazekey/calibration2/session.py`
-  - `CalibrationV2Session.process(features, dt_ms)` — fixation gate, per-target means, CSV samples.
-- **Fixation gating**: `gazekey/calibration2/fixation_gate.py`
-- **Calibration targets**: `gazekey/calibration2/targets.py`
-  - **Default (keyboard)**: `keyboard_geometry_targets(..., mode="keyboard15")` in `_start_calibration()`.
-    - 15 points: 9 letter-key centers (3 rows × left/center/right) + 2 row-gap points + 4 in-row quarter anchors.
-    - Training coordinates are **real key centers** (`key_id` set); `grid_row` / `grid_col` for region gates.
-  - **Optional**: `GAZEKEY_CALIB_FULLSCREEN=1` → 9-point fullscreen grid (`fullscreen9`).
-  - **Legacy grids** (still in code, not default): `default9`, `precision13` via `keyboard_local_targets()`.
-- **Calibration CSV**: `gazekey/calibration2/calibration_csv.py` → `calibration_samples.csv`, `calibration_summary.csv`.
-- **Outliers / quality helpers**: `gazekey/calibration2/outliers.py`, `quality.py`, `region_quality.py`.
-
-#### Active at calibration finish (fit + gates + persist)
-
-- **Mapper fit + LOOCV selection**: `gazekey/mapping/ridge.py::fit_calibration_mapper()`
-  - Candidates: `pca4_baseline`, `pca4_decoupled_split`, `poly12_ridge`, `poly12_ridge_split` (+ decoupled Y variant).
-  - Auto alpha grid; LOOCV refit per fold; **region gates** primary for keyboard modes.
-  - Post-fit wrappers (keyboard mode):
-    1. **Row Y bias** — `gazekey/mapping/row_bias.py` (3 global row offsets).
-    2. **Local Y correction** — `gazekey/mapping/local_y_correction.py` (X-interpolated residual; fixes u–v row tilt).
-  - **u–v coupling**: if `|corr(v_mean, u_mean)| >= 0.55`, prefer poly12 candidates in ranking.
-- **Vertical decoupling (fit-time)**: `gazekey/features/vertical_decouple.py` — residualize v on `[1,uL,uR]` for decoupled mappers.
-- **Polynomial features**: `gazekey/features/poly_features.py` — 12D poly features for poly12 mappers.
-- **Quality evaluation**: `gazekey/calibration2/quality.py::evaluate_calibration_quality()` — pixel + monotonicity + LOOCV gates before typing enabled.
-- **Geometric diagnostics**: `gazekey/calibration2/geometry_diagnostics.py::print_geometric_diagnostics()` — per-target row/col, nearest key, dx/dy (train + LOOCV).
-- **Geometry overlay (debug)**: `gazekey/ui/calibration_geometry_overlay.py` — green/blue/orange points + error lines when `GAZEKEY_CALIB_GEOM_DEBUG=1` or `GAZEKEY_CALIB_DEBUG=1`.
-- **Persistence**: `gazekey/calibration2/mapper_store.py` → `calibration_v2.json` (version 7; includes row bias + local Y correction).
-
-#### Active during runtime typing/preview
-
-- **Mapper predict**: `VirtualKeyboard._process_gaze_typing()`
-  - `PcaFeatureSmoother.smooth(features)` → `_gaze_mapper_v2.predict(features)` → `GazeSmoother` on screen coords.
-- **Intent scoring**: `gazekey/intent/scoring.py::score_keys()`
-  - Anisotropic Gaussian (wider vertical sigma), row stickiness, cross-row penalty when a key is focused.
-- **Selection policy**: `gazekey/selection/policy.py::SelectionPolicy`
-  - Hysteresis + dwell; **stronger margin/time to switch across rows** (default on; `GAZEKEY_SELECTION_DEBUG=1` disables hysteresis).
-- **Typing controller**: `gazekey/typing/gaze_typing_controller.py` — dwell UI + activation.
-- **Runtime debug CSV**: `gazekey/debug/runtime_key_confidence_logger.py` → `runtime_key_confidence.csv`.
-
-### 2) Which mapper is selected and where
-
-#### Where selection happens
-
-- **Fit**: `VirtualKeyboard._on_calibration_finished()` → `fit_calibration_mapper(...)` in `gazekey/mapping/ridge.py`.
-- **Load on startup**: disabled — `calibration_v2.json` is write-only (inspection); calibrate every launch.
-
-#### What is fitted
-
-`fit_calibration_mapper` fits **only** the frozen typing candidate (`pca4_baseline`; see `TYPING_CANDIDATE.md` and `gazekey/mapping/typing_candidate.py`). Multi-candidate LOOCV ranking (poly12, decoupled, etc.) is disabled on the active path.
-
-Then attaches **row Y bias** and **local X-interpolated Y correction** on the fitted model.
-
-Typical metrics on passing keyboard15 runs: LOOCV RMS ~45–67 px, corr(screen_y, avg_v) ~0.63–0.82.
-
-#### What is NOT used in the default v2 path
-
-- `gazekey/mapping/row_aware.py::RowAwareMapper` — present but not selected by `fit_calibration_mapper` today.
-- `gazekey/mapping/idw_ratio.py`, `idw_local.py` — not wired in `VirtualKeyboard`.
-
-#### Runtime storage
-
-- `VirtualKeyboard._gaze_mapper_v2` — active model (may be wrapped: `MapperWithLocalYCorrection` → `MapperWithRowBias` → core ridge).
-- `VirtualKeyboard._calib2_mode` / `_mapper_mode` — e.g. `keyboard15`.
-- `VirtualKeyboard._active_mapper` — `mapper_type` string from the fitted core (e.g. `pca4_baseline`).
-
-#### Console line after calibration
+### High-level diagram
 
 ```
-[runtime] typing_candidate=pca4_baseline_v1 mapper_mode=keyboard15 active_mapper=pca4_baseline ...
-[typing] Look at keys and dwell to type. Click Preview to show gaze dot without activation.
+Camera → EyeData → FeatureExtractor
+       → [calibrating] CalibrationSession + CalibrationOverlay
+       → [after fit]  MapperRuntime (PCA4 ridge + row bias)
+       → GazeLoop → read-only GazePreview (dot)
+       → [dev] BenchmarkEvalSession (15-key scoring)
 ```
 
-- **mapper_mode**: calibration target set used (`keyboard15`, `fullscreen9`, etc.).
-- **active_mapper** / **mapper_type**: implementation id from the fitted model (wrappers report inner type).
+Mouse clicks on keys still route through the normal Qt button handlers and `TextBufferController`. Gaze **does not** activate keys on the MVP path.
 
-### 3) Calibration modes (summary)
+---
 
-| Mode | Trigger | Points | Training Y/X |
-|------|---------|--------|----------------|
-| `keyboard15` | Default `_start_calibration()` | 15 | Key centers + gaps/extras in letter region |
-| `keyboard13` | `keyboard_geometry_targets(..., mode="keyboard13")` | 13 | Same, fewer extras |
-| `fullscreen9` | `GAZEKEY_CALIB_FULLSCREEN=1` | 9 | Abstract screen 3×3 |
-| `default9` / `precision13` | `keyboard_local_targets()` only | 9 / 13 | Abstract grid in typing rect |
+### Active packages
 
-Clip bounds for ridge predict: letter-keys region rect (`_calib_clip_rect`) in keyboard mode.
+#### Always on
 
-### 4) Quality gates (calibration must pass to enable typing)
+| Area | Files | Role |
+|------|-------|------|
+| UI shell | `gazekey/ui/virtual_keyboard.py` | Thin orchestrator; wires controllers |
+| Layout | `gazekey/ui/keyboard_layout.py`, `gazekey/layout/layout_inspector.py` | Keyboard chrome + key geometry snapshot |
+| Tracking | `gazekey/tracking/tracking_manager.py`, `eye_detector.py` | Background capture → `EyeData` |
+| Bridge | `gazekey/tracking/tracking_bridge.py` | Worker thread → Qt main thread |
+| Features | `gazekey/features/extractor.py`, `feature_smoother.py` | `FrameFeatures` + runtime PCA EMA |
+| Runtime | `gazekey/runtime/tracking_controller.py`, `gaze_loop.py`, `mapper_runtime.py` | Lifecycle, per-frame dispatch, fit/predict |
 
-**Mapper candidate gates** (`ridge.py` + `region_quality.py`):
+#### Calibration (every launch)
 
-- Keyboard mode: **region accuracy is primary** (wrong 3×3 row/col cell fails even if RMS is moderate).
-- Pixel thresholds (keyboard): LOOCV/train errors are often warnings; region failures are hard fails.
-- Default limits in `_on_calibration_finished`: `max_loocv_rms_px=95`, `max_target_loocv_px=110`, `max_train_error_px=60`.
+| File | Role |
+|------|------|
+| `gazekey/ui/calibration_controller.py` | Start session, overlay, `new_session_id()` |
+| `gazekey/ui/calibration_overlay.py` | Fullscreen fixation dots |
+| `gazekey/calibration/session.py` | `CalibrationSession` — gate, per-target means |
+| `gazekey/calibration/fixation_gate.py` | Fixation stability |
+| `gazekey/calibration/targets.py` | `keyboard_geometry_targets` (default `keyboard15`) |
+| `gazekey/calibration/outliers.py` | Peer outlier checks |
+| `gazekey/ui/calibration_finish.py` | Fit orchestration, summaries, debug exports |
 
-**Final acceptance** (`evaluate_calibration_quality`):
+#### Mapping (PCA4 only)
 
-- Additional checks (monotonicity, off-screen LOOCV, per-target train caps, etc.).
-- **Keyboard** `corr(screen_y, avg_v)`: hard fail if `r < 0.15` (catastrophic); `0.15 ≤ r < 0.55` is a **warning only** (typing still enabled if other gates pass). **Fullscreen** still hard-fails below `0.15`.
-- On failure: `_gaze_mapper_v2` cleared, recalibrate prompt; `calibration_debug.csv` written.
+| File | Role |
+|------|------|
+| `gazekey/mapping/config.py` | Frozen MVP constants (α grid, gates, smoothers) |
+| `gazekey/mapping/ridge.py` | `fit_calibration_mapper` → `Pca4BaselineMapper` |
+| `gazekey/mapping/row_bias.py` | Optional post-fit row-Y bias (`APPLY_ROW_Y_BIAS`) |
 
-### 5) Known geometric issue (and mitigations)
+`fit_calibration_mapper` fits **only** `pca4_baseline`. Poly12, decoupled, local-Y, and multi-candidate ranking are **not** on the active path (variants live under `archive/`).
 
-**Problem**: Eye-local `v` correlates with horizontal gaze (`corr(v_mean, u_mean)` often 0.55–0.85). Same screen row (e.g. bottom-left vs bottom-right) can show different `avg_v`, so Y mappers tilt rows.
+#### Quality gates
 
-**Mitigations in pipeline**:
+| File | Role |
+|------|------|
+| `gazekey/runtime/mapper_runtime.py` | Calls fit + `evaluate_calibration_quality` |
+| `gazekey/calibration/quality.py` | Usability decision (preview/benchmark allowed?) |
+| `gazekey/calibration/region_quality.py` | Per-target region LOOCV checks |
 
-1. Dense **keyboard15** targets on real keys (more constraints than 3×3).
-2. **poly12** models + prefer poly12 when coupling ≥ 0.55.
-3. **pca4_decoupled_split** / **poly12 decoupled Y** — residualize v on u at fit and LOOCV folds.
-4. **Row Y bias** — per-row mean residual correction.
-5. **Local Y correction** — interpolate `dy` along screen X from calibration residuals (fixes within-row tilt).
-6. **Runtime**: row-aware intent scoring + cross-row selection hysteresis (separate from mapper).
+On failure: mapper cleared, RECALIBRATE prompt; debug artifacts still written when possible.
 
-### 6) Environment variables (debug / overrides)
+#### Preview (read-only)
 
-| Variable | Effect |
-|----------|--------|
-| `GAZEKEY_CALIB_FULLSCREEN=1` | 9-point fullscreen calibration instead of keyboard15 |
-| `GAZEKEY_CALIB_DEBUG=1` | Verbose calibration overlay status + geometry overlay after fit |
-| `GAZEKEY_CALIB_GEOM_DEBUG=1` | Show calibration geometry overlay (target/train/LOOCV) |
-| `GAZEKEY_GAZE_DEBUG=1` | Preview dot shows raw + smoothed gaze (default on in code) |
-| `GAZEKEY_GAZE_DEBUG_PRED=1` | Per-frame mapper predict logs |
-| `GAZEKEY_GAZE_DEBUG_SELECTION=1` | Per-frame best/chosen key logs |
-| `GAZEKEY_SELECTION_DEBUG=1` | Selection policy follows best every frame (no hysteresis) |
+| File | Role |
+|------|------|
+| `gazekey/ui/gaze_preview.py` | Gaze dot overlay |
+| `gazekey/runtime/gaze_loop.py` | Routes eye data: calibrate / preview / benchmark |
 
-### 7) Legacy-only (do not modify; fallback)
+Preview uses the same predict path as the dev benchmark (`MapperRuntime.predict_gaze_v2` → `GazeSmoother`).
 
-- `gazekey/calibration/*` — v1 session, affine/interpolation mappers, `calibration_store` / `calibration_v1.json` (legacy, not loaded at runtime).
-- Used only when v2 mapper is absent and v1 path is triggered in `_process_gaze_typing`.
+#### Dev benchmark
 
-### 8) Exact runtime flow (step-by-step)
+| File | Role |
+|------|------|
+| `gazekey/ui/benchmark_controller.py` | UI for 15-key timed benchmark |
+| `gazekey/evaluation/benchmark_session.py` | Per-key settle/collect |
+| `gazekey/evaluation/benchmark_runner.py` | Scoring + pass thresholds |
+| `gazekey/evaluation/run_summary.py` | Console + file summaries |
+| `gazekey/evaluation/benchmark_diagnostics.py` | JSON diagnostics |
+
+Triggered when `GAZEKEY_DEV_BENCHMARK=1` after successful calibration.
+
+#### Debug / inspection (not on default import path)
+
+| File | Role |
+|------|------|
+| `gazekey/debug/layout_csv.py` | `keyboard_layout.csv` export |
+| `gazekey/debug/mapper_store.py` | `calibration_v2.json` snapshot |
+| `gazekey/debug/calibration_geometry_diagnostics.py` | Per-target geometric printout |
+| `gazekey/debug/calibration_geometry_overlay.py` | Visual overlay (`GAZEKEY_CALIB_GEOM_DEBUG`) |
+
+---
+
+### Mapper selection
+
+- **When**: `CalibrationFinishController.on_finished` → `MapperRuntime.complete_calibration_fit`
+- **What**: `pca4_baseline` ridge + optional `MapperWithRowBias`
+- **Load on startup**: **disabled** — mapper snapshots are write-only for inspection
+- **Runtime handle**: `MapperRuntime.model` (exposed on `VirtualKeyboard` as `_gaze_mapper`)
+
+Console after successful calibration (example):
+
+```
+[calibration] PASS session=… layout=keyboard15 targets=15/15 …
+[runtime] typing_candidate=pca4_baseline_v1 mapper_mode=keyboard15 active_mapper=pca4_baseline …
+[preview] Gaze dot tracks mapped position; keys are not activated (MVP).
+```
+
+---
+
+### Calibration modes
+
+| Mode | How | Points |
+|------|-----|--------|
+| `keyboard15` | Default (`mapping/config.py`) | 15 on real key centers + row structure |
+| Other layouts | `GAZEKEY_CALIB_MODE` or `calibration_controller` | See `gazekey/calibration/targets.py` |
+
+Clip bounds for predict: letter-keys region (`_calib_clip_rect`) in keyboard mode.
+
+---
+
+### Step-by-step runtime flow
 
 #### Tracking → main thread
 
-1. `TrackingManager` → `EyeDetector.detect` → `EyeData`
-2. `TrackingBridge.forward` → `VirtualKeyboard._on_eye_data_main_thread`
+1. `TrackingManager` captures frame → `EyeDetector.detect` → `EyeData`
+2. `TrackingBridge.forward` → `GazeLoopController.process_eye_data`
 
-#### Feature path
+#### During calibration
 
-3. `FeatureExtractor.from_eye_data` → `FrameFeatures`
-4. If calibrating: `CalibrationOverlay.add_features_dt` → `CalibrationV2Session.process`
-5. If runtime: `PcaFeatureSmoother.smooth` → mapper → `GazeSmoother` → intent → selection → dwell/activate
+3. `_start_calibration_if_needed` → `CalibrationController.start` → assigns `session_id`, binds `runs/<session_id>/`
+4. `CalibrationOverlay` feeds features to `CalibrationSession.process`
+5. Per target: fixation lock → accepted samples → advance
+6. `_on_calibration_finished` → `MapperRuntime.complete_calibration_fit`
+7. Quality gates → summaries + debug exports → preview mode on success
 
-#### Calibration v2
+#### After calibration (preview)
 
-6. `_start_calibration()` → `keyboard_geometry_targets` (or fullscreen9) → `CalibrationV2Session` + overlay
-7. Per target: fixation lock → accepted window mean → next target
-8. `_on_calibration_finished` → `fit_calibration_mapper` → quality gates → `MapperStore.save` → preview mode on success
+8. `GazeLoop` → `FeatureExtractor` → `PcaFeatureSmoother` → `MapperRuntime.predict_gaze_v2`
+9. `GazeSmoother` on screen coords → `GazePreviewController` draws dot
+10. No intent scoring, selection policy, or dwell activation on this path
 
-#### Runtime typing
+#### Dev benchmark (optional)
 
-9. `_gaze_mapper_v2.predict(smoothed_features)` → screen (x, y)
-10. `score_keys(..., focused_key_id=..., row_stickiness=..., cross_row_penalty=...)`
-11. `SelectionPolicy.update(..., best_row_index=...)` → focus + dwell
-12. `GazeTypingController` + `_on_gaze_activate_key`
+11. `BenchmarkController` highlights keys sequentially
+12. Hit test via `gazekey/typing/key_hit_tester.py` + `evaluation/benchmark_runner.py`
+13. Write `benchmark_summary.txt` + `benchmark_diag.json` under same session folder
 
-### 9) Debug artifacts (repo root)
+---
 
-| File | Contents |
-|------|----------|
-| `calibration_samples.csv` | Per-frame calibration samples |
-| `calibration_summary.csv` | Per-target summary after fit |
-| `calibration_debug.csv` | Per-target train/LOOCV errors + features |
-| `calibration_ratio_space.csv` | Row-level avg_v stats export |
-| `calibration_v2.json` | Fitted mapper + wrappers (v7) |
-| `runtime_key_confidence.csv` | Runtime gaze/selection log |
-| `keyboard_layout.csv` | Exported key geometry snapshot |
+### Session artifacts (`runs/<session_id>/`)
 
-### 10) Legacy / cleanup notes
+| File | When |
+|------|------|
+| `keyboard_layout.csv` | After session id is bound (calibration start + exports) |
+| `calibration_v2.json` | After ridge fit (inspection snapshot) |
+| `calibration_summary.txt` | Calibration finish |
+| `coverage.json` | Calibration finish |
+| `calibration_debug.csv` | Calibration finish (fit succeeded) |
+| `calibration_ratio_space.csv` | Calibration finish |
+| `benchmark_summary.txt` | Dev benchmark finish |
+| `benchmark_diag.json` | Dev benchmark finish |
 
-- `gazekey/debug/runtime_key_confidence_logger.py` docstring still says “Phase 0” — fields are live; docstring is stale.
-- Per-frame `[rt2]` logs are gated by `GAZEKEY_GAZE_DEBUG_*` env vars.
-- IDW mappers and `RowAwareMapper` remain candidates for future experiments, not current defaults.
+Path helpers: `gazekey/evaluation/session_paths.py`.
+
+Nothing new is written to the repository root.
+
+---
+
+### Environment variables
+
+| Variable | Effect |
+|----------|--------|
+| `GAZEKEY_VERBOSE=1` | Verbose calibration/runtime logs |
+| `GAZEKEY_DEV_BENCHMARK=1` | Auto 15-key benchmark after calibration |
+| `GAZEKEY_CALIB_MODE` | Override calibration target layout |
+| `GAZEKEY_CALIB_DEBUG=1` | Verbose overlay + geometry overlay |
+| `GAZEKEY_CALIB_GEOM_DEBUG=1` | Post-fit geometry overlay |
+| `GAZEKEY_GAZE_DEBUG=1` | Extra gaze predict logs |
+| `GAZEKEY_GAZE_DEBUG_PRED=1` | Per-frame mapper predict logs |
+| `GAZEKEY_GAZE_DEBUG_SELECTION=1` | Selection debug (dormant typing path only) |
+| `GAZEKEY_SELECTION_DEBUG=1` | Disable selection hysteresis (dormant path) |
+
+---
+
+### Not on the active path
+
+| Was / exists | Status |
+|--------------|--------|
+| `gazekey/calibration2/` | Renamed → `gazekey/calibration/` |
+| `calibration_csv.py`, per-frame sample CSVs | Removed |
+| `mapping/local_y_correction.py`, poly12, decoupled | Archived / not fitted |
+| `gazekey/future/` intent + dwell typing | Dormant; preview is read-only |
+| `gazekey/debug/runtime_key_confidence_logger.py` | Deleted |
+| `archive/calibration_v1/` | Legacy reference only |
+
+---
 
 ### Quick checklist
 
-- Calibration: **v2** + **keyboard15** (15 key-aligned points)
-- Fit: **frozen pca4_baseline** + **region gates** + **row bias** + **local Y correction**
-- Typing candidate doc: **`TYPING_CANDIDATE.md`**
-- Persist: **`calibration_v2.json`** via `MapperStore`
-- Runtime: **smoothed PCA features** → **v2 mapper** → **row-stable intent** → **hysteresis selection**
-- Legacy `gazekey/calibration/`: **not used** on successful v2 path
+- Calibrate every launch: **`CalibrationSession`** + **`keyboard15`**
+- Fit: **`pca4_baseline`** + **row Y bias** (no local-Y on active path)
+- Config: **`gazekey/mapping/config.py`** + **`TYPING_CANDIDATE.md`**
+- Persist: **`runs/<session_id>/calibration_v2.json`** via **`debug/mapper_store.py`**
+- Runtime: **smoothed PCA features** → **ridge mapper** → **read-only preview dot**
+- Typing: **mouse click**; gaze dwell typing **off** until `gazekey/future/` is reconnected

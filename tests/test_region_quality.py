@@ -1,6 +1,6 @@
 """Region-based calibration quality checks."""
 
-from gazekey.calibration2.region_quality import parse_target_region, _region_match
+from gazekey.calibration.region_quality import parse_target_region, _region_match
 
 
 def test_parse_target_region():

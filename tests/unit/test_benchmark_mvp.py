@@ -37,13 +37,21 @@ def _bare_keyboard():
     from gazekey.ui.virtual_keyboard import VirtualKeyboard
 
     kb = VirtualKeyboard.__new__(VirtualKeyboard)
-    kb._gaze_mapper_v2 = None
+    kb._mapper_runtime = MagicMock()
+    kb._mapper_runtime.model = None
+    kb._mapper_runtime.usable.return_value = False
+    kb._benchmark_controller = MagicMock()
+    kb._benchmark_controller.active.return_value = False
     kb._is_calibrating = False
-    kb._keyboard_accuracy_session = None
-    kb._benchmark_mvp_run = False
     kb._preview_mode = False
     kb._verbose = False
+    kb._log_verbose = MagicMock()
     return kb
+
+
+def _set_usable_mapper(kb, model=object()):
+    kb._mapper_runtime.model = model
+    kb._mapper_runtime.usable.return_value = model is not None
 
 
 def test_benchmark_run_summary_includes_failure_analysis(tmp_path):
@@ -65,7 +73,11 @@ def test_benchmark_run_summary_includes_failure_analysis(tmp_path):
         failure_reason=reason,
         failure_analysis=analysis,
     )
-    text = (tmp_path / f"benchmark_{summary.session_id}.txt").read_text(encoding="utf-8")
+    from gazekey.evaluation.session_paths import folder_session_id
+
+    text = (
+        tmp_path / folder_session_id(summary.session_id) / "benchmark_summary.txt"
+    ).read_text(encoding="utf-8")
     assert "[benchmark] FAIL" in text
     assert "failure_analysis:" in text
     assert "keys_failed:" in text
@@ -84,61 +96,64 @@ def test_no_benchmark_button_in_control_bar(qapp, monkeypatch):
 def test_benchmark_does_not_auto_start_by_default(monkeypatch):
     monkeypatch.delenv("GAZEKEY_DEV_BENCHMARK", raising=False)
     kb = _bare_keyboard()
-    kb._gaze_mapper_v2 = object()
+    _set_usable_mapper(kb)
     kb._preview_mode = True
-    kb._start_mvp_benchmark = MagicMock()
+    kb._benchmark_controller.start_mvp_benchmark = MagicMock()
 
     kb._maybe_start_dev_benchmark()
 
-    kb._start_mvp_benchmark.assert_not_called()
+    kb._benchmark_controller.start_mvp_benchmark.assert_not_called()
 
 
 def test_dev_benchmark_auto_starts_when_usable_and_preview_ready(monkeypatch):
     monkeypatch.setenv("GAZEKEY_DEV_BENCHMARK", "1")
     kb = _bare_keyboard()
-    kb._gaze_mapper_v2 = object()
+    _set_usable_mapper(kb)
     kb._preview_mode = True
-    kb._start_mvp_benchmark = MagicMock()
+    kb._benchmark_controller.start_mvp_benchmark = MagicMock()
+    kb._benchmark_controller.maybe_start_dev_benchmark = MagicMock(
+        side_effect=lambda: kb._benchmark_controller.start_mvp_benchmark()
+    )
 
     kb._maybe_start_dev_benchmark()
 
-    kb._start_mvp_benchmark.assert_called_once()
+    kb._benchmark_controller.start_mvp_benchmark.assert_called_once()
 
 
 def test_dev_benchmark_blocked_without_usable_mapper(monkeypatch):
     monkeypatch.setenv("GAZEKEY_DEV_BENCHMARK", "1")
     kb = _bare_keyboard()
     kb._preview_mode = True
-    kb._start_mvp_benchmark = MagicMock()
+    kb._benchmark_controller.start_mvp_benchmark = MagicMock()
 
     kb._maybe_start_dev_benchmark()
 
-    kb._start_mvp_benchmark.assert_not_called()
+    kb._benchmark_controller.start_mvp_benchmark.assert_not_called()
 
 
 def test_dev_benchmark_blocked_until_preview_ready(monkeypatch):
     monkeypatch.setenv("GAZEKEY_DEV_BENCHMARK", "1")
     kb = _bare_keyboard()
-    kb._gaze_mapper_v2 = object()
+    _set_usable_mapper(kb)
     kb._preview_mode = False
-    kb._start_mvp_benchmark = MagicMock()
+    kb._benchmark_controller.start_mvp_benchmark = MagicMock()
 
     kb._maybe_start_dev_benchmark()
 
-    kb._start_mvp_benchmark.assert_not_called()
+    kb._benchmark_controller.start_mvp_benchmark.assert_not_called()
 
 
 def test_dev_benchmark_blocked_during_calibration(monkeypatch):
     monkeypatch.setenv("GAZEKEY_DEV_BENCHMARK", "1")
     kb = _bare_keyboard()
-    kb._gaze_mapper_v2 = object()
+    _set_usable_mapper(kb)
     kb._preview_mode = True
     kb._is_calibrating = True
-    kb._start_mvp_benchmark = MagicMock()
+    kb._benchmark_controller.start_mvp_benchmark = MagicMock()
 
     kb._maybe_start_dev_benchmark()
 
-    kb._start_mvp_benchmark.assert_not_called()
+    kb._benchmark_controller.start_mvp_benchmark.assert_not_called()
 
 
 def test_calibration_usable_gate_blocks_benchmark_without_mapper():

@@ -1,17 +1,16 @@
-"""Tests for the frozen typing-candidate configuration."""
+"""Tests for the frozen MVP mapping configuration."""
 
 from __future__ import annotations
 
 from gazekey.features.feature_types import FrameFeatures
 from gazekey.mapping import ACTIVE_MAPPER, TYPING_CANDIDATE_ID, fit_calibration_mapper
-from gazekey.mapping.ridge import FROZEN_ACTIVE_MAPPER
-from gazekey.mapping.typing_candidate import (
-    APPLY_LOCAL_Y_CORRECTION,
+from gazekey.mapping.config import (
     APPLY_ROW_Y_BIAS,
     CALIBRATION_MODE,
     FEATURE_SMOOTHER_ALPHA,
     GAZE_SMOOTHER_ALPHA,
 )
+from gazekey.mapping.ridge import FROZEN_ACTIVE_MAPPER
 
 
 def _feat(u_l: float, v_l: float, u_r: float, v_r: float) -> FrameFeatures:
@@ -56,26 +55,20 @@ def _minimal_calibration_samples():
     return out
 
 
-def test_typing_candidate_identity():
+def test_mapping_config_identity():
     assert TYPING_CANDIDATE_ID == "pca4_baseline_v1"
     assert ACTIVE_MAPPER == "pca4_baseline"
     assert FROZEN_ACTIVE_MAPPER == ACTIVE_MAPPER
 
 
-def test_typing_candidate_pipeline_constants():
-    from gazekey.mapping.typing_candidate import ENABLE_TYPING_ON_BEST_EFFORT
-
+def test_mapping_config_pipeline_constants():
     assert CALIBRATION_MODE == "keyboard15"
-    # Phase 8 Iteration 3: row-Y bias enabled; local-Y stays disabled (single lever).
     assert APPLY_ROW_Y_BIAS is True
-    assert APPLY_LOCAL_Y_CORRECTION is False
     assert FEATURE_SMOOTHER_ALPHA == 0.28
     assert GAZE_SMOOTHER_ALPHA == 0.35
-    assert ENABLE_TYPING_ON_BEST_EFFORT is False
 
 
-def test_fit_calibration_mapper_only_evaluates_frozen_mapper():
+def test_fit_calibration_mapper_pca4_only():
     fit = fit_calibration_mapper(samples=_minimal_calibration_samples(), min_alpha=1.0)
     assert fit.success and fit.model is not None
-    assert len(fit.candidate_reports) == 1
-    assert fit.candidate_reports[0].mapper_type == ACTIVE_MAPPER
+    assert fit.model.mapper_type == "pca4_baseline"

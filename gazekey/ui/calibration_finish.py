@@ -9,13 +9,21 @@ from typing import TYPE_CHECKING, Optional
 import numpy as np
 from PySide6.QtCore import QTimer
 
-from gazekey.calibration2.geometry_diagnostics import print_geometric_diagnostics
-from gazekey.calibration2.session import CalibrationV2Result
+from gazekey.debug.calibration_geometry_diagnostics import print_geometric_diagnostics
+from gazekey.calibration.session import CalibrationResult
 from gazekey.evaluation.coverage_diagnostics import build_coverage_report, write_coverage_diagnostics
+from gazekey.debug.mapper_store import save_calibration_mapper
+from gazekey.evaluation.session_paths import (
+    CALIBRATION_DEBUG_CSV,
+    CALIBRATION_RATIO_SPACE_CSV,
+    CALIBRATION_V2_FILE,
+    KEYBOARD_LAYOUT_FILE,
+    ensure_session_dir,
+)
 from gazekey.layout import inspect_keyboard_layout
-from gazekey.mapping.typing_candidate import CALIBRATION_MODE, TYPING_CANDIDATE_ID
+from gazekey.mapping.config import CALIBRATION_MODE, TYPING_CANDIDATE_ID
 from gazekey.mvp_log import mvp_log
-from gazekey.ui.calibration_geometry_overlay import CalibrationGeometryOverlay
+from gazekey.debug.calibration_geometry_overlay import CalibrationGeometryOverlay
 from gazekey.ui.env_flags import calib_geom_debug
 
 if TYPE_CHECKING:
@@ -41,27 +49,27 @@ class CalibrationFinishController:
         h._locked_frame_size = None
         h._set_camera_preview_blocked(False)
 
-        if not isinstance(result, CalibrationV2Result):
-            h._log_verbose(f"[calib2] unexpected result type: {type(result)}")
+        if not isinstance(result, CalibrationResult):
+            h._log_verbose(f"[calib] unexpected result type: {type(result)}")
             return
 
         if not result.success:
-            h._log_verbose(f"[calib2] failed: {result.message}")
+            h._log_verbose(f"[calib] failed: {result.message}")
             self.write_run_summary(passed=False, failure_reason=result.message)
             return
 
-        if h._calibration_v2_session is None:
-            h._log_verbose("[calib2] missing session at finish")
+        if h._calibration_session is None:
+            h._log_verbose("[calib] missing session at finish")
             self.write_run_summary(passed=False, failure_reason="missing_session")
             return
 
         missing = [
             i
-            for i in range(len(h._calibration_v2_session.targets))
-            if h._calibration_v2_session.accepted_count_for_target(i) <= 0
+            for i in range(len(h._calibration_session.targets))
+            if h._calibration_session.accepted_count_for_target(i) <= 0
         ]
         if missing:
-            h._log_verbose(f"[calib2] not fitting mapper: missing accepted samples for targets {missing}")
+            h._log_verbose(f"[calib] not fitting mapper: missing accepted samples for targets {missing}")
             self.write_run_summary(
                 passed=False,
                 failure_reason=f"missing_samples targets={missing}",
@@ -69,11 +77,11 @@ class CalibrationFinishController:
             return
 
         try:
-            h._calibration_v2_session.print_training_means()
+            h._calibration_session.print_training_means()
         except Exception as e:
-            h._log_verbose(f"[calib2] training means print failed: {e}")
+            h._log_verbose(f"[calib] training means print failed: {e}")
 
-        samples = h._calibration_v2_session.get_training_samples()
+        samples = h._calibration_session.get_training_samples()
 
         try:
             h_vals = [float(s.avg_h) for (s, _p) in samples if s.avg_h is not None]
@@ -84,7 +92,7 @@ class CalibrationFinishController:
                 h._log_verbose(f"[diag] avg_h range: {min(h_vals):.3f}-{max(h_vals):.3f} span={span_h:.3f}")
                 h._log_verbose(f"[diag] avg_v range: {min(v_vals):.3f}-{max(v_vals):.3f} span={span_v:.3f}")
                 h._log_verbose(f"[diag] pca features sample[0]: {samples[0][0]}")
-                min_span = 0.06 if str(h._calib2_mode).startswith("keyboard") else 0.15
+                min_span = 0.06 if str(h._calib_mode).startswith("keyboard") else 0.15
                 if span_v < min_span or span_h < min_span:
                     h._log_verbose(
                         f"[diag] WARNING: feature span small (h={span_h:.3f} v={span_v:.3f}) "
@@ -106,7 +114,7 @@ class CalibrationFinishController:
         fit = ridge_fit
 
         if outcome.ridge_fit_failed:
-            h._log_verbose(f"[calib2] ridge fit failed: {outcome.failure_reason}")
+            h._log_verbose(f"[calib] ridge fit failed: {outcome.failure_reason}")
             h._preview_mode = False
             h._set_post_calibration_controls(False)
             self.write_run_summary(passed=False, failure_reason=outcome.failure_reason)
@@ -118,19 +126,19 @@ class CalibrationFinishController:
         try:
             self.print_row_v_stats_and_export_ratio_space()
         except Exception as e:
-            h._log_verbose(f"[calib2] ratio-space stats/export failed: {e}")
+            h._log_verbose(f"[calib] ratio-space stats/export failed: {e}")
 
         quality = outcome.quality
         try:
             print_geometric_diagnostics(
                 model=ridge_fit.model,
                 samples=samples,
-                targets=h._calibration_v2_session.targets,
+                targets=h._calibration_session.targets,
                 loocv_detail=ridge_loocv_detail,
-                keys=h._intent_keys or inspect_keyboard_layout(h.keyboard_widget),
+                keys=h._layout_keys or inspect_keyboard_layout(h.keyboard_widget),
             )
         except Exception as e:
-            h._log_verbose(f"[calib2] geometric diagnostics failed: {e}")
+            h._log_verbose(f"[calib] geometric diagnostics failed: {e}")
 
         if calib_geom_debug(calib_debug_cached=h._calib_debug):
             try:
@@ -140,15 +148,15 @@ class CalibrationFinishController:
                     loocv_detail=ridge_loocv_detail,
                 )
             except Exception as e:
-                h._log_verbose(f"[calib2] geometry overlay failed: {e}")
+                h._log_verbose(f"[calib] geometry overlay failed: {e}")
 
         if outcome.quality_blocked:
             mvp_log(
-                "[calib2] RECALIBRATE: calibration not usable — preview/benchmark blocked",
+                "[calib] RECALIBRATE: calibration not usable — preview/benchmark blocked",
                 always=True,
             )
             for reason in quality.reasons:
-                h._log_verbose(f"[calib2]   reason: {reason}")
+                h._log_verbose(f"[calib]   reason: {reason}")
             h._preview_mode = False
             h._set_post_calibration_controls(False)
             self.write_run_summary(
@@ -162,20 +170,12 @@ class CalibrationFinishController:
                 "Calibration failed — keep head still, move eyes only, then tap RECALIBRATE"
             )
             try:
+                self.write_mapper_snapshot(ridge_fit=ridge_fit)
                 self.write_debug_csv(ridge_fit=ridge_fit, loocv_detail=ridge_loocv_detail)
                 self.print_target_sample_quality()
             except Exception:
                 pass
             return
-
-        try:
-            h._calibration_v2_session.write_summary(
-                mapper_type=getattr(fit.model, "mapper_type", "unknown"),
-                per_target_error_px=per_target_err,
-                overall_rms_px=loocv_rms,
-            )
-        except Exception as e:
-            h._log_verbose(f"[calib2] summary write failed: {e}")
 
         self.write_run_summary(
             passed=True,
@@ -183,18 +183,16 @@ class CalibrationFinishController:
             ridge_alpha=ridge_alpha,
             quality_warnings=quality.warnings,
         )
+        self.write_mapper_snapshot(ridge_fit=ridge_fit)
         h._set_post_calibration_controls(True)
         self.write_coverage_diagnostic()
-        h._selection_policy.reset()
         h._last_v2_pred_x = None
         h._last_v2_pred_y = None
         h._last_v2_pred_t = None
-        h._gaze_typing_controller.mark_keyboard_dirty()
-        QTimer.singleShot(150, h._gaze_typing_controller.mark_keyboard_dirty)
 
         h._reset_calibrate_button_style()
         status_suffix = " (best-effort)" if getattr(ridge_fit, "best_effort", False) else ""
-        h.camera_status_label.setText(f"📷 Calibration v2 saved ✓{status_suffix}")
+        h.camera_status_label.setText(f"📷 Calibration saved ✓{status_suffix}")
         h.camera_status_label.setStyleSheet("""
             QLabel {
                 color: #10B981;
@@ -203,15 +201,15 @@ class CalibrationFinishController:
             }
         """)
         h._log_verbose(
-            f"[calib2] complete. Read-only gaze preview enabled ({TYPING_CANDIDATE_ID}: "
+            f"[calib] complete. Read-only gaze preview enabled ({TYPING_CANDIDATE_ID}: "
             f"{h._active_mapper})."
         )
         h._log_verbose("[preview] Gaze dot tracks mapped position; keys are not activated (MVP).")
-        mapper_type = getattr(h._gaze_mapper_v2, "mapper_type", "unknown")
+        mapper_type = getattr(h._gaze_mapper, "mapper_type", "unknown")
         runtime_line = (
             "[runtime] "
             f"typing_candidate={TYPING_CANDIDATE_ID} "
-            f"mapper_mode={h._mapper_mode or h._calib2_mode} "
+            f"mapper_mode={h._mapper_mode or h._calib_mode} "
             f"active_mapper={h._active_mapper} "
             f"mapper_type={mapper_type} "
             f"LOOCV_RMS={quality.loocv_rms_px}"
@@ -235,23 +233,18 @@ class CalibrationFinishController:
         except Exception:
             pass
 
-        if h._keyboard_accuracy_debug:
-            try:
-                h._benchmark_controller.start_keyboard_accuracy_debug()
-            except Exception as e:
-                h._log_verbose(f"[key_accuracy] failed to start: {e}")
-        elif h._dev_benchmark_enabled():
+        if h._dev_benchmark_enabled():
             QTimer.singleShot(150, h._maybe_start_dev_benchmark)
 
         try:
             self.write_debug_csv(ridge_fit=ridge_fit, loocv_detail=ridge_loocv_detail)
         except Exception as e:
-            h._log_verbose(f"[calib2] calibration_debug.csv write failed: {e}")
+            h._log_verbose(f"[calib] calibration_debug.csv write failed: {e}")
 
         try:
             self.print_target_sample_quality()
         except Exception as e:
-            h._log_verbose(f"[calib2] per-target sample diagnostics failed: {e}")
+            h._log_verbose(f"[calib] per-target sample diagnostics failed: {e}")
 
     def write_run_summary(
         self,
@@ -263,16 +256,16 @@ class CalibrationFinishController:
         quality_warnings: Optional[list[str]] = None,
     ) -> None:
         h = self._host
-        session = h._calibration_v2_session
+        session = h._calibration_session
         if session is None:
             return
         collected = sum(
             1 for i in range(len(session.targets)) if session.accepted_count_for_target(i) > 0
         )
         h._run_summary_writer.write_calibration_summary(
-            session_id=h._calibration_controller.session_id or session.csv.session_id,
+            session_id=h._calibration_controller.session_id or session.session_id,
             status="passed" if passed else "failed",
-            layout=str(h._calib2_mode or CALIBRATION_MODE),
+            layout=str(h._calib_mode or CALIBRATION_MODE),
             targets_collected=collected,
             targets_total=len(session.targets),
             failure_reason=failure_reason,
@@ -281,14 +274,35 @@ class CalibrationFinishController:
             quality_warnings=quality_warnings,
         )
 
+    def write_mapper_snapshot(self, *, ridge_fit) -> None:
+        h = self._host
+        if ridge_fit is None or ridge_fit.model is None:
+            return
+        session_id = h._calibration_controller.session_id
+        if not session_id and h._calibration_session is not None:
+            session_id = h._calibration_session.session_id
+        if not session_id:
+            return
+        try:
+            path = save_calibration_mapper(
+                ridge_fit.model,
+                session_id=session_id,
+                calibration_mode=str(h._calib_mode or CALIBRATION_MODE),
+                mapper_mode=str(h._mapper_mode or h._calib_mode or CALIBRATION_MODE),
+                runs_dir=h._run_summary_writer.runs_dir,
+            )
+            h._log_verbose(f"[calib] wrote {path.name} under runs/{session_id}/")
+        except Exception as e:
+            h._log_verbose(f"[calib] mapper snapshot write failed: {e}")
+
     def write_coverage_diagnostic(self) -> None:
         h = self._host
         try:
-            session = h._calibration_v2_session
+            session = h._calibration_session
             if session is None or not session.targets:
                 return
             anchors = [(float(t.screen_x), float(t.screen_y)) for t in session.targets]
-            layout_keys = h._intent_keys or inspect_keyboard_layout(h.keyboard_widget)
+            layout_keys = h._layout_keys or inspect_keyboard_layout(h.keyboard_widget)
             keys = [
                 {
                     "key_label": str(k.key_label),
@@ -302,27 +316,31 @@ class CalibrationFinishController:
             ]
             if not keys:
                 return
-            session_id = h._calibration_controller.session_id or session.csv.session_id
+            session_id = h._calibration_controller.session_id or session.session_id
             report = build_coverage_report(
                 anchors=anchors,
                 keys=keys,
-                calibration_mode=str(h._calib2_mode or CALIBRATION_MODE),
+                calibration_mode=str(h._calib_mode or CALIBRATION_MODE),
                 session_id=str(session_id),
             )
-            path = write_coverage_diagnostics(report, session_id=str(session_id))
+            path = write_coverage_diagnostics(
+                report,
+                session_id=str(session_id),
+                runs_dir=str(h._run_summary_writer.runs_dir),
+            )
             cov = report["overall"]
             h._log_verbose(
-                f"[calib2] coverage diag -> {path} "
+                f"[calib] coverage diag -> {path} "
                 f"({cov['n_inside_hull']}/{cov['n_keys']} keys inside hull)"
             )
         except Exception as e:
-            h._log_verbose(f"[calib2] coverage diagnostic failed: {e}")
+            h._log_verbose(f"[calib] coverage diagnostic failed: {e}")
 
     def show_geometry_overlay(self, *, samples, model, loocv_detail) -> None:
         h = self._host
-        if h._calibration_v2_session is None:
+        if h._calibration_session is None:
             return
-        targets = h._calibration_v2_session.targets
+        targets = h._calibration_session.targets
         expected = [(float(t.screen_x), float(t.screen_y)) for t in targets]
         labels = [str(t.label) for t in targets]
         train_pred: list = []
@@ -344,24 +362,48 @@ class CalibrationFinishController:
         )
         ov.show()
         ov.raise_()
-        h._log_verbose("[calib2] geometry overlay shown (green=target blue=train orange=LOOCV)")
+        h._log_verbose("[calib] geometry overlay shown (green=target blue=train orange=LOOCV)")
+
+    def _session_artifact_dir(self) -> Path:
+        h = self._host
+        session_id = h._calibration_controller.session_id
+        if not session_id and h._calibration_session is not None:
+            session_id = h._calibration_session.session_id
+        return ensure_session_dir(session_id or "unknown", runs_dir=h._run_summary_writer.runs_dir)
 
     def reset_debug_csvs(self) -> None:
         h = self._host
         root = Path(__file__).resolve().parents[2]
-        for name in ("calibration_debug.csv", "calibration_ratio_space.csv"):
+        legacy_names = (
+            CALIBRATION_DEBUG_CSV,
+            CALIBRATION_RATIO_SPACE_CSV,
+            KEYBOARD_LAYOUT_FILE,
+            CALIBRATION_V2_FILE,
+        )
+        for name in legacy_names:
             path = root / name
             try:
                 if path.is_file():
                     path.unlink()
             except OSError as e:
-                h._log_verbose(f"[calib2] could not reset {name}: {e}")
+                h._log_verbose(f"[calib] could not reset legacy {name}: {e}")
+        session_id = h._calibration_controller.session_id
+        if not session_id:
+            return
+        session_dir = ensure_session_dir(session_id, runs_dir=h._run_summary_writer.runs_dir)
+        for name in legacy_names:
+            path = session_dir / name
+            try:
+                if path.is_file():
+                    path.unlink()
+            except OSError as e:
+                h._log_verbose(f"[calib] could not reset {name}: {e}")
 
     def write_debug_csv(self, *, ridge_fit, loocv_detail) -> None:
         h = self._host
-        if h._calibration_v2_session is None or ridge_fit is None or ridge_fit.model is None:
+        if h._calibration_session is None or ridge_fit is None or ridge_fit.model is None:
             return
-        sess = h._calibration_v2_session
+        sess = h._calibration_session
         model = ridge_fit.model
 
         loocv_by_i = {}
@@ -369,8 +411,7 @@ class CalibrationFinishController:
             for d in loocv_detail:
                 loocv_by_i[int(d["i"])] = d
 
-        root = Path(__file__).resolve().parents[2]
-        out_path = root / "calibration_debug.csv"
+        out_path = self._session_artifact_dir() / CALIBRATION_DEBUG_CSV
         with open(out_path, "w", newline="", encoding="utf-8") as f:
             w = csv.writer(f)
             w.writerow(
@@ -429,13 +470,13 @@ class CalibrationFinishController:
                         int(n_raw),
                     ]
                 )
-        h._log_verbose(f"[calib2] wrote calibration debug CSV: {out_path}")
+        h._log_verbose(f"[calib] wrote calibration debug CSV: {out_path}")
 
     def print_target_sample_quality(self) -> None:
         h = self._host
-        if h._calibration_v2_session is None:
+        if h._calibration_session is None:
             return
-        sess = h._calibration_v2_session
+        sess = h._calibration_session
 
         def iqr_filter(values: np.ndarray) -> np.ndarray:
             values = np.asarray(values, dtype=np.float64)
@@ -473,7 +514,7 @@ class CalibrationFinishController:
                 noisy = True
 
             h._log_verbose(
-                "[calib2] target samples: "
+                "[calib] target samples: "
                 f"T{i+1:02d} label={t.label} "
                 f"raw_n={raw_n} filt_n={filt_n} "
                 f"avg_h(mean={mu_h:.4f} std={sd_h:.4f}) "
@@ -483,9 +524,9 @@ class CalibrationFinishController:
 
     def print_row_v_stats_and_export_ratio_space(self) -> None:
         h = self._host
-        if h._calibration_v2_session is None:
+        if h._calibration_session is None:
             return
-        sess = h._calibration_v2_session
+        sess = h._calibration_session
         rows = []
         for i, t in enumerate(sess.targets):
             n = sess.samples_used_for_target_mean(i)
@@ -507,29 +548,28 @@ class CalibrationFinishController:
 
         def stats(name: str, rs):
             if not rs:
-                h._log_verbose(f"[calib2] avg_v row {name}: (no targets)")
+                h._log_verbose(f"[calib] avg_v row {name}: (no targets)")
                 return None
             vs = np.array([r[6] for r in rs], dtype=np.float64)
             mu = float(np.mean(vs))
             sd = float(np.std(vs))
-            h._log_verbose(f"[calib2] avg_v row {name}: mean={mu:.4f} std={sd:.4f} n_targets={len(rs)}")
+            h._log_verbose(f"[calib] avg_v row {name}: mean={mu:.4f} std={sd:.4f} n_targets={len(rs)}")
             return mu
 
         mu_top = stats("top", top)
         mu_mid = stats("mid", mid)
         mu_bot = stats("bottom", bot)
         if mu_top is not None and mu_mid is not None:
-            h._log_verbose(f"[calib2] avg_v separation top-mid: {abs(mu_top - mu_mid):.4f}")
+            h._log_verbose(f"[calib] avg_v separation top-mid: {abs(mu_top - mu_mid):.4f}")
         if mu_mid is not None and mu_bot is not None:
-            h._log_verbose(f"[calib2] avg_v separation mid-bottom: {abs(mu_mid - mu_bot):.4f}")
+            h._log_verbose(f"[calib] avg_v separation mid-bottom: {abs(mu_mid - mu_bot):.4f}")
 
-        root = Path(__file__).resolve().parents[2]
-        out_path = root / "calibration_ratio_space.csv"
+        out_path = self._session_artifact_dir() / CALIBRATION_RATIO_SPACE_CSV
         with open(out_path, "w", newline="", encoding="utf-8") as f:
             w = csv.writer(f)
             w.writerow(
                 ["session_id", "target_id", "label", "screen_x", "screen_y", "n_samples", "mean_avg_h", "mean_avg_v"]
             )
             for (tid, label, sx, sy, n, mh, mv) in rows:
-                w.writerow([sess.csv.session_id, tid, label, sx, sy, n, mh, mv])
-        h._log_verbose(f"[calib2] wrote ratio-space scatter CSV: {out_path}")
+                w.writerow([sess.session_id, tid, label, sx, sy, n, mh, mv])
+        h._log_verbose(f"[calib] wrote ratio-space scatter CSV: {out_path}")
