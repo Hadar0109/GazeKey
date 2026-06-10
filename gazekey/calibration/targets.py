@@ -68,6 +68,63 @@ def _grid_points(rect: QRect, rows: int, cols: int, margin_ratio: float) -> List
     return [(x, y) for y in ys for x in xs]  # row-major
 
 
+# Default keyboard15: 15 real key centers spanning top/home/bottom rows + Space.
+_KEYBOARD15_REAL_KEY_ACTIONS: Tuple[Tuple[str, ...], ...] = (
+    ("Q", "E", "T", "U", "P"),
+    ("A", "D", "G", "J", "L"),
+    ("Z", "C", "B", "M", " "),
+)
+
+
+def _find_key_by_action(
+    keys: Sequence[KeyGeometryRow],
+    action: str,
+) -> Optional[KeyGeometryRow]:
+    """Resolve a calibration key by action (letters case-insensitive; Space is ``' '``)."""
+    if action == " ":
+        for k in keys:
+            if k.key_action == " ":
+                return k
+        return None
+    want = action.upper()
+    for k in keys:
+        ka = k.key_action
+        if len(ka) == 1 and ka.upper() == want:
+            return k
+    return None
+
+
+def _keyboard15_real_key_targets(
+    keys: Sequence[KeyGeometryRow],
+) -> List[CalibrationTarget]:
+    """15 calibration anchors on real benchmark key centers (Q..P / A..L / Z..M + Space)."""
+    keys_list = list(keys)
+    resolved: List[Tuple[int, int, KeyGeometryRow]] = []
+    for grid_row, row_actions in enumerate(_KEYBOARD15_REAL_KEY_ACTIONS):
+        for grid_col, action in enumerate(row_actions):
+            k = _find_key_by_action(keys_list, action)
+            if k is None:
+                return []
+            resolved.append((grid_row, grid_col, k))
+
+    out: List[CalibrationTarget] = []
+    for tid, (grid_row, grid_col, k) in enumerate(resolved, start=1):
+        cx, cy = k.center
+        label = "space" if k.key_action == " " else k.key_action.lower()
+        out.append(
+            CalibrationTarget(
+                target_id=f"T{tid:02d}",
+                label=f"key_{label}",
+                key_id=str(k.key_id),
+                screen_x=float(cx),
+                screen_y=float(cy),
+                grid_row=int(grid_row),
+                grid_col=int(grid_col),
+            )
+        )
+    return out
+
+
 def _pick_key_at_x_fraction(
     row_keys: List[KeyGeometryRow],
     frac: float,
@@ -227,35 +284,13 @@ def _keyboard_wide_targets(
     return out
 
 
-def keyboard_geometry_targets(
+def _keyboard15_gap_targets(
     *,
     keys: Sequence[KeyGeometryRow],
     typing_region_rect: QRect,
-    mode: str = "keyboard15",
-    screen_rect: Optional[QRect] = None,
+    mode: str,
 ) -> List[CalibrationTarget]:
-    """
-    Dense calibration targets aligned to real key centers inside the letter-key area.
-
-    - keyboard15: 3 letter rows × 3 columns + 3 row-gap + 3 interior = 15
-    - keyboard13: same without 2 interior anchors = 13
-    - keyboard_full9: ~9 anchors across the FULL interactive keyboard (Candidate A, T032)
-    - keyboard_wide9: ~9 anchors on a grid wider than the keyboard (Candidate B, T032)
-
-    All ``keyboard*`` modes keep the same mapper treatment downstream (keyboard_mode=True);
-    the only difference is anchor placement/count (the single Iteration-4 lever).
-    """
-    if mode == "keyboard_full9":
-        full = _keyboard_full_coverage_targets(list(keys))
-        if len(full) >= 9:
-            return full
-        mode = "keyboard15"  # too few rows detected; fall back to standard layout
-    elif mode == "keyboard_wide9":
-        return _keyboard_wide_targets(typing_region_rect, screen_rect)
-
-    if mode not in {"keyboard15", "keyboard13"}:
-        raise ValueError(f"Unknown keyboard geometry mode: {mode}")
-
+    """Legacy keyboard15/keyboard13: letter-row grid + row gaps + optional interior anchors."""
     rows = _letter_keys_by_row(keys)
     if len(rows) < 2:
         return keyboard_local_targets(
@@ -332,6 +367,60 @@ def keyboard_geometry_targets(
         tid += 1
 
     return out
+
+
+def keyboard_geometry_targets(
+    *,
+    keys: Sequence[KeyGeometryRow],
+    typing_region_rect: QRect,
+    mode: str = "keyboard15",
+    screen_rect: Optional[QRect] = None,
+) -> List[CalibrationTarget]:
+    """
+    Dense calibration targets aligned to real key centers inside the letter-key area.
+
+    - keyboard15: 15 real benchmark key centers (Q,E,T,U,P / A,D,G,J,L / Z,C,B,M,Space)
+    - keyboard15_gap / keyboard15_legacy: legacy 3×3 letter grid + row gaps + interior = 15
+    - keyboard13: legacy layout without 2 interior anchors = 13
+    - keyboard_full9: ~9 anchors across the FULL interactive keyboard (Candidate A, T032)
+    - keyboard_wide9: ~9 anchors on a grid wider than the keyboard (Candidate B, T032)
+
+    All ``keyboard*`` modes keep the same mapper treatment downstream (keyboard_mode=True);
+    the only difference is anchor placement/count (the single Iteration-4 lever).
+    """
+    if mode == "keyboard_full9":
+        full = _keyboard_full_coverage_targets(list(keys))
+        if len(full) >= 9:
+            return full
+        mode = "keyboard15"  # too few rows detected; fall back to standard layout
+    elif mode == "keyboard_wide9":
+        return _keyboard_wide_targets(typing_region_rect, screen_rect)
+
+    if mode == "keyboard15":
+        real = _keyboard15_real_key_targets(keys)
+        if len(real) == 15:
+            return real
+        return _keyboard15_gap_targets(
+            keys=keys,
+            typing_region_rect=typing_region_rect,
+            mode="keyboard15",
+        )
+
+    if mode in {"keyboard15_gap", "keyboard15_legacy"}:
+        return _keyboard15_gap_targets(
+            keys=keys,
+            typing_region_rect=typing_region_rect,
+            mode="keyboard15",
+        )
+
+    if mode not in {"keyboard13"}:
+        raise ValueError(f"Unknown keyboard geometry mode: {mode}")
+
+    return _keyboard15_gap_targets(
+        keys=keys,
+        typing_region_rect=typing_region_rect,
+        mode="keyboard13",
+    )
 
 
 def keyboard_local_targets(

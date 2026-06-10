@@ -1,0 +1,18 @@
+[benchmark] FAILED session=7fa952d83fb1-bench1781120923 keys=7/15 (47%) row=11/15 median_err=49px reason=key-hit 7/15 (47%) < 10/15 (~67%); row 11/15 (73%) < 80%
+CHEAT ENABLED — debug result only, not real benchmark accuracy.
+acceptance_valid: false
+debug_cheat_result: keys=11/15 (73%) row=15/15 median_err=32px
+benchmark_cheat_y_strength=1
+failure_analysis:
+  likely_cause: mapping
+  keys_failed: 8/15
+  rows_failed: 4/15
+  per_key_misses:
+    P -> L dx=-42.3 dy=+62.2 err=75.2px
+    A -> Shift dx=-84.8 dy=+24.8 err=88.4px
+    D -> X dx=+19.9 dy=+69.4 err=72.2px
+    J -> H dx=-70.2 dy=-0.8 err=70.2px
+    L -> K dx=-84.4 dy=-20.7 err=86.9px
+    Z -> Shift dx=-61.9 dy=-9.1 err=62.6px
+    B -> H dx=-22.3 dy=-43.2 err=48.6px
+    M -> N dx=-124.1 dy=-15.0 err=125.0px

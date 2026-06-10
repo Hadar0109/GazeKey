@@ -107,7 +107,7 @@ def test_calibration_targets_use_layout_snapshot(qapp):
     assert len(targets) == 15
     by_key_id = {k.key_id: k for k in layout_keys}
     keyed_targets = [t for t in targets if t.key_id]
-    assert keyed_targets, "keyboard15 should anchor targets to key centers"
+    assert len(keyed_targets) == 15, "keyboard15 should use 15 real key centers"
     for t in keyed_targets:
         assert t.key_id in by_key_id
         key = by_key_id[t.key_id]
