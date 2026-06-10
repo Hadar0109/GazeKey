@@ -185,14 +185,15 @@ class BenchmarkController:
             h.preview_btn.style().unpolish(h.preview_btn)
             h.preview_btn.style().polish(h.preview_btn)
             h.preview_btn.update()
-        h._gaze_smoother.reset()
-        h._feature_smoother.reset()
+        def _reset_benchmark_smoothers() -> None:
+            h._gaze_smoother.reset()
+            h._feature_smoother.reset()
 
         self._session = BenchmarkEvalSession(
             resolved,
             keys_for_hit_test=h._layout_keys,
             predict_screen_xy=h._predict_screen_xy,
-            on_collect_begin=lambda: h._feature_smoother.reset(),
+            on_key_begin=_reset_benchmark_smoothers,
         )
         now_ms = int(time.time() * 1000)
         self._session.begin(now_ms)

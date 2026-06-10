@@ -24,14 +24,14 @@ class BenchmarkEvalSession:
         *,
         keys_for_hit_test: Sequence[KeyGeometryRow],
         predict_screen_xy: Callable[[FrameFeatures], Optional[Tuple[float, float]]],
-        on_collect_begin: Optional[Callable[[], None]] = None,
+        on_key_begin: Optional[Callable[[], None]] = None,
         settle_ms: int = SETTLE_MS,
         collect_ms: int = COLLECT_MS,
     ) -> None:
         self._samples = list(samples)
         self._keys = list(keys_for_hit_test)
         self._predict_screen_xy = predict_screen_xy
-        self._on_collect_begin = on_collect_begin
+        self._on_key_begin = on_key_begin
         self._settle_ms = int(settle_ms)
         self._collect_ms = int(collect_ms)
         self._index = 0
@@ -68,6 +68,11 @@ class BenchmarkEvalSession:
         self._phase_start_ms = int(now_ms)
         self._collect_features = []
         self._results = []
+        self._notify_key_begin()
+
+    def _notify_key_begin(self) -> None:
+        if self._on_key_begin is not None:
+            self._on_key_begin()
 
     def tick(
         self,
@@ -83,8 +88,6 @@ class BenchmarkEvalSession:
             self._phase = "collect"
             self._phase_start_ms = int(now_ms)
             self._collect_features = []
-            if self._on_collect_begin is not None:
-                self._on_collect_begin()
             return None
 
         if self._phase == "collect":
@@ -111,6 +114,7 @@ class BenchmarkEvalSession:
         if not self.finished:
             self._phase = "settle"
             self._phase_start_ms = int(now_ms)
+            self._notify_key_begin()
         return row
 
 
