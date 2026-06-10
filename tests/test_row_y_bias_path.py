@@ -93,7 +93,23 @@ def test_row_y_bias_corrects_y_only_not_x():
     assert pred.x == 123.0
 
 
-def test_active_fit_wraps_pca4_with_row_y_bias():
+def test_active_fit_does_not_wrap_pca4_when_row_bias_disabled():
+    targets = _keyboard_targets_3x3()
+    fit = fit_calibration_mapper(
+        samples=_keyboard_samples(),
+        targets=targets,
+        calibration_mode="keyboard15",
+        min_alpha=1.0,
+    )
+    assert fit.success and fit.model is not None
+    assert not isinstance(fit.model, MapperWithRowBias)
+    assert fit.model.mapper_type == "pca4_baseline"
+
+
+def test_active_fit_wraps_pca4_with_row_y_bias_when_enabled(monkeypatch):
+    import gazekey.mapping.ridge as ridge_mod
+
+    monkeypatch.setattr(ridge_mod, "APPLY_ROW_Y_BIAS", True)
     targets = _keyboard_targets_3x3()
     fit = fit_calibration_mapper(
         samples=_keyboard_samples(),

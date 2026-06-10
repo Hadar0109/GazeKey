@@ -63,7 +63,7 @@ def test_mapping_config_identity():
 
 def test_mapping_config_pipeline_constants():
     assert CALIBRATION_MODE == "keyboard15"
-    assert APPLY_ROW_Y_BIAS is True
+    assert APPLY_ROW_Y_BIAS is False
     assert FEATURE_SMOOTHER_ALPHA == 0.28
     assert GAZE_SMOOTHER_ALPHA == 0.35
 
