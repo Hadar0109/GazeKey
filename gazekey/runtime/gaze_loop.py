@@ -25,10 +25,14 @@ class GazeLoopController:
         dt = now - self._last_tick_time
         self._last_tick_time = now
 
-        if h.tracking_manager and h.camera_preview_window and not h._is_calibrating:
+        calib_camera = h._camera_preview_during_calib and h._is_calibrating
+        if h.tracking_manager and h.camera_preview_window and (not h._is_calibrating or calib_camera):
             frame = h.tracking_manager.get_latest_frame()
             if frame is not None:
                 h.camera_preview_window.update_frame(frame)
+
+        if calib_camera:
+            h._ensure_camera_preview(show=True)
 
         if h.tracking_manager and not h._is_calibrating and h._gaze_mapper is not None:
             h._ensure_camera_preview(show=True)

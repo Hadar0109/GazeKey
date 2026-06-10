@@ -171,7 +171,7 @@ def test_normal_flow_calibrate_preview_only(qapp, tmp_path, monkeypatch, capsys)
     out = capsys.readouterr().out
     assert out.count("[calibration] PASS") == 1
     assert "[benchmark]" not in out
-    assert "[calib2] t=" not in out
+    assert "[calib] t=" not in out
     assert "mapper freeze" not in out
     assert "per-target training means" not in out
 

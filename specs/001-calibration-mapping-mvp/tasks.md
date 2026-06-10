@@ -209,9 +209,9 @@ behavior gate (T060) passed. **Then** resume Phase 8.
 
 **Frozen during T061**: no changes to α, row bias, smoothing, layout, fixation gate, hitboxes, or features.
 
-- [ ] T061A **Baseline run 1** — calibrate → read-only preview → benchmark (`GAZEKEY_DEV_BENCHMARK=1`); artifacts in `runs/<session_id_A>/`. No tuning. (FR-022)
-- [ ] T061B **Baseline run 2** — same setup, new app session, **no code/config changes**; `runs/<session_id_B>/`
-- [ ] T061C **Baseline comparison + AR triage** — write `runs/t061_baseline_comparison.md`: key-hit, row, median_err, failed keys, per-key dx/dy, both `coverage.json` files, live geometry sanity (AR-5, AR-6), session variance (AR-7), regional bias (AR-2), AR-8 recommendation; trigger AR-3/AR-4 notes if baselines noisy; defer AR-1 unless unexplained mapping bias on both runs (FR-023)
+- [x] T061A **Baseline run 1** — calibrate → read-only preview → benchmark (`GAZEKEY_DEV_BENCHMARK=1`); artifacts in `runs/<session_id_A>/`. No tuning. (FR-022) — `0ee046a292cf`
+- [x] T061B **Baseline run 2** — same setup, new app session, **no code/config changes**; `runs/<session_id_B>/` — `1b78ad3e50da`
+- [x] T061C **Baseline comparison + AR triage** — `runs/t061_baseline_comparison.md` (FR-023)
 - [ ] T061D **Choose first lever** — from T061C, confirm testing order and select **exactly one** of T032–T035 for T062; record rationale in `t061_baseline_comparison.md`
 - [ ] T062 **First tuning iteration** — implement **only** T061D choice; re-benchmark; complete T036 (`runs/iteration_01_<lever>.txt`) vs T061 baseline set
 

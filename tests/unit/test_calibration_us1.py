@@ -92,6 +92,35 @@ def test_camera_preview_blocked_during_calibration(qapp):
     assert win.isVisible()
 
 
+def test_camera_preview_during_calib_flag_default_off(monkeypatch):
+    monkeypatch.delenv("GAZEKEY_CAMERA_PREVIEW_DURING_CALIB", raising=False)
+    from gazekey.ui.env_flags import camera_preview_during_calib
+
+    assert camera_preview_during_calib() is False
+
+
+def test_camera_preview_during_calib_flag_opt_in(monkeypatch):
+    monkeypatch.setenv("GAZEKEY_CAMERA_PREVIEW_DURING_CALIB", "1")
+    from gazekey.ui.env_flags import camera_preview_during_calib
+
+    assert camera_preview_during_calib() is True
+
+
+def test_camera_preview_visible_during_calib_uses_same_window_path(qapp):
+    """Flag on uses show_post_calibration — same bottom-right window as after calibration."""
+    win = CameraPreviewWindow(dock="bottom_right")
+    win.set_calibration_blocked(False)
+    win.show_post_calibration()
+    qapp.processEvents()
+    assert win.isVisible()
+    screen = win.screen().availableGeometry()
+    margin = 20
+    expected_x = screen.x() + screen.width() - win.width() - margin
+    expected_y = screen.y() + screen.height() - win.height() - margin
+    assert win.x() == expected_x
+    assert win.y() == expected_y
+
+
 def test_calibration_run_summary_format(tmp_path):
     writer = RunSummaryWriter(runs_dir=tmp_path)
     summary = writer.write_calibration_summary(

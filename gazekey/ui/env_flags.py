@@ -22,6 +22,11 @@ def dev_benchmark_enabled() -> bool:
     return env_bool("GAZEKEY_DEV_BENCHMARK")
 
 
+def camera_preview_during_calib() -> bool:
+    """Allow the standard camera preview window during fixation (default off — CQ-4)."""
+    return env_bool("GAZEKEY_CAMERA_PREVIEW_DURING_CALIB")
+
+
 def calib_mode_override() -> str:
     return env_str("GAZEKEY_CALIB_MODE")
 

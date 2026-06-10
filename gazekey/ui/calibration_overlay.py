@@ -318,7 +318,7 @@ class CalibrationOverlay(QWidget):
             else f"T{idx+1:02d}"
         )
         mvp_log(
-            f"[calib2] target {label}: collection enabled after {PREPARE_MS}ms prepare "
+            f"[calib] target {label}: collection enabled after {PREPARE_MS}ms prepare "
             f"(fixation lock-on ~{self._session.gate.cfg.lock_on_ms:.0f}ms before samples count)"
         )
 

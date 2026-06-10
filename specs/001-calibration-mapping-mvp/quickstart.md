@@ -127,8 +127,17 @@ Three sessions after tuning stabilizes; record `runs/acceptance_3session.md`.
 | Variable | Purpose |
 |----------|---------|
 | `GAZEKEY_DEV_BENCHMARK=1` | Auto benchmark after preview (CQ-3) |
+| `GAZEKEY_CAMERA_PREVIEW_DURING_CALIB=1` | Show standard camera preview during calibration (default off) |
 | `GAZEKEY_VERBOSE=1` | Extra logging |
 | `GAZEKEY_CALIB_MODE` | Layout override (experiments) |
+
+**T061 with camera during calibration:**
+
+```powershell
+$env:GAZEKEY_DEV_BENCHMARK = "1"
+$env:GAZEKEY_CAMERA_PREVIEW_DURING_CALIB = "1"
+python main.py
+```
 
 ## Success checklist
 

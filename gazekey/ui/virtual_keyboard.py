@@ -16,7 +16,7 @@ from gazekey.ui.benchmark_controller import BenchmarkController
 from gazekey.runtime.mapper_runtime import MapperRuntime
 from gazekey.runtime.gaze_loop import GazeLoopController
 from gazekey.runtime.tracking_controller import TrackingController
-from gazekey.ui.env_flags import EnvFlags, dev_benchmark_enabled
+from gazekey.ui.env_flags import EnvFlags, camera_preview_during_calib, dev_benchmark_enabled
 from gazekey.evaluation.run_summary import RunSummaryWriter
 from gazekey.mvp_log import mvp_log
 from gazekey.tracking import TrackingBridge
@@ -85,7 +85,7 @@ class VirtualKeyboard(QWidget):
         self._last_v2_pred_y = None
         self._last_v2_pred_t = None
         self._last_v2_focused_key_id = None
-        self._last_calib2_log_ms = 0
+        self._last_calib_log_ms = 0
         self._preview_mode = False
         self._gaze_preview: GazePreviewController | None = None
         self._calib_mode = CALIBRATION_MODE
@@ -106,6 +106,7 @@ class VirtualKeyboard(QWidget):
         self._rt2_debug_pred = env_flags.rt2_debug_pred
         self._rt2_debug_selection = env_flags.rt2_debug_selection
         self._calib_debug = env_flags.calib_debug
+        self._camera_preview_during_calib = camera_preview_during_calib()
         self._last_calib_samples = []
         self._benchmark_controller = BenchmarkController(self)
         self._last_raw_mapped_x: float | None = None
@@ -348,7 +349,10 @@ class VirtualKeyboard(QWidget):
             self._hide_preview_dot()
         except Exception:
             pass
-        self._set_camera_preview_blocked(True)
+        if self._camera_preview_during_calib:
+            self._set_camera_preview_blocked(False)
+        else:
+            self._set_camera_preview_blocked(True)
         if not self._ensure_tracking_started():
             self._set_camera_preview_blocked(False)
             return
@@ -389,6 +393,8 @@ class VirtualKeyboard(QWidget):
         except Exception:
             pass
         self._log_verbose(f"[calib] start: {len(ctx.session.targets)} targets mode={self._calib_mode}")
+        if self._camera_preview_during_calib:
+            self._ensure_camera_preview(show=True)
 
     def _set_camera_preview_blocked(self, blocked: bool) -> None:
         if self.camera_preview_window is not None:
@@ -539,12 +545,15 @@ class VirtualKeyboard(QWidget):
         QApplication.quit()
 
     def _ensure_camera_preview(self, *, show: bool = False) -> None:
-        """Create the floating camera preview window; show only when allowed."""
-        if self._is_calibrating:
+        """Create/show the standard bottom-right camera preview when allowed."""
+        if self._is_calibrating and not self._camera_preview_during_calib:
             return
         if self.camera_preview_window is None:
             self.camera_preview_window = CameraPreviewWindow(dock="bottom_right")
         if self.camera_preview_window.is_calibration_blocked:
+            return
+        if self._is_calibrating and self._camera_preview_during_calib:
+            self.camera_preview_window.show_post_calibration()
             return
         if show and self.is_expanded and self._gaze_mapper is not None:
             self.camera_preview_window.show_post_calibration()

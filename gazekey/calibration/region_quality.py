@@ -190,10 +190,10 @@ def assess_region_gates(
 
     if verbose:
         mvp_log(
-            f"[calib2] region gate limits: graded={_n_graded} "
+            f"[calib] region gate limits: graded={_n_graded} "
             f"max_train_wrong={max_train_region_wrong} max_loocv_wrong={max_loocv_region_wrong}"
         )
-        mvp_log("[calib2] --- calibration target region check (train) ---")
+        mvp_log("[calib] --- calibration target region check (train) ---")
     for i, (feat, (tx, ty)) in enumerate(samples):
         if i >= len(targets) or not _is_graded_target(targets[i]):
             continue
@@ -221,7 +221,7 @@ def assess_region_gates(
         status = "OK" if row.region_ok else "WRONG_REGION"
         if verbose:
             mvp_log(
-                f"[calib2] train {row.target_id} {row.label}: "
+                f"[calib] train {row.target_id} {row.label}: "
                 f"expect={row.expected.row}/{row.expected.col} "
                 f"pred={row.predicted.row}/{row.predicted.col} "
                 f"err={row.err_px:.1f}px {status}"
@@ -229,7 +229,7 @@ def assess_region_gates(
 
     if loocv_detail:
         if verbose:
-            mvp_log("[calib2] --- calibration target region check (LOOCV) ---")
+            mvp_log("[calib] --- calibration target region check (LOOCV) ---")
         for d in loocv_detail:
             i = int(d["i"])
             if i >= len(targets) or i >= len(samples) or not _is_graded_target(targets[i]):
@@ -255,7 +255,7 @@ def assess_region_gates(
             status = "OK" if row.region_ok else "WRONG_REGION"
             if verbose:
                 mvp_log(
-                    f"[calib2] loocv {row.target_id} {row.label}: "
+                    f"[calib] loocv {row.target_id} {row.label}: "
                     f"expect={row.expected.row}/{row.expected.col} "
                     f"pred={row.predicted.row}/{row.predicted.col} "
                     f"err={row.err_px:.1f}px {status}"
@@ -264,11 +264,11 @@ def assess_region_gates(
     if verbose:
         if out.worst_train_label:
             mvp_log(
-                f"[calib2] worst train: {out.worst_train_label} err={out.worst_train_err_px:.1f}px"
+                f"[calib] worst train: {out.worst_train_label} err={out.worst_train_err_px:.1f}px"
             )
         if out.worst_loocv_label:
             mvp_log(
-                f"[calib2] worst LOOCV: {out.worst_loocv_label} err={out.worst_loocv_err_px:.1f}px"
+                f"[calib] worst LOOCV: {out.worst_loocv_label} err={out.worst_loocv_err_px:.1f}px"
             )
 
     if out.train_region_wrong > int(max_train_region_wrong):
@@ -302,7 +302,7 @@ def compute_row_y_residuals(
     groups = [("top", top_i), ("mid", mid_i), ("bottom", bot_i)]
     centers: List[float] = []
     biases: List[float] = []
-    mvp_log("[calib2] --- row-level Y residuals (train, before bias correction) ---")
+    mvp_log("[calib] --- row-level Y residuals (train, before bias correction) ---")
     for row_name, indices in groups:
         ys: List[float] = []
         res: List[float] = []
@@ -320,7 +320,7 @@ def compute_row_y_residuals(
         centers.append(cy)
         biases.append(bias)
         mvp_log(
-            f"[calib2] row {row_name}: n={len(res)} mean_target_y={cy:.1f} "
+            f"[calib] row {row_name}: n={len(res)} mean_target_y={cy:.1f} "
             f"mean_residual_dy={bias:+.1f}px"
         )
     return (float(centers[0]), float(centers[1]), float(centers[2])), (

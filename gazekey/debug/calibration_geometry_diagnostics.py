@@ -57,7 +57,7 @@ def print_geometric_diagnostics(
         for d in loocv_detail:
             loocv_by_i[int(d["i"])] = d
 
-    mvp_log("[calib2] --- geometric diagnostics (train) ---")
+    mvp_log("[calib] --- geometric diagnostics (train) ---")
     for i, (feat, (tx, ty)) in enumerate(samples):
         if i >= len(targets):
             break
@@ -65,7 +65,7 @@ def print_geometric_diagnostics(
         pred = model.predict(feat)
         exp_reg = _region_str(t)
         if pred is None:
-            mvp_log(f"[calib2] train {t.target_id} {t.label}: predict=None expect={exp_reg}")
+            mvp_log(f"[calib] train {t.target_id} {t.label}: predict=None expect={exp_reg}")
             continue
         px, py = float(pred.x), float(pred.y)
         dx, dy = px - float(tx), py - float(ty)
@@ -76,7 +76,7 @@ def print_geometric_diagnostics(
         key_s = f"{nk.key_label}@{nk.row_index}" if nk is not None else "?"
         status = "OK" if exp_reg == pred_reg else "WRONG"
         mvp_log(
-            f"[calib2] train {t.target_id} {t.label}: "
+            f"[calib] train {t.target_id} {t.label}: "
             f"expect={exp_reg} pred={pred_reg} {status} "
             f"nearest_key={key_s} "
             f"dx={dx:+.1f} dy={dy:+.1f} err={float(np.hypot(dx, dy)):.1f}px"
@@ -85,7 +85,7 @@ def print_geometric_diagnostics(
     if not loocv_detail:
         return
 
-    mvp_log("[calib2] --- geometric diagnostics (LOOCV) ---")
+    mvp_log("[calib] --- geometric diagnostics (LOOCV) ---")
     for d in loocv_detail:
         i = int(d["i"])
         if i >= len(targets) or i >= len(samples):
@@ -102,7 +102,7 @@ def print_geometric_diagnostics(
         key_s = f"{nk.key_label}@{nk.row_index}" if nk is not None else "?"
         status = "OK" if exp_reg == pred_reg else "WRONG"
         mvp_log(
-            f"[calib2] loocv {t.target_id} {t.label}: "
+            f"[calib] loocv {t.target_id} {t.label}: "
             f"expect={exp_reg} pred={pred_reg} {status} "
             f"nearest_key={key_s} "
             f"dx={dx:+.1f} dy={dy:+.1f} err={float(d['err']):.1f}px"
