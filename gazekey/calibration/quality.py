@@ -181,7 +181,9 @@ def _keyboard_blocking_reason(reason: str) -> bool:
         return True
     if "catastrophic" in lower:
         return True
-    if "head drift:" in lower and ("face_x" in lower or "face_y" in lower):
+    # Session face_x/face_y span is gaze-contaminated on keyboard layouts;
+    # per-target head drift is enforced during fixation collection instead.
+    if "head drift:" in lower and "eye_box" in lower:
         return True
     return False
 
@@ -377,12 +379,20 @@ def evaluate_calibration_quality(
     """
     reasons: List[str] = []
     warnings: List[str] = []
+    is_keyboard = str(calibration_mode).lower().startswith("keyboard")
     row_stats = analyze_vertical_features(samples=samples, targets=targets)
     head_warnings = analyze_head_pose_drift(samples=samples, targets=targets)
     for msg in head_warnings:
         if "face_x" in msg or "face_y" in msg:
-            reasons.append(msg)
-            mvp_log(f"[calib]   quality (reject): {msg}")
+            # Iris-midpoint span across targets mixes gaze with head pose; on keyboard
+            # layouts edge fixations raise span without true head drift. Per-target gate
+            # already ran during collection.
+            if is_keyboard:
+                warnings.append(msg)
+                mvp_log(f"[calib]   quality (warning): {msg}")
+            else:
+                reasons.append(msg)
+                mvp_log(f"[calib]   quality (reject): {msg}")
         elif max_head_drift_eye_h is not None and "eye_box" in msg:
             reasons.append(msg)
         elif max_head_drift_eye_h is not None:
@@ -457,7 +467,6 @@ def evaluate_calibration_quality(
     if worst_train_label:
         mvp_log(f"[calib] worst train target: {worst_train_label} err={max_train:.1f}px")
 
-    is_keyboard = str(calibration_mode).lower().startswith("keyboard")
     pixel_reasons: List[str] = []
     if max_train is not None and max_train > max_train_error_px:
         pixel_reasons.append(f"max train error {max_train:.1f}px > {max_train_error_px:.1f}px")

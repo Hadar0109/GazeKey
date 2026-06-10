@@ -1,0 +1,1 @@
+[calibration] FAILED session=8737c34297b1 layout=keyboard_edge15 targets=15/15 ridge_alpha=0.15 loocv_rms=89.0px (supplementary) quality_warnings=16 reason=head drift: eye_box_h span 0.0053 > 0.0040 across targets

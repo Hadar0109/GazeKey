@@ -1,0 +1,488 @@
+{
+  "schema_version": 1,
+  "run_type": "calibration_coverage",
+  "session_id": "0ee046a292cf",
+  "calibration_mode": "keyboard15",
+  "n_anchors": 15,
+  "anchor_bbox": {
+    "x_min": 196.0,
+    "x_max": 1083.0,
+    "y_min": 169.0,
+    "y_max": 305.0,
+    "width": 887.0,
+    "height": 136.0
+  },
+  "key_bbox": {
+    "x_min": 69.0,
+    "x_max": 1209.0,
+    "y_min": 32.0,
+    "y_max": 373.0,
+    "width": 1140.0,
+    "height": 341.0
+  },
+  "hull_vertices": [
+    [
+      196.0,
+      169.0
+    ],
+    [
+      1083.0,
+      169.0
+    ],
+    [
+      987.0,
+      305.0
+    ],
+    [
+      292.0,
+      305.0
+    ]
+  ],
+  "overall": {
+    "n_keys": 33,
+    "n_inside_hull": 22,
+    "n_outside_hull": 11,
+    "inside_fraction": 0.6666666666666666,
+    "outside_keys": [
+      "👁 CALIBRATE",
+      "q",
+      "p",
+      "a",
+      "l",
+      "Shift",
+      "⌫",
+      "Ctrl",
+      "Alt",
+      "Space",
+      "↵"
+    ],
+    "max_nearest_anchor_px": 225.49722836434154,
+    "mean_nearest_anchor_px": 65.59879531108291
+  },
+  "letters": {
+    "n_keys": 26,
+    "n_inside_hull": 22,
+    "n_outside_hull": 4,
+    "inside_fraction": 0.8461538461538461,
+    "outside_keys": [
+      "q",
+      "p",
+      "a",
+      "l"
+    ],
+    "max_nearest_anchor_px": 127.0,
+    "mean_nearest_anchor_px": 43.90695616705011
+  },
+  "specials": {
+    "n_keys": 7,
+    "n_inside_hull": 0,
+    "n_outside_hull": 7,
+    "inside_fraction": 0.0,
+    "outside_keys": [
+      "👁 CALIBRATE",
+      "Shift",
+      "⌫",
+      "Ctrl",
+      "Alt",
+      "Space",
+      "↵"
+    ],
+    "max_nearest_anchor_px": 225.49722836434154,
+    "mean_nearest_anchor_px": 146.16848356034757
+  },
+  "by_row": {
+    "0": {
+      "n_keys": 1,
+      "n_inside_hull": 0,
+      "n_outside_hull": 1,
+      "inside_fraction": 0.0,
+      "outside_keys": [
+        "👁 CALIBRATE"
+      ],
+      "max_nearest_anchor_px": 158.14550262337528,
+      "mean_nearest_anchor_px": 158.14550262337528
+    },
+    "1": {
+      "n_keys": 10,
+      "n_inside_hull": 8,
+      "n_outside_hull": 2,
+      "inside_fraction": 0.8,
+      "outside_keys": [
+        "q",
+        "p"
+      ],
+      "max_nearest_anchor_px": 127.0,
+      "mean_nearest_anchor_px": 47.27671523890365
+    },
+    "2": {
+      "n_keys": 9,
+      "n_inside_hull": 7,
+      "n_outside_hull": 2,
+      "inside_fraction": 0.7777777777777778,
+      "outside_keys": [
+        "a",
+        "l"
+      ],
+      "max_nearest_anchor_px": 79.92496481075234,
+      "mean_nearest_anchor_px": 48.53485643936293
+    },
+    "3": {
+      "n_keys": 9,
+      "n_inside_hull": 7,
+      "n_outside_hull": 2,
+      "inside_fraction": 0.7777777777777778,
+      "outside_keys": [
+        "Shift",
+        "⌫"
+      ],
+      "max_nearest_anchor_px": 155.79473675320358,
+      "mean_nearest_anchor_px": 60.39883038960079
+    },
+    "4": {
+      "n_keys": 4,
+      "n_inside_hull": 0,
+      "n_outside_hull": 4,
+      "inside_fraction": 0.0,
+      "outside_keys": [
+        "Ctrl",
+        "Alt",
+        "Space",
+        "↵"
+      ],
+      "max_nearest_anchor_px": 225.49722836434154,
+      "mean_nearest_anchor_px": 138.36110219816265
+    }
+  },
+  "keys": [
+    {
+      "key_label": "👁 CALIBRATE",
+      "key_action": "👁 CALIBRATE",
+      "x": 117.0,
+      "y": 32.0,
+      "row_index": 0,
+      "is_special": true,
+      "inside_hull": false,
+      "nearest_anchor_px": 158.14550262337528
+    },
+    {
+      "key_label": "q",
+      "key_action": "q",
+      "x": 69.0,
+      "y": 169.0,
+      "row_index": 1,
+      "is_special": false,
+      "inside_hull": false,
+      "nearest_anchor_px": 127.0
+    },
+    {
+      "key_label": "w",
+      "key_action": "w",
+      "x": 196.0,
+      "y": 169.0,
+      "row_index": 1,
+      "is_special": false,
+      "inside_hull": true,
+      "nearest_anchor_px": 0.0
+    },
+    {
+      "key_label": "e",
+      "key_action": "e",
+      "x": 322.0,
+      "y": 169.0,
+      "row_index": 1,
+      "is_special": false,
+      "inside_hull": true,
+      "nearest_anchor_px": 74.32361670424818
+    },
+    {
+      "key_label": "r",
+      "key_action": "r",
+      "x": 449.0,
+      "y": 169.0,
+      "row_index": 1,
+      "is_special": false,
+      "inside_hull": true,
+      "nearest_anchor_px": 0.0
+    },
+    {
+      "key_label": "t",
+      "key_action": "t",
+      "x": 576.0,
+      "y": 169.0,
+      "row_index": 1,
+      "is_special": false,
+      "inside_hull": true,
+      "nearest_anchor_px": 0.0
+    },
+    {
+      "key_label": "y",
+      "key_action": "y",
+      "x": 702.0,
+      "y": 169.0,
+      "row_index": 1,
+      "is_special": false,
+      "inside_hull": true,
+      "nearest_anchor_px": 70.71067811865476
+    },
+    {
+      "key_label": "u",
+      "key_action": "u",
+      "x": 829.0,
+      "y": 169.0,
+      "row_index": 1,
+      "is_special": false,
+      "inside_hull": true,
+      "nearest_anchor_px": 0.0
+    },
+    {
+      "key_label": "i",
+      "key_action": "i",
+      "x": 956.0,
+      "y": 169.0,
+      "row_index": 1,
+      "is_special": false,
+      "inside_hull": true,
+      "nearest_anchor_px": 74.73285756613352
+    },
+    {
+      "key_label": "o",
+      "key_action": "o",
+      "x": 1083.0,
+      "y": 169.0,
+      "row_index": 1,
+      "is_special": false,
+      "inside_hull": true,
+      "nearest_anchor_px": 0.0
+    },
+    {
+      "key_label": "p",
+      "key_action": "p",
+      "x": 1209.0,
+      "y": 169.0,
+      "row_index": 1,
+      "is_special": false,
+      "inside_hull": false,
+      "nearest_anchor_px": 126.0
+    },
+    {
+      "key_label": "a",
+      "key_action": "a",
+      "x": 176.0,
+      "y": 237.0,
+      "row_index": 2,
+      "is_special": false,
+      "inside_hull": false,
+      "nearest_anchor_px": 70.8801805866774
+    },
+    {
+      "key_label": "s",
+      "key_action": "s",
+      "x": 292.0,
+      "y": 237.0,
+      "row_index": 2,
+      "is_special": false,
+      "inside_hull": true,
+      "nearest_anchor_px": 0.0
+    },
+    {
+      "key_label": "d",
+      "key_action": "d",
+      "x": 408.0,
+      "y": 237.0,
+      "row_index": 2,
+      "is_special": false,
+      "inside_hull": true,
+      "nearest_anchor_px": 79.40403012442127
+    },
+    {
+      "key_label": "f",
+      "key_action": "f",
+      "x": 524.0,
+      "y": 237.0,
+      "row_index": 2,
+      "is_special": false,
+      "inside_hull": true,
+      "nearest_anchor_px": 68.0
+    },
+    {
+      "key_label": "g",
+      "key_action": "g",
+      "x": 639.0,
+      "y": 237.0,
+      "row_index": 2,
+      "is_special": false,
+      "inside_hull": true,
+      "nearest_anchor_px": 0.0
+    },
+    {
+      "key_label": "h",
+      "key_action": "h",
+      "x": 755.0,
+      "y": 237.0,
+      "row_index": 2,
+      "is_special": false,
+      "inside_hull": true,
+      "nearest_anchor_px": 68.0
+    },
+    {
+      "key_label": "j",
+      "key_action": "j",
+      "x": 871.0,
+      "y": 237.0,
+      "row_index": 2,
+      "is_special": false,
+      "inside_hull": true,
+      "nearest_anchor_px": 79.92496481075234
+    },
+    {
+      "key_label": "k",
+      "key_action": "k",
+      "x": 987.0,
+      "y": 237.0,
+      "row_index": 2,
+      "is_special": false,
+      "inside_hull": true,
+      "nearest_anchor_px": 0.0
+    },
+    {
+      "key_label": "l",
+      "key_action": "l",
+      "x": 1102.0,
+      "y": 237.0,
+      "row_index": 2,
+      "is_special": false,
+      "inside_hull": false,
+      "nearest_anchor_px": 70.60453243241541
+    },
+    {
+      "key_label": "Shift",
+      "key_action": "SHIFT",
+      "x": 120.0,
+      "y": 305.0,
+      "row_index": 3,
+      "is_special": true,
+      "inside_hull": false,
+      "nearest_anchor_px": 155.79473675320358
+    },
+    {
+      "key_label": "z",
+      "key_action": "z",
+      "x": 292.0,
+      "y": 305.0,
+      "row_index": 3,
+      "is_special": false,
+      "inside_hull": true,
+      "nearest_anchor_px": 0.0
+    },
+    {
+      "key_label": "x",
+      "key_action": "x",
+      "x": 408.0,
+      "y": 305.0,
+      "row_index": 3,
+      "is_special": false,
+      "inside_hull": true,
+      "nearest_anchor_px": 116.0
+    },
+    {
+      "key_label": "c",
+      "key_action": "c",
+      "x": 524.0,
+      "y": 305.0,
+      "row_index": 3,
+      "is_special": false,
+      "inside_hull": true,
+      "nearest_anchor_px": 0.0
+    },
+    {
+      "key_label": "v",
+      "key_action": "v",
+      "x": 639.0,
+      "y": 305.0,
+      "row_index": 3,
+      "is_special": false,
+      "inside_hull": true,
+      "nearest_anchor_px": 0.0
+    },
+    {
+      "key_label": "b",
+      "key_action": "b",
+      "x": 755.0,
+      "y": 305.0,
+      "row_index": 3,
+      "is_special": false,
+      "inside_hull": true,
+      "nearest_anchor_px": 0.0
+    },
+    {
+      "key_label": "n",
+      "key_action": "n",
+      "x": 871.0,
+      "y": 305.0,
+      "row_index": 3,
+      "is_special": false,
+      "inside_hull": true,
+      "nearest_anchor_px": 116.0
+    },
+    {
+      "key_label": "m",
+      "key_action": "m",
+      "x": 987.0,
+      "y": 305.0,
+      "row_index": 3,
+      "is_special": false,
+      "inside_hull": true,
+      "nearest_anchor_px": 0.0
+    },
+    {
+      "key_label": "⌫",
+      "key_action": "BACKSPACE",
+      "x": 1159.0,
+      "y": 305.0,
+      "row_index": 3,
+      "is_special": true,
+      "inside_hull": false,
+      "nearest_anchor_px": 155.79473675320358
+    },
+    {
+      "key_label": "Ctrl",
+      "key_action": "CTRL",
+      "x": 77.0,
+      "y": 373.0,
+      "row_index": 4,
+      "is_special": true,
+      "inside_hull": false,
+      "nearest_anchor_px": 225.49722836434154
+    },
+    {
+      "key_label": "Alt",
+      "key_action": "ALT",
+      "x": 219.0,
+      "y": 373.0,
+      "row_index": 4,
+      "is_special": true,
+      "inside_hull": false,
+      "nearest_anchor_px": 99.76472322419383
+    },
+    {
+      "key_label": "Space",
+      "key_action": " ",
+      "x": 641.0,
+      "y": 373.0,
+      "row_index": 4,
+      "is_special": true,
+      "inside_hull": false,
+      "nearest_anchor_px": 68.0294054067798
+    },
+    {
+      "key_label": "↵",
+      "key_action": "ENTER",
+      "x": 1132.0,
+      "y": 373.0,
+      "row_index": 4,
+      "is_special": true,
+      "inside_hull": false,
+      "nearest_anchor_px": 160.15305179733542
+    }
+  ]
+}

@@ -135,7 +135,13 @@
 - [ ] T033 [P] **Collection** — fixation/collection change; re-benchmark vs T061
 - [ ] T034 [P] **Geometry** — hitbox/center alignment; re-benchmark vs T061
 - [ ] T035 [P] **PCA4 fit** — ridge/config/row_bias only; re-benchmark vs T061
-- [ ] T036 Per iteration: document in `runs/iteration_NN_<change>.txt` vs T061; one change cited (FR-022, FR-023)
+- [x] T036 Per iteration: document in `runs/iteration_NN_<change>.txt` vs T061; one change cited (FR-022, FR-023) — I01–I03 historical; see `runs/phase8_baseline_restore_decision.txt`
+
+> **BASELINE RESTORED (2026-06-10)**: Active code reverted to T061 safe baseline
+> (`keyboard15`, legacy row-Y / `calibration_row_groups`, original gap-target handling).
+> Phase 8 layout (T032) and letter-row row-Y (T035) experiments did not produce stable
+> benchmark improvement — evidence kept in `runs/iteration_0{1,2,3}_*.txt` only.
+> Next work: one-change investigations from `runs/phase8_baseline_restore_decision.txt`.
 
 **Checkpoint**: Stop when SC-001–SC-004 met or no justified single-change lever remains.
 
@@ -212,8 +218,13 @@ behavior gate (T060) passed. **Then** resume Phase 8.
 - [x] T061A **Baseline run 1** — calibrate → read-only preview → benchmark (`GAZEKEY_DEV_BENCHMARK=1`); artifacts in `runs/<session_id_A>/`. No tuning. (FR-022) — `0ee046a292cf`
 - [x] T061B **Baseline run 2** — same setup, new app session, **no code/config changes**; `runs/<session_id_B>/` — `1b78ad3e50da`
 - [x] T061C **Baseline comparison + AR triage** — `runs/t061_baseline_comparison.md` (FR-023)
-- [ ] T061D **Choose first lever** — from T061C, confirm testing order and select **exactly one** of T032–T035 for T062; record rationale in `t061_baseline_comparison.md`
-- [ ] T062 **First tuning iteration** — implement **only** T061D choice; re-benchmark; complete T036 (`runs/iteration_01_<lever>.txt`) vs T061 baseline set
+- [x] T061D **Choose first lever** — T032 layout; `keyboard_full9` selected (adjusted band-row filter); rationale in `runs/t061_baseline_comparison.md` §9
+- [x] T062 **First tuning iteration** — `keyboard_full9` benchmarked (I01-A/B/C: `70a80ad72504`, `73f93bd73fb0`, `d256b5d11165`); T036 complete
+- [x] T062b **Iteration 02 layout** — `keyboard_edge15`; 4 cal attempts (1 `eye_box_h` block), 3 benchmarks; T036 in `runs/iteration_02_layout_keyboard_edge15.txt`
+- [x] T035D **Choose fit sub-lever** — approved: **row-Y bias → letter-row bands** (`runs/iteration_03_t035_recommendation.txt`); benchmark on `keyboard_full9`
+- [x] T062c **Iteration 03 fit** — T035D implemented + benchmarked (2/4 cal → 2 bench); T036 in `runs/iteration_03_row_bias_letter_rows.txt` (historical)
+- [x] T062d **Restore T061 safe baseline** — revert Phase 8 active code; decision in `runs/phase8_baseline_restore_decision.txt`; verify with fresh T061A/B runs
+- [x] T062e **Keyboard face_x/face_y usability** — session drift → warning on `keyboard*` modes only; eye_box gate unchanged; mapping baseline unchanged
 
 ---
 

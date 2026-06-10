@@ -314,8 +314,8 @@ def test_keyboard_high_train_error_is_warning_not_blocker():
     assert any("train error" in w.lower() or "loocv" in w.lower() for w in q.warnings)
 
 
-def test_face_xy_session_drift_hard_fail():
-    """Session-level face_x/face_y span above threshold rejects calibration."""
+def test_face_xy_session_drift_keyboard_warning_not_blocker():
+    """Keyboard mode: session face_x span is supplementary (gaze-contaminated)."""
     targets = _keyboard_targets_3x3()
     samples = _keyboard_samples_from_avg_v(
         [0.10, 0.12, 0.14, 0.20, 0.22, 0.24, 0.30, 0.32, 0.34]
@@ -334,9 +334,57 @@ def test_face_xy_session_drift_hard_fail():
         loocv_detail=model.leave_one_out_detail_px(),
         require_any_vertical_monotonic=False,
     )
+    assert q.usable
+    assert q.accepted
+    assert not any("face_x" in r for r in q.reasons)
+    assert any("face_x" in w for w in q.warnings)
+
+
+def test_face_xy_session_drift_non_keyboard_still_blocks():
+    """Non-keyboard modes keep session face_x/face_y as hard rejects."""
+    targets = _targets_3x3()
+    samples = []
+    for i, t in enumerate(targets):
+        face_x = 0.50 + 0.02 * (i % 3)
+        samples.append((_feat(avg_v=0.12, face_x=face_x), (t.screen_x, t.screen_y)))
+    model = _ExactTrainMapper(samples)
+    q = evaluate_calibration_quality(
+        model=model,
+        samples=samples,
+        targets=targets,
+        screen_rect=(0.0, 0.0, 300.0, 300.0),
+        calibration_mode="fullscreen9",
+        loocv_detail=model.leave_one_out_detail_px(),
+        require_any_vertical_monotonic=False,
+    )
     assert not q.usable
     assert not q.accepted
     assert any("face_x" in r for r in q.reasons)
+
+
+def test_face_xy_session_drift_eye_box_still_blocks_keyboard():
+    """eye_box_h session span remains a hard blocker (head-distance proxy)."""
+    targets = _keyboard_targets_3x3()
+    samples = _keyboard_samples_from_avg_v(
+        [0.10, 0.12, 0.14, 0.20, 0.22, 0.24, 0.30, 0.32, 0.34]
+    )
+    drifted = []
+    for i, (feat, pos) in enumerate(samples):
+        eye_h = 0.020 + 0.006 * (i % 3)
+        drifted.append((_feat(**{**feat.__dict__, "eye_box_h": eye_h}), pos))
+    model = _ExactTrainMapper(drifted)
+    q = evaluate_calibration_quality(
+        model=model,
+        samples=drifted,
+        targets=targets,
+        screen_rect=(0.0, 0.0, 500.0, 500.0),
+        calibration_mode="keyboard15",
+        loocv_detail=model.leave_one_out_detail_px(),
+        require_any_vertical_monotonic=False,
+        max_head_drift_eye_h=0.0045,
+    )
+    assert not q.usable
+    assert any("eye_box" in r for r in q.reasons)
 
 
 def test_face_xy_session_drift_within_limits_not_blocker():

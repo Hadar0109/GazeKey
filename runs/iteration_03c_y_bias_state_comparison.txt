@@ -1,0 +1,146 @@
+# Iteration 03c — Y-Bias State Comparison (keyboard15 sanity + Phase 8)
+
+**Date**: 2026-06-10  
+**Purpose**: Compare all relevant row-Y bias states after follow-up `keyboard15` sanity (`e4b884a2c9c7`).  
+**Scope**: Analysis only — no tuning changes.
+
+---
+
+## 1. Y-bias states defined (code + evidence)
+
+| ID | Name | Layout | Fit path | Row **centers** | Samples in row-bias fit | Predict band pick |
+|----|------|--------|----------|-----------------|-------------------------|-------------------|
+| **A** | T061 legacy | `keyboard15` | `calibration_row_groups` | Mean anchor Y per grid band | Grid-band indices only; **gaps excluded** | Nearest center |
+| **B** | I01 legacy wide | `keyboard_full9` | `calibration_row_groups` | Mean anchor Y; **bottom ≈373** (Ctrl/Space) | All 9 grid targets | Nearest center |
+| **C** | I03 letter-row | `keyboard_full9` | `letter_row_y_centers(keys)` | Fixed Q/A/Z **≈169/237/305** | All 9 targets, nearest-row | Nearest letter Y |
+| **D** | keyboard15 T035 (gaps **in**) | `keyboard15` | `letter_row_y` + keys | Fixed **≈169/237/305** | **All 15** incl. `gap_0_1`, `gap_1_2` | Nearest letter Y |
+| **E** | keyboard15 T035 (gaps **out**) | `keyboard15` | Same as D but graded-only | Same centers | **13 graded** only (`grid_row≥0`) | Nearest letter Y |
+| **F** | No row bias | any | `APPLY_ROW_Y_BIAS=False` | — | — | — |
+
+**Current repo** (`compute_row_y_residuals`): implements **A** (fallback) and **D/C** (when `letter_row_y` set).  
+**State E (gap exclusion) is NOT in code yet** — `_is_graded_target` exists for region gates only, not row-bias fit loop.
+
+---
+
+## 2. Benchmark outcomes by state
+
+### keyboard15 row-bias states
+
+| State | Sessions | Key-hit | Z/C | Median err | α | Notes |
+|-------|----------|---------|-----|------------|---|-------|
+| **A** T061 | `0ee046a292cf`, `1b78ad3e50da` | **6/6** | **4/4** | 53–58 px | 1.0 | Baseline reference |
+| **D** T035+gaps | `919fc4abf86f`, `9297c42d33cb`, `8481ce5f329a` | 6/6/**8** | **1/6** | 59–75 px | 0.3–0.5 | P0 fail; best headline 8/15 |
+| **E** T035+no gaps | — | — | — | — | — | **Not benchmarked** (not implemented) |
+| **D?** follow-up | `e4b884a2c9c7` | **3/15** | **0/2** | **241 px** | 1.0 | **Catastrophic outlier** — see §4 |
+
+### full9 row-bias states (context)
+
+| State | Best session | Key-hit | Z/C | Notes |
+|-------|--------------|---------|-----|-------|
+| **B** I01 legacy | `d256b5d11165` | **9/15** | 0/3 | Best Phase 8 headline |
+| **C** I03 letter-row | `ceb5c5df4f79` | 5/15 | 0/4 | T035 did not recover Z/C |
+
+---
+
+## 3. keyboard15 sanity — full run table
+
+| # | Session | Y-bias state | α | LOOCV | Key-hit | Z | C | Hits (inferred) |
+|---|---------|--------------|---|-------|---------|---|---|-----------------|
+| S1 | `919fc4abf86f` | D | 0.3 | 74.9 | 6/15 | ✗→Alt | ✗→F | Q,E,U,G,B,Space |
+| S2 | `9297c42d33cb` | D | 0.5 | 39.9 | 6/15 | ✗→A | ✗→F | Q,E,T,U,G |
+| S3 | `8481ce5f329a` | D | 0.5 | 63.7 | **8/15** | ✗→Shift | **✓** | Q,E,T,U,P,G,J,C,Space |
+| S4 | `e4b884a2c9c7` | D* | 1.0 | 48.3 | **3/15** | ✗→↵ | ✗→↵ | Q,E,T only |
+
+\*User labeled follow-up as post–gap-target handling; **code still matches state D** (gaps included).
+
+### Z/C aggregate (all keyboard15 T035 sanity, n=4)
+
+| Metric | T061 (A) | Sanity S1–S4 (D) |
+|--------|----------|------------------|
+| Z hits | **2/2** | **0/4** |
+| C hits | **2/2** | **1/4** |
+| Z+C | **4/4** | **1/8** (12.5%) |
+
+**Gap-target handling did not restore T061 Z/C** in the one follow-up run; S1–S3 already showed regression before S4.
+
+---
+
+## 4. Follow-up `e4b884a2c9c7` — outlier, not a Y-bias state
+
+| Signal | Value | Interpretation |
+|--------|-------|----------------|
+| Cal | PASS, LOOCV **48.3 px** | Fit looked healthy |
+| Benchmark | **3/15**, median **241 px** | Severe runtime mapping failure |
+| Error pattern | D,G,J,L,Z,C,B,Space → **Enter (↵)** with **+170 to +763 px dx** | Bottom-row / clip / session blowout — not subtle row-bias drift |
+| α | **1.0** (matches T061) | Rules out α-only explanation vs S1–S3 |
+
+**Do not** use S4 to judge gap-target fix. Treat as **bad session** (head pose, preview, or transient mapper state). Re-run if validating state E.
+
+---
+
+## 5. Mechanistic comparison (why states differ)
+
+### Centers at predict time (keyboard15 / full9 letter rows)
+
+| State | top | mid | bottom |
+|-------|-----|-----|--------|
+| A, D, E (keyboard15) | ~169 | ~237 | ~305 |
+| B (full9 legacy) | ~169 | ~237 | **~373** |
+| C (full9 letter-row) | ~169 | ~237 | ~305 |
+
+**T035 letter-row fix** matters for **B→C** (Z at y≈305): legacy bottom center 373 ties Z gaze to **mid** band; letter-row picks **bottom**.
+
+### Fit samples (keyboard15 only)
+
+| Target class | A legacy | D current | E proposed |
+|--------------|----------|-----------|------------|
+| 9 grid anchors (3×3) | ✓ in band | ✓ nearest-row | ✓ nearest-row |
+| 4 interior (`row*_x*`) | ✓ in band | ✓ nearest-row | ✓ nearest-row |
+| 2 gaps (`gap_*`) | **excluded** | **included** | **excluded** |
+
+Gap Y positions (~203, ~271) sit between letter rows → nearest-row assigns to **top** / **mid** bias buckets and **dilutes** per-row mean residuals. This is the **only** intentional difference between **A** and **D** on keyboard15 (centers match for graded keys).
+
+### Z/C error modes by state
+
+| State | Z miss pattern | C miss pattern |
+|-------|----------------|----------------|
+| A T061 | (hit 2/2) | (hit 2/2) |
+| D S1–S3 | Alt, A, Shift | F, F, hit |
+| D S4 | Enter (+763 dy) | Enter (+103 dy) |
+| C I03 full9 | Alt | Space |
+| B I01 full9 | Alt | Space |
+
+Letter-row centers did **not** stop C→Space on full9 (I03). On keyboard15, Z/C failures are **adjacent-key** (A, Shift, F) or **catastrophic** (Enter) — not the same as full9 Space-row confusion.
+
+---
+
+## 6. Decision matrix
+
+| Question | Answer |
+|----------|--------|
+| Did follow-up sanity clear T035 on keyboard15? | **No** — S4 is catastrophic; S1–S3 Z/C still **1/8** vs T061 **4/4** |
+| Is gap exclusion validated? | **No** — not in code; S4 does not demonstrate state E |
+| Which Y-bias state is best evidence? | **A (T061)** for Z/C; **B (I01)** for headline on full9; **C** did not beat B on Z/C |
+| Is letter-row T035 harmful on keyboard15? | **Z/C yes** (D vs A); headline **mixed** (8/15 best vs 6/6 T061) |
+| Confound | α 0.3–0.5 on S1–S3 vs 1.0 on T061/S4 |
+
+---
+
+## 7. Recommended next steps (analysis only)
+
+1. **Implement state E** in `compute_row_y_residuals`: skip `not _is_graded_target(targets[i])` in letter-row fit loop (one focused code change).
+2. **Re-run keyboard15 sanity ×2** with α frozen observation — compare to **A** and **D** table above.
+3. **Discard or repeat** `e4b884a2c9c7`-class sessions (LOOCV≪benchmark err, Enter cluster).
+4. **Do not** return to full9 letter-row (**C**) for Z/C until keyboard15 **E** matches T061 Z/C or gap hypothesis is falsified.
+5. **T033** (`eye_box_h` usability) remains parallel track — unrelated to keyboard15 sanity pass rate (0% blocks on all sanity cals).
+
+---
+
+## 8. Task status
+
+| Item | Status |
+|------|--------|
+| Y-bias state map | **Complete** (this doc) |
+| Follow-up sanity analyzed | **1 run** (`e4b884a2c9c7`) |
+| Gap exclusion in code | **Pending** |
+| T035 cleared on keyboard15 | **No** |
