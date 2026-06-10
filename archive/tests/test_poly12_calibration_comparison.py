@@ -1,4 +1,9 @@
-"""Compare poly12_ridge vs poly12_ridge_split_decoupled_y on the same calibration data."""
+"""Compare poly12_ridge vs poly12_ridge_split_decoupled_y on the same calibration data.
+
+Archived offline test (not in default pytest collection). Run manually:
+
+    python -m pytest archive/tests/test_poly12_calibration_comparison.py -q
+"""
 
 from __future__ import annotations
 
@@ -25,7 +30,7 @@ from gazekey.mapping.ridge import (
     _train_rms_px,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 CALIB_JSON = ROOT / "calibration_v2.json"
 COMPARE_ALPHA = 10.0
 

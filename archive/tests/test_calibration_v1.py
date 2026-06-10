@@ -1,18 +1,21 @@
-"""Unit tests for calibration math and session validation."""
+"""Offline v1 calibration tests (archived T057; not in default pytest collection).
+
+Run manually: python -m pytest archive/tests/test_calibration_v1.py -q
+"""
 
 import numpy as np
 import pytest
 
-from gazekey.calibration.gaze_mapper import InterpolationGazeMapper, fit_gaze_mapper
-from gazekey.calibration.calibration_validation import validate_calibration_gaze
-from gazekey.calibration.calibration_session import (
+from archive.calibration_v1.gaze_mapper import InterpolationGazeMapper, fit_gaze_mapper
+from archive.calibration_v1.calibration_validation import validate_calibration_gaze
+from archive.calibration_v1.calibration_session import (
     CalibrationSession,
     MIN_SAMPLES,
     MIN_SHIFT_FROM_PREVIOUS,
     compute_calibration_targets,
 )
-from gazekey.calibration.calibration_store import CalibrationStore
-from gazekey.calibration.gaze_features import average_iris_pixels, gaze_ratios
+from archive.calibration_v1.calibration_store import CalibrationStore
+from archive.calibration_v1.gaze_features import average_iris_pixels, gaze_ratios
 from gazekey.tracking.eye_detector import EyeData
 
 # Realistic gaze-ratio pattern (eye-relative, not camera pixels)

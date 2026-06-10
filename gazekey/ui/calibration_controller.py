@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from typing import Callable, List, Optional, Tuple
 
@@ -16,6 +15,7 @@ from gazekey.layout.layout_inspector import inspect_keyboard_layout
 from gazekey.mapping.typing_candidate import CALIBRATION_MODE
 from gazekey.typing.gaze_ui_mapper import letter_keys_region_rect
 from gazekey.ui.calibration_overlay import CalibrationOverlay
+from gazekey.ui.env_flags import calib_mode_override
 
 
 @dataclass(frozen=True)
@@ -75,8 +75,7 @@ class CalibrationController:
 
         # Dev override so T032 candidate layouts can be selected without editing config
         # (mirrors GAZEKEY_DEV_BENCHMARK). Falls back to the configured mode.
-        env_mode = os.environ.get("GAZEKEY_CALIB_MODE", "").strip()
-        resolved_mode = env_mode or calibration_mode
+        resolved_mode = calib_mode_override() or calibration_mode
 
         screen = QApplication.primaryScreen().geometry()
         # letter_keys_region_rect() is the full keyboard-widget rect (all rows, no
@@ -116,7 +115,7 @@ class CalibrationController:
             dot_targets=dot_targets,
             screen_targets=screen_targets,
             on_finished=on_finished,
-            session_v2=self.session,
+            session=self.session,
             minimal_fixation_ui=True,
         )
         self.overlay.show()

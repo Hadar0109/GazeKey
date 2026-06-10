@@ -1,4 +1,9 @@
-"""Tests for X-interpolated Y residual correction."""
+"""Tests for X-interpolated Y residual correction (dormant; APPLY_LOCAL_Y_CORRECTION=False).
+
+Archived offline test. Run manually:
+
+    python -m pytest archive/tests/test_local_y_correction.py -q
+"""
 
 import numpy as np
 

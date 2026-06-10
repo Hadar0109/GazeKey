@@ -146,7 +146,7 @@ class FeatureExtractor:
         iris_ok = (left_iris is not None) or (right_iris is not None)
         confidence = 1.0 if (face_detected and iris_ok and not blink) else 0.0
 
-        Lh = Lv = Rh = Rv = None  # compatibility 0..1 ratios for gating + IDW baselines
+        Lh = Lv = Rh = Rv = None  # compatibility 0..1 ratios for gating metrics
         pca_uL = pca_vL = pca_uR = pca_vR = None  # raw eye-local coords for geometric mappers
         if face_detected and not blink:
             if left_iris is not None and left_eye is not None:

@@ -9,7 +9,7 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 
-from gazekey.calibration.gaze_features import iris_span_across_points
+from archive.calibration_v1.gaze_features import iris_span_across_points
 
 # Minimum gaze-ratio movement across all dots (0–1 scale)
 MIN_GLOBAL_SPAN_X = 0.015

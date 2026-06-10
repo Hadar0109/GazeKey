@@ -11,7 +11,7 @@ from typing import List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
-from gazekey.calibration.affine_mapper import AffineGazeMapper
+from archive.calibration_v1.affine_mapper import AffineGazeMapper
 
 PointPair = Tuple[Tuple[float, float], Tuple[float, float]]
 

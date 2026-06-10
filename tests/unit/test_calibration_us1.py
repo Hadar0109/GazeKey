@@ -48,14 +48,14 @@ def test_calibration_overlay_minimal_progress_only(qapp):
         dot_targets=dots,
         screen_targets=[(x, y) for x, y in dots],
         on_finished=on_done,
-        session_v2=session,
+        session=session,
         minimal_fixation_ui=True,
     )
     overlay.show()
     qapp.processEvents()
 
     assert overlay._title_label.isHidden()
-    overlay._update_v2_progress_only()
+    overlay._update_progress_only()
     assert overlay.status_label.text() == "1 / 3"
     assert "Look at" not in overlay.status_label.text()
     assert "avg_v" not in overlay.status_label.text()
@@ -68,7 +68,7 @@ def test_calibration_overlay_closes_without_pass_message_on_collection_complete(
         dot_targets=[(10.0, 10.0)],
         screen_targets=[(10.0, 10.0)],
         on_finished=lambda r: finished.append(r),
-        session_v2=CalibrationV2Session(
+        session=CalibrationV2Session(
             targets=_targets(1),
             csv_logger=CalibrationCsvLogger(enabled=False),
         ),
@@ -133,7 +133,7 @@ def test_calibration_overlay_hides_before_finish_callback(qapp):
         dot_targets=dots,
         screen_targets=dots,
         on_finished=on_finished,
-        session_v2=session,
+        session=session,
         minimal_fixation_ui=True,
     )
     overlay.show()

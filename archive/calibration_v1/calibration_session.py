@@ -16,9 +16,9 @@ from typing import Deque, List, Optional, Tuple
 
 import numpy as np
 
-from gazekey.calibration.gaze_features import iris_span_across_points
-from gazekey.calibration.gaze_mapper import GazeMapper, fit_gaze_mapper
-from gazekey.calibration.calibration_validation import validate_calibration_gaze
+from archive.calibration_v1.gaze_features import iris_span_across_points
+from archive.calibration_v1.gaze_mapper import GazeMapper, fit_gaze_mapper
+from archive.calibration_v1.calibration_validation import validate_calibration_gaze
 
 # Timing and validation thresholds
 PREPARE_MS = 2000

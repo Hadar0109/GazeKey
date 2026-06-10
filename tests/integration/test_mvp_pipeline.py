@@ -56,7 +56,7 @@ def _mock_ridge_fit(monkeypatch):
         best_effort=False,
     )
     monkeypatch.setattr(
-        "gazekey.ui.virtual_keyboard.fit_calibration_mapper",
+        "gazekey.ui.mapper_runtime.fit_calibration_mapper",
         lambda **kwargs: mock_fit,
     )
     return mock_fit
@@ -71,7 +71,7 @@ def _mock_quality(monkeypatch):
         reasons=[],
     )
     monkeypatch.setattr(
-        "gazekey.ui.virtual_keyboard.evaluate_calibration_quality",
+        "gazekey.ui.mapper_runtime.evaluate_calibration_quality",
         lambda **kwargs: quality,
     )
     return quality
@@ -100,11 +100,11 @@ def _prepare_session(vk, qapp, monkeypatch):
     monkeypatch.setattr(vk, "_print_target_sample_quality", MagicMock())
     monkeypatch.setattr(vk, "_print_row_v_stats_and_export_ratio_space", MagicMock())
     monkeypatch.setattr(
-        "gazekey.ui.virtual_keyboard.print_geometric_diagnostics",
+        "gazekey.ui.calibration_finish.print_geometric_diagnostics",
         MagicMock(),
     )
     monkeypatch.setattr(
-        "gazekey.ui.virtual_keyboard.assess_fullscreen_feasibility",
+        "gazekey.ui.mapper_runtime.assess_fullscreen_feasibility",
         MagicMock(),
     )
 

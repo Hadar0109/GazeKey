@@ -6,8 +6,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, List, Optional, Tuple
 
-from gazekey.calibration.affine_mapper import AffineGazeMapper
-from gazekey.calibration.gaze_mapper import GazeMapper, InterpolationGazeMapper
+from archive.calibration_v1.affine_mapper import AffineGazeMapper
+from archive.calibration_v1.gaze_mapper import GazeMapper, InterpolationGazeMapper
 
 CALIBRATION_VERSION = 5
 DEFAULT_CALIBRATION_PATH = Path(__file__).resolve().parents[2] / "calibration_v1.json"

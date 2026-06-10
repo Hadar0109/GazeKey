@@ -258,7 +258,7 @@ class CalibrationV2Session:
                 return None
             return float(np.mean(xs))
 
-        # Mean in legacy ratio-space (used by IDW baselines + gating metrics).
+        # Mean in legacy ratio-space (gating metrics / supplementary diagnostics).
         hs = np.array([p[0] for p in ratios], dtype=np.float64)
         vs = np.array([p[1] for p in ratios], dtype=np.float64)
         hs_f = iqr_filter(hs)
@@ -356,7 +356,7 @@ class CalibrationV2Session:
 
     def get_training_samples(self) -> List[Tuple[FrameFeatures, Tuple[float, float]]]:
         """
-        Return per-target training pairs suitable for `IDWRatioMapper.fit`.
+        Return per-target training pairs for ridge mapper fit (`fit_calibration_mapper`).
 
         Each completed target yields one window-mean feature vector paired with its
         target screen point (global coords).

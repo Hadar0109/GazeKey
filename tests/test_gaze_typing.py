@@ -3,7 +3,7 @@
 from PySide6.QtCore import QRect
 from PySide6.QtWidgets import QApplication, QLineEdit
 
-from gazekey.typing.dwell_selector import DwellSelector
+from gazekey.future import DwellSelector
 from gazekey.typing.gaze_smoother import GazeSmoother
 from gazekey.typing.key_hit_tester import hit_test_rects
 from gazekey.typing.key_semantics import action_from_label

@@ -19,7 +19,7 @@ def map_gaze_to_typing_ui(
     """
     Convert gaze ratios to global screen coordinates for hit-testing.
 
-    1. Use the saved calibration mapper (IDW) to get screen-space gaze.
+    1. Use the saved calibration mapper (PCA4 ridge) to get screen-space gaze.
     2. Stretch that position from the calibration screen bounds onto the
        typing region: control bar + full keyboard (all rows).
     """

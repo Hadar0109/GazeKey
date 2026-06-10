@@ -1,27 +1,28 @@
-"""Mapping gaze features to typing-region coordinates (calibration v2)."""
+"""Active MVP mapping API: PCA4 ridge calibration and predict (T054).
+
+Dormant mapper variants (IDW, row_aware) live under `archive/mapping_variants/`
+for offline tests; poly12 helpers remain in `gazekey.mapping.poly_features`.
+"""
 
 from gazekey.mapping.base import Mapper, MapperFitResult, MapperPrediction
-from gazekey.mapping.idw_local import IDWFeatureMapper
-from gazekey.mapping.idw_ratio import IDWRatioMapper
 from gazekey.mapping.ridge import (
+    FROZEN_ACTIVE_MAPPER,
+    Pca4BaselineMapper,
     RidgeCalibrationMapper,
     RidgeRegressionMapper,
     fit_calibration_mapper,
 )
-from gazekey.mapping.row_aware import RowAwareMapper
 from gazekey.mapping.typing_candidate import ACTIVE_MAPPER, TYPING_CANDIDATE_ID
 
 __all__ = [
+    "ACTIVE_MAPPER",
+    "FROZEN_ACTIVE_MAPPER",
     "Mapper",
     "MapperFitResult",
     "MapperPrediction",
-    "IDWFeatureMapper",
-    "IDWRatioMapper",
-    "RidgeRegressionMapper",
+    "Pca4BaselineMapper",
     "RidgeCalibrationMapper",
-    "fit_calibration_mapper",
-    "RowAwareMapper",
-    "ACTIVE_MAPPER",
+    "RidgeRegressionMapper",
     "TYPING_CANDIDATE_ID",
+    "fit_calibration_mapper",
 ]
-

@@ -161,45 +161,43 @@ correction, feature-smoothing, calibration-layout default, or benchmark threshol
 
 ### Phase 10A — Inventory (no deletions)
 
-- [ ] T040 Run 3 stable end-to-end flows (calibrate → preview → dev-flag benchmark); record per-run metrics and pass/fail in `runs/active_path_proven.txt`
-- [ ] T041 Verify **active PCA4 path proven** checklist in `plan.md`; confirm `runs/active_path_proven.txt` from T040 is complete
-- [ ] T042 Scan repository; produce `specs/001-calibration-mapping-mvp/cleanup-inventory.md` — classify every major path per plan (active MVP / future interaction / debug-offline / legacy / unknown); document path, purpose, MVP-imported, tests, recommendation, removal risk (FR-019)
-- [ ] T043 Resolve all `unknown` items from T042 — update inventory with findings; add `investigate` follow-up tasks to cleanup plan if any remain unresolved
+- [x] T040 Run 3 stable end-to-end flows (calibrate → preview → dev-flag benchmark); record per-run metrics and pass/fail in `runs/active_path_proven.txt`
+- [x] T041 Verify **active PCA4 path proven** checklist in `plan.md`; confirm `runs/active_path_proven.txt` from T040 is complete
+- [x] T042 Scan repository; produce `specs/001-calibration-mapping-mvp/cleanup-inventory.md` — classify every major path per plan (active MVP / future interaction / debug-offline / legacy / unknown); document path, purpose, MVP-imported, tests, recommendation, removal risk (FR-019)
+- [x] T043 Resolve all `unknown` items from T042 — update inventory with findings; add `investigate` follow-up tasks to cleanup plan if any remain unresolved
 
 ### Phase 10B — Cleanup plan + approval (no deletions)
 
-- [ ] T044 From approved inventory, produce `specs/001-calibration-mapping-mvp/cleanup-plan.md` — exact keep / archive / delete / move-aside / refactor / disconnect decisions per item; one task stub per planned deletion or archive (FR-019)
-- [ ] T045 **User approval gate** — review cleanup-plan.md; do not start T046+ until plan is explicitly approved
+- [x] T044 From approved inventory, produce `specs/001-calibration-mapping-mvp/cleanup-plan.md` — exact keep / archive / delete / move-aside / refactor / disconnect decisions per item; one task stub per planned deletion or archive (FR-019)
+- [x] T045 **User approval gate** — review [cleanup-plan.md](./cleanup-plan.md); do not start T046+ until plan is explicitly approved (approved 2026-06-10)
 
 ### Phase 10C — `virtual_keyboard.py` refactor (behavior-preserving)
 
 Extract responsibilities incrementally; `VirtualKeyboard` becomes thin orchestrator.
 Already extracted: `CalibrationController`, `GazePreviewController`.
 
-- [ ] T046 Extract keyboard UI layout/widgets from `gazekey/ui/virtual_keyboard.py` into `gazekey/ui/keyboard_layout.py` (control bar, rows, text display, placeholders, minimized view)
-- [ ] T047 Extract MVP + dev benchmark flow into `gazekey/ui/benchmark_controller.py` (banner, highlight, `evaluation/` integration, diagnostics hooks)
-- [ ] T048 Extract post-calibration mapper runtime into `gazekey/ui/mapper_runtime.py` (fit finish, predict/clamp, mapper store — no mapping parameter changes)
-- [ ] T049 Extract gaze loop dispatch into `gazekey/ui/gaze_loop.py` (`_on_eye_data_main_thread` → preview; dormant typing path isolated)
-- [ ] T050 Extract env flag reads into `gazekey/ui/env_flags.py` (`GAZEKEY_VERBOSE`, `GAZEKEY_DEV_BENCHMARK`, `GAZEKEY_CALIB_MODE`, etc.)
-- [ ] T051 Rewire `VirtualKeyboard` as thin orchestrator — delegate to extracted modules; remove duplicated logic; T028 integration test must still pass
+- [x] T046 Extract keyboard UI layout/widgets from `gazekey/ui/virtual_keyboard.py` into `gazekey/ui/keyboard_layout.py` (control bar, rows, text display, placeholders, minimized view)
+- [x] T047 Extract MVP + dev benchmark flow into `gazekey/ui/benchmark_controller.py` (banner, highlight, `evaluation/` integration, diagnostics hooks)
+- [x] T048 Extract post-calibration mapper runtime into `gazekey/ui/mapper_runtime.py` (fit finish, predict/clamp, mapper store — no mapping parameter changes)
+- [x] T049 Extract gaze loop dispatch into `gazekey/ui/gaze_loop.py` (`_on_eye_data_main_thread` → preview; dormant typing path isolated)
+- [x] T050 Extract env flag reads into `gazekey/ui/env_flags.py` (`GAZEKEY_VERBOSE`, `GAZEKEY_DEV_BENCHMARK`, `GAZEKEY_CALIB_MODE`, etc.)
+- [x] T051 Rewire `VirtualKeyboard` as thin orchestrator — delegate to extracted modules; remove duplicated logic; T028 integration test must still pass
 
 ### Phase 10D — Execute approved cleanup (one task per removal)
 
-Only items approved in cleanup-plan.md (T045). **Do not delete dwell/intent/selection.**
+Only items approved in [cleanup-plan.md](./cleanup-plan.md) (T045). **Do not delete dwell/intent/selection.**
 
-- [ ] T052 Isolate future interaction code (dwell, intent, selection, gaze typing) from active MVP import path — move to `gazekey/future/` or equivalent facade; preserve all modules for later use (FR-019)
-- [ ] T053 [cleanup-plan] Execute first approved archive/delete/disconnect item — dedicated task per cleanup-plan row (e.g. v1 `gazekey/calibration/` if plan approves)
-- [ ] T054 [cleanup-plan] Execute second approved archive/delete/disconnect item — dedicated task per cleanup-plan row (e.g. dormant mapper wiring in `gazekey/mapping/` if plan approves)
-- [ ] T055 [cleanup-plan] Execute third approved archive/delete/disconnect item — dedicated task per cleanup-plan row (e.g. debug-only imports removed from active chain if plan approves)
-- [ ] T056 **Behavior preservation gate** — re-run T029 baseline flow; confirm key-hit, row accuracy, median error, and pass/fail unchanged vs pre-Phase-10 (normal run variance); document in `runs/phase10_behavior_gate.txt`
-
-> **Note**: T053–T055 are placeholders for the first three approved removals. When
-> cleanup-plan.md is written (T044), add one dedicated task per additional approved
-> deletion/archive **before T056** (insert/renumber as needed). Uncertain items stay
-> `investigate` — never delete.
+- [x] T052 Isolate future interaction code — `gazekey/future/` facade; preserve intent, selection, gaze_typing_controller, dwell_selector (FR-019)
+- [x] T053 Disconnect v1 from `gazekey/ui/calibration_overlay.py` — v2-only overlay API (FR-019)
+- [x] T054 Refactor `gazekey/mapping/__init__.py` to PCA4-only exports; update test imports (FR-019)
+- [x] T055 Archive `gazekey/mapping/idw_local.py`, `idw_ratio.py`, `row_aware.py` → `archive/mapping_variants/` (FR-019)
+- [x] T056 Move `tracking_bridge.py` → `gazekey/tracking/`; archive remaining `gazekey/calibration/` v1 → `archive/calibration_v1/` (FR-019)
+- [x] T057 Archive `tests/test_calibration.py` → `archive/tests/test_calibration_v1.py` (FR-019)
+- [x] T058 Delete root stale `key_accuracy_debug.csv` and `key_accuracy_compare.csv` (FR-019)
+- [x] T060 **Behavior preservation gate** — re-run T029 baseline flow; confirm metrics vs pre-Phase-10; document in `runs/phase10_behavior_gate.txt`
 
 **Checkpoint**: Inventory complete, plan approved, VK refactored, approved cleanups done,
-behavior gate passed. **Then** resume Phase 8.
+behavior gate (T060) passed. **Then** resume Phase 8.
 
 ---
 
@@ -207,14 +205,14 @@ behavior gate passed. **Then** resume Phase 8.
 
 **Purpose**: Return to result-driven accuracy work with a clean active path.
 
-- [ ] T057 Resume Phase 8 — pick one of T032–T035 per failure-pattern guide; re-benchmark vs T029 baseline; document via T036
+- [ ] T061 Resume Phase 8 — pick one of T032–T035 per failure-pattern guide; re-benchmark vs T029 baseline; document via T036
 
 ---
 
 ## Phase 12: Acceptance
 
-- [ ] T058 Run 3-session repeatability test per `specs/001-calibration-mapping-mvp/quickstart.md` §8; record in `runs/acceptance_3session.md` (SC-004, CQ-1)
-- [ ] T059 Verify constitution alignment checklist in `specs/001-calibration-mapping-mvp/plan.md` — all gates still pass
+- [ ] T062 Run 3-session repeatability test per `specs/001-calibration-mapping-mvp/quickstart.md` §8; record in `runs/acceptance_3session.md` (SC-004, CQ-1)
+- [ ] T063 Verify constitution alignment checklist in `specs/001-calibration-mapping-mvp/plan.md` — all gates still pass
 
 ---
 
@@ -224,17 +222,17 @@ behavior gate passed. **Then** resume Phase 8.
 Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6 (incl. T028 integration)
   → Phase 7 (baseline; T031 loops to 3–6 if blocked)
   → Phase 9 (disconnect) ✅
-  → Phase 10 (inventory → plan → approval → refactor → approved cleanup → T056 gate)
-  → Phase 11 (resume Phase 8: T032–T035 / T036)
-  → Phase 12 (acceptance)
+  → Phase 10 (inventory → plan → approval → refactor T046–T051 → cleanup T052–T058 → T060 gate)
+  → Phase 11 (resume Phase 8: T032–T035 / T036 via T061)
+  → Phase 12 (acceptance T062–T063)
 ```
 
-- **Phase 8 (T032–T036) PAUSED** until Phase 10 completes (T056 behavior gate)
+- **Phase 8 (T032–T036) PAUSED** until Phase 10 completes (T060 behavior gate)
 - **T028** after Phases 3–6 complete and **before T029** baseline (full flow wired)
 - **T029–T030** MUST succeed before Phase 10 execution (T046+)
 - **T040–T041** MUST pass before T042 (inventory)
 - **T045** user approval MUST pass before T046+ (refactor + cleanup execution)
-- **T056** MUST pass before **T057** (resume Phase 8)
+- **T060** MUST pass before **T061** (resume Phase 8)
 - **US2** depends on **US1**; **US3** depends on **US2** (CQ-3)
 
 ## Parallel Opportunities
@@ -248,8 +246,8 @@ Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6 (incl. T028 
 
 1. Complete Phases 1–2, then US1 → US4 (incl. T028 integration test)
 2. **Baseline (T029)** must finish end-to-end; else T031 fix flow, retry T029
-3. **Phase 10** before resuming accuracy work: inventory → plan → approval → VK refactor → approved cleanups → T056 gate
-4. **Phase 11**: resume Phase 8 — one change from decision guide → re-benchmark → T036 document
-5. Acceptance last (Phase 12)
+3. **Phase 10** before resuming accuracy work: inventory → plan → approval → VK refactor (T046–T051) → cleanups (T052–T058) → T060 gate
+4. **Phase 11 (T061)**: resume Phase 8 — one change from decision guide → re-benchmark → T036 document
+5. Acceptance last (Phase 12, T062–T063)
 
 **MVP demo**: US1 + US2 + US3 + baseline summary — minimum validation loop.
