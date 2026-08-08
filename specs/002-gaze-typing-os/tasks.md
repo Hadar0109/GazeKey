@@ -98,13 +98,13 @@ paths removed; product still calibrates/maps.
 **⚠️ CRITICAL**: Phase 5 (US1) MUST NOT start until the focus path **passes**
 (T034/T035). Documenting a mitigation without a passing rerun is **not** enough.
 
-- [ ] T029 [P] Implement `KeyAction` dataclass/enums in `gazekey/typing/key_action.py` per `contracts/key-action.md` / `data-model.md`
-- [ ] T030 [P] Implement `OsInputAdapter` protocol + `FakeOsInputAdapter` in `gazekey/input/os_input_adapter.py` (no `pynput` in typing/UI)
-- [ ] T031 Implement `PynputOsInputAdapter` in `gazekey/input/pynput_adapter.py` (`pynput` import only here)
-- [ ] T032 Implement `ActionDispatcher` in `gazekey/typing/action_dispatcher.py` with `on_action_requested` then inject then `on_action_delivered` semantics
-- [ ] T033 [P] Add unit tests in `tests/unit/test_key_action_dispatcher.py` for request vs delivered success/failure with fake adapter
-- [ ] T034 **Hard focus gate**: Run early Windows focus validation per `quickstart.md` §B — after fullscreen calib → top-half keyboard, inject test KeyActions via dispatcher+pynput without restoring focus between characters; record result in `specs/002-gaze-typing-os/focus-validation-log.md`
-- [ ] T035 If T034 fails: implement **minimal OS/window-only** mitigation in `gazekey/ui/keyboard_layout.py` / `virtual_keyboard.py` (**no layout redesign/reposition**), **rerun** T034, and require **PASS** before Phase 5; record the passing run in `focus-validation-log.md`. If the minimal fix still does not pass, **stop for review** rather than expanding scope automatically; Phase 5 remains blocked until pass
+- [x] T029 [P] Implement `KeyAction` dataclass/enums in `gazekey/typing/key_action.py` per `contracts/key-action.md` / `data-model.md`
+- [x] T030 [P] Implement `OsInputAdapter` protocol + `FakeOsInputAdapter` in `gazekey/input/os_input_adapter.py` (no `pynput` in typing/UI)
+- [x] T031 Implement `PynputOsInputAdapter` in `gazekey/input/pynput_adapter.py` (`pynput` import only here)
+- [x] T032 Implement `ActionDispatcher` in `gazekey/typing/action_dispatcher.py` with `on_action_requested` then inject then `on_action_delivered` semantics
+- [x] T033 [P] Add unit tests in `tests/unit/test_key_action_dispatcher.py` for request vs delivered success/failure with fake adapter
+- [x] T034 **Hard focus gate**: Run early Windows focus validation per `quickstart.md` §B — after fullscreen calib → top-half keyboard, inject test KeyActions via dispatcher+pynput without restoring focus between characters; record result in `specs/002-gaze-typing-os/focus-validation-log.md`
+- [x] T035 If T034 fails: implement **minimal OS/window-only** mitigation in `gazekey/ui/keyboard_layout.py` / `virtual_keyboard.py` (**no layout redesign/reposition**), **rerun** T034, and require **PASS** before Phase 5; record the passing run in `focus-validation-log.md`. If the minimal fix still does not pass, **stop for review** rather than expanding scope automatically; Phase 5 remains blocked until pass
 
 **Checkpoint**: Skeleton works; focus path **passing** (hard gate).
 
