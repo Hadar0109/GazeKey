@@ -80,12 +80,12 @@ paths removed; product still calibrates/maps.
 
 ### Post-cleanup behavior gate
 
-- [ ] T023 [US3] Verify `python main.py` launches after cleanup
-- [ ] T024 [US3] Verify fullscreen calibration still completes (layout unchanged)
-- [ ] T025 [US3] Verify existing PCA4 fit still produces mapped gaze (observe via tools preview or equivalent without making preview a product mode)
-- [ ] T026 [US3] Verify keyboard returns to current top-half geometry after calib
-- [ ] T027 [US3] Verify relocated developer benchmark runs via independent tools entry
-- [ ] T028 [US3] Record gate results in `specs/002-gaze-typing-os/quickstart-gate-log.md` (pass/fail); **STOP if fail**
+- [x] T023 [US3] Verify `python main.py` launches after cleanup
+- [x] T024 [US3] Verify fullscreen calibration still completes (layout unchanged)
+- [x] T025 [US3] Verify existing PCA4 fit still produces mapped gaze (observe via tools preview or equivalent without making preview a product mode)
+- [x] T026 [US3] Verify keyboard returns to current top-half geometry after calib
+- [x] T027 [US3] Verify relocated developer benchmark runs via independent tools entry
+- [x] T028 [US3] Record gate results in `specs/002-gaze-typing-os/quickstart-gate-log.md` (pass/fail); **STOP if fail**
 
 **Checkpoint**: US3 done; sealed calib/mapping path healthy; tools benchmark independent.
 
