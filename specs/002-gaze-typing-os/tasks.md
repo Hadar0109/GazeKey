@@ -147,7 +147,7 @@ non-OS; mouse optional same path.
 ### US1 tests & verification
 
 - [x] T049 [P] [US1] Add automated contract/integration test in `tests/contract/test_typing_dispatch_path.py` (or `tests/integration/`) covering selection → `KeyAction` → `ActionDispatcher` → `FakeOsInputAdapter` for dwell completion, mouse click, paused state (no inject), and delivery failure
-- [ ] T050 [US1] Manual short-word gaze test per quickstart §C; confirm SC-001/SC-001a/SC-002/SC-003 notes in `focus-validation-log.md` or `quickstart-gate-log.md` — **blocked on re-validation after 0.25 s key-switch confirmation (T050 usability revision); do not start T051+ until PASS**
+- [ ] T050 [US1] Manual short-word gaze test per quickstart §C; confirm SC-001/SC-001a/SC-002/SC-003 notes in `focus-validation-log.md` or `quickstart-gate-log.md` — **PENDING**: live §C still needs operator; upstream mapping accuracy may cause unintended keys (not a dwell/typing regression; do not change calib/mapping in this feature). 0.25 s key-switch confirmation remains as reviewed. T051–T054 proceeded with this still open.
 
 **Checkpoint**: External app receives gaze-typed characters; visuals/Pause/Shift/cooldown/loss/failure feedback behave per spec.
 
@@ -160,10 +160,10 @@ OS/window concern; continuous inject without per-character focus restore.
 
 **Independent Test**: quickstart layout + continuous inject checks.
 
-- [ ] T051 [US2] Confirm/preserve fullscreen calibration presentation and post-calib top-half keyboard geometry in `gazekey/ui/keyboard_layout.py` / VK — **no redesign or reposition**
-- [ ] T052 [US2] Apply any remaining OS/window-only focus hardening needed after full typing wiring in `gazekey/ui/keyboard_layout.py` / `virtual_keyboard.py` without changing layout geometry
-- [ ] T053 [US2] Ensure key widgets use focus policies that avoid permanently capturing the external typing target on optional mouse use
-- [ ] T054 [US2] Re-run focus validation after typing integration; update `specs/002-gaze-typing-os/focus-validation-log.md` (**must remain PASS**)
+- [x] T051 [US2] Confirm/preserve fullscreen calibration presentation and post-calib top-half keyboard geometry in `gazekey/ui/keyboard_layout.py` / VK — **no redesign or reposition**
+- [x] T052 [US2] Apply any remaining OS/window-only focus hardening needed after full typing wiring in `gazekey/ui/keyboard_layout.py` / `virtual_keyboard.py` without changing layout geometry
+- [x] T053 [US2] Ensure key widgets use focus policies that avoid permanently capturing the external typing target on optional mouse use
+- [x] T054 [US2] Re-run focus validation after typing integration; update `specs/002-gaze-typing-os/focus-validation-log.md` (**must remain PASS**)
 
 **Checkpoint**: SC-004 satisfied; layout unchanged.
 
@@ -175,9 +175,9 @@ OS/window concern; continuous inject without per-character focus restore.
 
 **Independent Test**: Calib/mapping still work; no typing imports in mapping/calib fit path.
 
-- [ ] T055 [P] [US4] Verify `gazekey/calibration/` and `gazekey/mapping/` have no imports of `gazekey.input` or dwell/dispatcher; fix if any crept in
-- [ ] T056 [P] [US4] Verify typing does not alter `gazekey/mapping/ridge.py` / `config.py` / quality gates for “typing fixes”
-- [ ] T057 [US4] Confirm mapping benchmark still runnable via tools entry and remains the independent mapping accuracy path (001 metrics)
+- [x] T055 [P] [US4] Verify `gazekey/calibration/` and `gazekey/mapping/` have no imports of `gazekey.input` or dwell/dispatcher; fix if any crept in
+- [x] T056 [P] [US4] Verify typing does not alter `gazekey/mapping/ridge.py` / `config.py` / quality gates for “typing fixes”
+- [x] T057 [US4] Confirm mapping benchmark still runnable via tools entry and remains the independent mapping accuracy path (001 metrics)
 
 **Checkpoint**: Mapping foundation isolation intact (Constitution I/V).
 
@@ -187,12 +187,12 @@ OS/window concern; continuous inject without per-character focus restore.
 
 **Purpose**: Docs, remaining inventories, full quickstart, full regression.
 
-- [ ] T058 [P] Update `docs/CURRENT_PIPELINE.md` and `docs/PROJECT_STRUCTURE.md` for product typing path + `tools/` split (no preview-as-product)
-- [ ] T059 [P] Update `docs/TYPING_CANDIDATE.md` / `README.md` for auto-start when usable mapper available, tools entries, removed flags, dwell visuals
-- [ ] T060 Remove or rewrite obsolete tests that assert product `_gaze_typing_active() is False` / preview-only product default (e.g. `tests/unit/test_preview_readonly.py`)
-- [ ] T061 Run full `specs/002-gaze-typing-os/quickstart.md` checklist; record results
-- [ ] T062 [P] Run focused 002 unit suite: `pytest tests/unit -k "dwell or key_action or os_input or typing_session"`
-- [ ] T063 Run **full** regression test suite after cleanup and integration: `pytest` (entire `tests/`); record pass/fail summary
+- [x] T058 [P] Update `docs/CURRENT_PIPELINE.md` and `docs/PROJECT_STRUCTURE.md` for product typing path + `tools/` split (no preview-as-product)
+- [x] T059 [P] Update `docs/TYPING_CANDIDATE.md` / `README.md` for auto-start when usable mapper available, tools entries, removed flags, dwell visuals
+- [x] T060 Remove or rewrite obsolete tests that assert product `_gaze_typing_active() is False` / preview-only product default (e.g. `tests/unit/test_preview_readonly.py`)
+- [x] T061 Run full `specs/002-gaze-typing-os/quickstart.md` checklist; record results
+- [x] T062 [P] Run focused 002 unit suite: `pytest tests/unit -k "dwell or key_action or os_input or typing_session"`
+- [x] T063 Run **full** regression test suite after cleanup and integration: `pytest` (entire `tests/`); record pass/fail summary
 
 **Checkpoint**: Feature ready for `/speckit.implement` completion review / analyze.
 

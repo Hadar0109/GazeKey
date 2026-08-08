@@ -1,7 +1,7 @@
 ## CURRENT_PIPELINE
 
-Authoritative description of the **active product runtime** after the tools split
-(`002-gaze-typing-os` cleanup, 2026-08).
+Authoritative description of the **active product runtime** after
+`002-gaze-typing-os` (tools split + product typing path).
 
 ### Entry point
 
@@ -28,15 +28,20 @@ imports `tools.*`.
 
 ```
 Camera → EyeData → FeatureExtractor
-       → [calibrating] CalibrationSession + CalibrationOverlay
+       → [calibrating] CalibrationSession + CalibrationOverlay (fullscreen)
        → [after fit]  MapperRuntime (PCA4 ridge + row bias)
-       → [product] usable mapped gaze (mouse typing still available)
+       → MappedGazePoint
+       → [product] hit-test → DwellEngine → KeyAction → ActionDispatcher
+            → OsInputAdapter (pynput) → external typing target
        → [tools only] GazePreview / BenchmarkEvalSession
 ```
 
-Mouse clicks on keys still route through the normal Qt button handlers and
-`TextBufferController`. Gaze dwell typing and OS injection are **not** on the
-product path yet.
+Layout: fullscreen calibration, then keyboard in the **current top-half**
+geometry (`0.62` height, pinned at top). External apps use the lower half.
+
+Typing **auto-starts** when a usable mapper is available after normal
+calibration (not `001` benchmark thresholds). Mouse clicks on keys use the
+same KeyAction → dispatcher → OS path when the typing session is active.
 
 ---
 
@@ -45,21 +50,24 @@ product path yet.
 | Area | Files | Role |
 |------|-------|------|
 | UI shell | `gazekey/ui/virtual_keyboard.py` | Thin orchestrator; wires controllers |
-| Layout | `gazekey/ui/keyboard_layout.py`, `gazekey/layout/layout_inspector.py` | Keyboard chrome + key geometry snapshot |
+| Layout | `gazekey/ui/keyboard_layout.py`, `gazekey/layout/` | Keyboard chrome + key geometry snapshot |
 | Tracking | `gazekey/tracking/*` | Background capture → `EyeData` |
 | Features | `gazekey/features/*` | `FrameFeatures` + runtime PCA EMA |
 | Runtime | `gazekey/runtime/*` | Lifecycle, per-frame dispatch, fit/predict, session id |
 | Calibration | `gazekey/calibration/*`, `gazekey/ui/calibration_*` | Targets, fixation, finish orchestration |
-| Mapping | `gazekey/mapping/*` | PCA4 ridge + optional row-Y bias |
-| Typing helpers | `gazekey/typing/*` | Hit test, text buffer, gaze smoother (kept for product/tools) |
+| Mapping | `gazekey/mapping/*` | PCA4 ridge + optional row-Y bias (unchanged for typing) |
+| Typing | `gazekey/typing/*` | Session, dwell, KeyAction, dispatcher, hit-test |
+| OS input | `gazekey/input/*` | `OsInputAdapter` + `pynput` adapter only |
+| Dwell UI | `gazekey/ui/dwell_progress_overlay.py` | Progress ring on existing key geometry |
 
 ### Developer tools (`tools/`)
 
 | Area | Role |
 |------|------|
 | `tools/preview/` | Read-only gaze preview entry |
-| `tools/evaluation/` | Benchmark UI/scoring, session paths, calib finish artifacts |
-| `tools/debug/` | Mapper snapshot, layout CSV, geometry overlay/diagnostics, offline analysis |
+| `tools/evaluation/` | Benchmark UI/scoring (001 mapping accuracy path) |
+| `tools/debug/` | Mapper snapshot, layout CSV, geometry overlay/diagnostics |
+| `tools/focus_validation.py` | §B external-focus harness |
 | `tools/flags.py` | `GAZEKEY_DEV_BENCHMARK`, `GAZEKEY_CALIB_GEOM_DEBUG` |
 
 ---
@@ -74,26 +82,16 @@ product path yet.
 
 `fit_calibration_mapper` fits **only** `pca4_baseline`. Poly12, decoupled, local-Y,
 and multi-candidate ranking are **not** on the active path (variants under `archive/`).
+Typing must **not** change fit/predict/gates for accuracy “fixes”.
 
 ### Quality gates
 
 | File | Role |
 |------|------|
-| `gazekey/runtime/mapper_runtime.py` | Calls fit + `evaluate_calibration_quality` |
-| `gazekey/calibration/quality.py` | Usability decision (usable mapper for product path) |
-| `gazekey/calibration/region_quality.py` | Per-target region LOOCV checks |
+| `gazekey/calibration/quality.py` | Pass/fail for usable mapper |
+| `gazekey/calibration/region_quality.py` | Region LOOCV helpers |
 
-On failure: mapper cleared, RECALIBRATE prompt; debug artifacts still written when
-tools are attached.
-
----
-
-### Mapper selection
-
-- **When**: `CalibrationFinishController.on_finished` → `MapperRuntime.complete_calibration_fit`
-- **What**: `pca4_baseline` ridge + optional `MapperWithRowBias`
-- **Load on startup**: **disabled** — mapper snapshots are write-only for inspection
-- **Runtime handle**: `MapperRuntime.model` (exposed on `VirtualKeyboard` as `_gaze_mapper`)
+Gates decide usable mapper vs RECALIBRATE. They are **not** retuned for typing.
 
 ---
 
@@ -118,22 +116,25 @@ Clip bounds for predict: letter-keys region (`_calib_clip_rect`) in keyboard mod
 #### During calibration
 
 3. `_start_calibration_if_needed` → `CalibrationController.start` → assigns `session_id`, binds `runs/<session_id>/`
-4. `CalibrationOverlay` feeds features to `CalibrationSession.process`
+4. `CalibrationOverlay` (fullscreen) feeds features to `CalibrationSession.process`
 5. Per target: fixation lock → accepted samples → advance
 6. `_on_calibration_finished` → `MapperRuntime.complete_calibration_fit`
 7. Quality gates → summaries (+ tools debug exports when attached)
+8. On pass: typing session activates (`os_inject_enabled`); keyboard returns to top-half geometry
 
 #### After calibration (product)
 
-8. Usable mapper available; mouse typing continues via `TextBufferController`
-9. Gaze dwell / OS inject not wired yet (`002` later phases)
+9. Usable mapped gaze → layout hit-test → dwell (0.9 s; 0.20 s cooldown; 5-frame re-arm; **0.25 s** key-switch confirm)
+10. Selection → `KeyAction` → `ActionDispatcher` → `PynputOsInputAdapter` → focused external app
+11. Pause/Resume is internal (no OS KeyAction); Shift is one-shot; Ctrl/Alt never OS-inject
+12. Delivery failure → non-blocking status only; mapper/session preserved
 
 #### Tools preview / benchmark (optional)
 
-10. `python -m tools.preview` or `tools.evaluation` attaches DevTools
-11. Preview: `MapperRuntime.predict_gaze_v2` → `GazeSmoother` → gaze dot
-12. Benchmark (`GAZEKEY_DEV_BENCHMARK=1`): sequential keys via `key_hit_tester` + `benchmark_runner`
-13. Write `benchmark_summary.txt` + `benchmark_diag.json` under the session folder
+13. `python -m tools.preview` or `tools.evaluation` attaches DevTools
+14. Preview: mapped gaze dot only (read-only; not product typing)
+15. Benchmark (`GAZEKEY_DEV_BENCHMARK=1`): sequential keys via tools hit-tester + `benchmark_runner`
+16. Write `benchmark_summary.txt` + `benchmark_diag.json` under the session folder
 
 ---
 
@@ -177,7 +178,7 @@ Nothing new is written to the repository root.
 | `GAZEKEY_CALIB_GEOM_DEBUG=1` | Post-fit geometry overlay |
 
 Deleted (do not use): `GAZEKEY_SELECTION_DEBUG`, `GAZEKEY_GAZE_DEBUG_PRED`,
-`GAZEKEY_GAZE_DEBUG_SELECTION`, and obsolete accuracy flag names.
+`GAZEKEY_GAZE_DEBUG_SELECTION`, product typing enable flags, and obsolete accuracy flag names.
 
 ---
 
@@ -190,14 +191,15 @@ Deleted (do not use): `GAZEKEY_SELECTION_DEBUG`, `GAZEKEY_GAZE_DEBUG_PRED`,
 | Standalone `scripts/camera_*.py` demos | **Deleted** |
 | Mapping offline analysis | `tools/debug/analyze_correction_layers.py` |
 | Poly12 / local-Y / decoupled mappers | `archive/` only |
+| In-keyboard text buffer as typing destination | Removed — OS is sole destination |
 
 ---
 
 ### Quick checklist
 
-- Calibrate every launch: **`CalibrationSession`** + **`keyboard15`**
+- Calibrate every launch: **`CalibrationSession`** + **`keyboard15`** (fullscreen)
 - Fit: **`pca4_baseline`** + **row Y bias** (no local-Y on active path)
 - Config: **`gazekey/mapping/config.py`** + **`docs/TYPING_CANDIDATE.md`**
 - Persist: **`runs/<session_id>/calibration_v2.json`** via tools debug writers when attached
-- Product: usable mapper after pass; mouse typing; no dwell yet
-- Tools: `python -m tools.preview` / `tools.evaluation`
+- Product: usable mapper → auto typing into focused external app (dwell + mouse)
+- Tools: `python -m tools.preview` / `tools.evaluation` (not product modes)

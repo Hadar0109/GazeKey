@@ -1,9 +1,9 @@
 # Typing candidate: `pca4_baseline_v1`
 
 Frozen configuration for the **active calibration + mapped-gaze path**. This stack
-is tuned for a reliable calibration → usable mapper loop. Full gaze typing / OS
-injection is specified under `002-gaze-typing-os` and is not enabled on the
-default product path yet.
+is tuned for a reliable calibration → usable mapper loop. Product gaze typing /
+OS injection (`002-gaze-typing-os`) **consumes** mapped gaze downstream and must
+**not** retune these constants for typing accuracy.
 
 ## What is active
 
@@ -17,10 +17,14 @@ default product path yet.
 | Gaze smoother | **EMA α = 0.35** | Screen-coordinate EMA after predict |
 | Quality gates | **Region-first (keyboard)** | `evaluate_calibration_quality` + region LOOCV |
 | Candidate ranking | **Disabled (frozen)** | Only `pca4_baseline` is fit |
-| Runtime interaction | **Mouse typing + usable mapped gaze** | Dwell / OS inject not product-default yet |
+| Runtime interaction | **Mouse + dwell → OS inject** | Auto-starts when usable mapper available |
 | Persistence | **Session folder** | `runs/<session_id>/calibration_v2.json` (not loaded on startup) |
 
-All constants live in **`gazekey/mapping/config.py`**.
+All mapping constants live in **`gazekey/mapping/config.py`**.
+
+Dwell selection (downstream, not mapping): **0.9 s** dwell, **0.20 s** post-fire
+cooldown, **5-frame** same-key re-arm, **0.25 s** key-switch confirmation; circular
+progress ring on existing key geometry.
 
 ## Evidence from archived sessions
 
@@ -42,9 +46,10 @@ Key takeaways retained:
 ### Product
 
 1. Launch: `python main.py`
-2. Complete the 15-point calibration (fixate each dot).
-3. On pass: usable mapper is available; click keys with the mouse to type.
-4. Use **RECALIBRATE** to run again.
+2. Complete the 15-point **fullscreen** calibration (fixate each dot).
+3. On pass: usable mapper available; typing auto-starts into the **focused external app**.
+4. Gaze-dwell keys (~0.9 s) or optional mouse — same OS path.
+5. Use **Pause/Resume** and **RECALIBRATE** as needed.
 
 ### Developer tools
 
@@ -54,7 +59,7 @@ set GAZEKEY_DEV_BENCHMARK=1
 python -m tools.evaluation
 ```
 
-See `tools/README.md`.
+See `tools/README.md`. Preview/benchmark are **not** product modes.
 
 ### Diagnostics
 
@@ -66,6 +71,8 @@ See `tools/README.md`.
 | `GAZEKEY_CALIB_GEOM_DEBUG=1` | Tools | Post-fit geometry overlay |
 | `GAZEKEY_DEV_BENCHMARK=1` | Tools | Auto 15-key benchmark + `benchmark_summary.txt` |
 
+No product typing enable flag — session activates after usable mapper.
+
 ## Expected quality
 
 Typical **passing** keyboard15 runs:
@@ -75,7 +82,8 @@ Typical **passing** keyboard15 runs:
 - Tools benchmark key hit: high session variance (~40–70% on good runs)
 
 When gates fail, the usable mapper stays blocked and the app prompts **RECALIBRATE**.
-There is no best-effort mapper bypass.
+There is no best-effort mapper bypass. Upstream mapping accuracy issues are
+**not** fixed by changing dwell/typing or by retuning gates for typing.
 
 ## Session artifacts
 
@@ -93,12 +101,12 @@ Each run writes under **`runs/<session_id>/`**:
 
 ## Not on this path
 
-- Dwell typing / OS injection (later `002` phases)
 - Poly12 / local-Y / decoupled mappers — under `archive/mapping_variants/`
-- Deleted selection/intent packages and obsolete debug flags
+- Deleted selection/intent packages and obsolete debug/typing enable flags
+- In-app text buffer as the typing destination (OS is sole destination)
+- Preview/benchmark as product modes
 
 ## Changing this configuration
 
-1. Edit **`gazekey/mapping/config.py`** (thresholds, α grid, smoothers, `CALIBRATION_MODE`).
-2. Update this document and run `python -m pytest tests/ -q`.
-3. To experiment with alternate mappers, restore code from `archive/mapping_variants/` and change `fit_calibration_mapper` in `ridge.py` — not supported on the frozen path.
+Treat `gazekey/mapping/config.py` as frozen for MVP. Any change needs new
+evidence via the **tools** benchmark path — not typing-layer tweaks.

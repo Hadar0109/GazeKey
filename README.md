@@ -4,11 +4,17 @@ Eye-tracking virtual keyboard using a standard webcam and MediaPipe face landmar
 
 ## What it does today
 
-On launch the app **calibrates every session** (no loading saved mappers from disk), fits a **PCA4 ridge gaze mapper** on 15 keyboard-aligned targets, then keeps a **usable mapped-gaze** path ready for the product UI. Keys are activated by **mouse click** today; dwell-based gaze typing and OS injection are in progress under feature `002-gaze-typing-os` (not enabled yet on the default product path).
+On launch the app **calibrates every session** (no loading saved mappers from disk),
+fits a **PCA4 ridge gaze mapper** on 15 keyboard-aligned targets, then **auto-starts
+gaze typing** when a usable mapper is available. Keys activate by **gaze dwell**
+(~0.9 s, with progress ring) or optional **mouse click**; both inject into the
+**focused external application** via OS input (`pynput` behind an adapter).
 
-**Product** launch does **not** start gaze preview or the accuracy benchmark. Those are **developer tools**.
+**Product** launch does **not** start gaze preview or the accuracy benchmark. Those
+are **developer tools**.
 
-See **`docs/CURRENT_PIPELINE.md`** for the runtime flow and **`docs/TYPING_CANDIDATE.md`** for frozen mapper configuration.
+See **`docs/CURRENT_PIPELINE.md`** for the runtime flow and **`docs/TYPING_CANDIDATE.md`**
+for frozen mapper configuration.
 
 ## Quick start
 
@@ -34,11 +40,11 @@ MediaPipe model: `models/face_landmarker.task` (downloaded on first run if missi
 python main.py
 ```
 
-1. App opens the virtual keyboard and starts calibration automatically.
+1. App opens the virtual keyboard and starts **fullscreen** calibration automatically.
 2. Fixate each on-screen dot until the session completes.
-3. On success, a usable mapper is available for the product path.
-4. Click keys with the mouse to type into the text field.
-5. Use **RECALIBRATE** to run calibration again.
+3. On success, the keyboard returns to its **top-half** geometry and typing auto-starts.
+4. Focus an external editor in the lower half; dwell or click keys to type there.
+5. Use **Pause/Resume** and **RECALIBRATE** as needed.
 
 ### Developer tools (optional)
 
@@ -48,7 +54,7 @@ set GAZEKEY_DEV_BENCHMARK=1
 python -m tools.evaluation       # 15-key accuracy benchmark after calib+preview
 ```
 
-Details: **`tools/README.md`**.
+Details: **`tools/README.md`**. Focus harness: `python tools/focus_validation.py`.
 
 ## Project layout
 
@@ -58,14 +64,15 @@ Virtual Keyboard/
 ├── docs/                        # Pipeline, structure, typing-candidate notes
 ├── runs/<session_id>/           # Per-session artifacts
 ├── gazekey/                     # Product runtime only
-│   ├── ui/                      # VirtualKeyboard + calibration UI
+│   ├── ui/                      # VirtualKeyboard + calibration UI + dwell overlay
 │   ├── runtime/                 # Gaze loop, mapper fit, session id
 │   ├── calibration/             # Target collection, fixation gate, quality
 │   ├── mapping/                 # PCA4 ridge (config.py, ridge.py, row_bias.py)
 │   ├── features/                # EyeData → FrameFeatures + PCA smoother
 │   ├── tracking/                # Webcam + MediaPipe thread
 │   ├── layout/                  # Key geometry inspection
-│   └── typing/                  # Hit testing, text buffer, gaze smoother
+│   ├── typing/                  # Dwell, session, KeyAction, dispatcher
+│   └── input/                   # OsInputAdapter + pynput adapter
 ├── tools/                       # Developer preview / evaluation / debug
 ├── archive/                     # Legacy v1 calibration and experiment code
 ├── tests/                       # Pytest suite
@@ -101,6 +108,8 @@ All runtime-generated files go under **`runs/<session_id>/`** (not the repo root
 | `GAZEKEY_GAZE_DEBUG=1` | Extra gaze/predict logs (re-evaluate) |
 | `GAZEKEY_CAMERA_PREVIEW_DURING_CALIB=1` | Camera PiP during fixation (re-evaluate) |
 
+Typing has **no** enable flag — it starts after a usable mapper is available.
+
 ### Tools only
 
 | Variable | Effect |
@@ -114,21 +123,17 @@ All runtime-generated files go under **`runs/<session_id>/`** (not the repo root
 python -m pytest tests/ -q
 ```
 
+Focused typing units:
+
+```bash
+python -m pytest tests/unit -k "dwell or key_action or os_input or typing_session"
+```
+
 ## Technical notes
 
 - **Eye tracking**: MediaPipe Face Landmarker, ~30 FPS background thread
 - **Features**: PCA eye-local `uL/vL/uR/vR` + ratio `avg_h/avg_v`
-- **Mapper**: `pca4_baseline` ridge regression; optional row-Y bias wrapper
-- **Default calibration**: `keyboard15` (15 points on real key centers)
-
-## Troubleshooting
-
-**Camera not opening** — check OS privacy settings; close other apps using the webcam.
-
-**Calibration fails** — keep head still, move eyes only, tap RECALIBRATE.
-
-**Low detection rate** — improve lighting; face the camera directly.
-
-## License
-
-[Your License Here]
+- **Mapping**: Frozen `pca4_baseline` + optional row-Y bias (see `docs/TYPING_CANDIDATE.md`)
+- **Typing**: Dwell 0.9 s / cooldown 0.20 s / 5-frame re-arm / 0.25 s key-switch confirm
+- **OS input**: `pynput` only inside `gazekey/input/pynput_adapter.py`
+- **Layout**: Fullscreen calib; top-half keyboard (`0.62`); no redesign for focus

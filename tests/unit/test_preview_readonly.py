@@ -26,20 +26,26 @@ def test_gaze_preview_controller_updates_dot_only(qapp):
     assert dot._pos is not None
 
 
-def test_mvp_product_has_gaze_typing_path(qapp):
-    """Product path exposes typing loop methods; preview remains optional/tools."""
+def test_mvp_product_exposes_typing_and_tools_preview_is_readonly(qapp):
+    """Product has typing path; tools preview mode must not claim OS typing active."""
     vk = VirtualKeyboard()
     vk._gaze_mapper = MagicMock()
-    vk._preview_mode = True
     vk._is_calibrating = False
     vk.is_expanded = True
 
     assert hasattr(vk._gaze_loop, "process_gaze_typing")
     assert hasattr(vk._gaze_loop, "gaze_typing_active")
-    assert vk._typing_runtime.session.is_inactive
+    assert not hasattr(vk, "_text_buffer")
+
+    # Default product path is not tools-preview; session may still be inactive
+    # until calib activates a usable mapper (see test_gaze_loop_typing).
+    assert vk._preview_mode is False
+    assert vk._gaze_preview_active() is False
+
+    # When tools preview is explicitly on, preview is active and typing is not.
+    vk._preview_mode = True
     assert vk._gaze_preview_active() is True
     assert vk._gaze_loop.gaze_typing_active() is False
-    assert not hasattr(vk, "_text_buffer")
 
 
 def test_process_gaze_preview_does_not_update_text_display(qapp, monkeypatch):

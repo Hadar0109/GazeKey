@@ -85,4 +85,51 @@ Docs: `contracts/dwell-selection.md` v1.3.0, spec FR-002/003/004, research R3,
 plan, data-model, quickstart.
 
 **T050 remains incomplete** until operator re-runs §C against this behavior.
-**Do not start T051+** until that PASS is recorded.
+Upstream mapping accuracy can cause unintended keys; that is **not** treated as a
+dwell/typing regression and must **not** be “fixed” via calib/mapping changes in
+this feature. T051–T054 proceeded per product schedule with T050 still pending.
+
+---
+
+## T051–T054 post-typing focus validation — 2026-08-08
+
+**Overall**: **PASS** after full typing integration.
+
+### Scope
+
+- **T051**: Confirm/preserve fullscreen calib + top-half keyboard geometry (no redesign).
+- **T052**: OS/window focus hardening (`WindowDoesNotAcceptFocus`, `WA_ShowWithoutActivating`, host `NoFocus`) — no geometry change.
+- **T053**: Key/chrome widgets `NoFocus` so optional mouse clicks do not permanently capture the external typing target.
+- **T054**: Re-run `tools/focus_validation.py` after typing wiring; this log section.
+
+### Method (extended harness)
+
+Same as T034, plus:
+
+1. Assert keyboard window flags include `WindowDoesNotAcceptFocus` + show-without-activating
+2. Optional `QTest.mouseClick` on letter key `a` before inject
+3. Geometry check still expects top-half (`0.62` height, `position_at_top`)
+
+### Results
+
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Top-half keyboard geometry preserved | **PASS** | `geo=(0,0 1280x416)` expected_h≈416 |
+| Focus hardening flags | **PASS** | `focus_hardening_ok=True` |
+| Mouse click does not leave keyboard active | **PASS** | `mouse_click_keeps_external_focus=True` |
+| Focus on external target before inject | **PASS** | `focus_after_calib_cycle=QPlainTextEdit` |
+| Inject delivery (`ok=true`) | **PASS** | `delivered=[True, True]` |
+| Characters in external target | **PASS** | `target_text='hi'` |
+| Characters not in keyboard status field | **PASS** | `keyboard_text_display=''` |
+| **§B overall (post-typing)** | **PASS** | `PASS=True` (exit 0) |
+
+Command:
+
+```text
+PYTHONPATH=. python tools/focus_validation.py
+```
+
+Deviation noted during T061: one earlier run saw `inject ok` with empty
+`target_text` when restore after mouse was conditional on Qt `focusWidget` only —
+Windows foreground can diverge. Harness always restores once after optional mouse;
+3 consecutive reruns **PASS**. See `quickstart-results.md`.

@@ -33,11 +33,17 @@ class KeyboardLayoutBuilder:
     def init_ui(self) -> None:
         h = self._h
         h.setWindowTitle("GazeKey")
+        # OS/window focus hardening (T052): stay on top as a tool overlay that
+        # does not accept/activate focus — preserves external typing target.
+        # Geometry (fullscreen calib elsewhere; top-half keyboard here) unchanged.
         h.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
             | Qt.WindowType.Tool
+            | Qt.WindowType.WindowDoesNotAcceptFocus
         )
+        h.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
+        h.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.apply_full_keyboard_geometry()
 
         main_layout = QVBoxLayout()
@@ -46,6 +52,7 @@ class KeyboardLayoutBuilder:
 
         h.main_content_widget = QWidget()
         h.main_content_widget.setObjectName("container")
+        h.main_content_widget.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         h.main_content_widget.setStyleSheet("""
             QWidget#container {
                 background-color: #000000;
@@ -90,6 +97,41 @@ class KeyboardLayoutBuilder:
         h.setStyleSheet("background-color: #000000;")
         self.update_responsive_sizes()
         self.apply_mvp_future_ui_placeholders()
+        self.apply_no_focus_policies()
+
+    def apply_no_focus_policies(self) -> None:
+        """T053: mouse clicks must not permanently capture the external typing target."""
+        h = self._h
+        h.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        for attr in (
+            "main_content_widget",
+            "keyboard_widget",
+            "minimized_content_widget",
+            "_control_bar_widget",
+            "_text_display_widget",
+            "_suggestion_bar_widget",
+            "text_display",
+            "camera_status_label",
+            "calibrate_btn",
+            "pause_resume_btn",
+            "preview_btn",
+            "lang_btn",
+            "symbols_btn",
+            "minimize_btn",
+            "close_btn",
+            "restore_btn",
+            "shift_btn",
+        ):
+            widget = getattr(h, attr, None)
+            if widget is not None:
+                widget.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        for btn in getattr(h, "suggestion_buttons", []) or []:
+            btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        for btn in getattr(h, "letter_keys", {}).values():
+            btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        # All keyboardKey / gazeTarget buttons under the host.
+        for btn in h.findChildren(QPushButton):
+            btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
     def apply_mvp_future_ui_placeholders(self) -> None:
         """T037 / FR-018: disable future UI without shrinking layout."""
@@ -557,6 +599,7 @@ class KeyboardLayoutBuilder:
 
         keyboard_layout.addLayout(new_layout)
         h.current_layout = layout_type
+        self.apply_no_focus_policies()
         h._schedule_layout_export()
 
     @staticmethod
@@ -577,6 +620,7 @@ class KeyboardLayoutBuilder:
         return QApplication.primaryScreen().availableGeometry()
 
     def full_keyboard_size(self) -> tuple[int, int]:
+        """Top-half product keyboard height = 62% of available screen (T051 — preserved)."""
         screen = self.primary_screen_available_geometry()
         width = screen.width()
         height_ratio = 0.62
@@ -591,11 +635,13 @@ class KeyboardLayoutBuilder:
         h.move(x, y)
 
     def position_at_top(self) -> None:
+        """Pin keyboard to top of available geometry (T051 — preserved)."""
         h = self._h
         screen = self.primary_screen_available_geometry()
         h.move(screen.x(), screen.y())
 
     def apply_full_keyboard_geometry(self) -> None:
+        """Apply current top-half geometry without redesign/reposition (T051)."""
         h = self._h
         width, height = self.full_keyboard_size()
         screen = self.primary_screen_available_geometry()

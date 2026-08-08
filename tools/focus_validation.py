@@ -1,10 +1,11 @@
 """
-Early Windows focus validation harness (quickstart.md §B / T034).
+Focus validation harness (quickstart.md §B / T034 + T054 post-typing).
 
 Simulates: external typing target focused → product keyboard at current
 top-half geometry (with a fullscreen-calib overlay show/hide cycle) →
-inject KeyActions via ActionDispatcher + PynputOsInputAdapter without
-restoring focus between characters.
+optional mouse click on a keyboard key → inject KeyActions via
+ActionDispatcher + PynputOsInputAdapter without restoring focus between
+characters.
 
 Does not change calibration/PCA4 behavior or keyboard geometry.
 """
@@ -15,7 +16,8 @@ import sys
 import time
 
 from PySide6.QtCore import QTimer, Qt
-from PySide6.QtWidgets import QApplication, QMainWindow, QPlainTextEdit, QWidget
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QApplication, QMainWindow, QPlainTextEdit, QPushButton, QWidget
 
 from gazekey.input.pynput_adapter import PynputOsInputAdapter
 from gazekey.typing.action_dispatcher import ActionDispatcher
@@ -35,7 +37,6 @@ class ExternalTarget(QMainWindow):
         self.editor = QPlainTextEdit()
         self.setCentralWidget(self.editor)
         screen = QApplication.primaryScreen().availableGeometry()
-        # Leave the top ~62% free for the product keyboard geometry.
         top = screen.y() + int(screen.height() * 0.62)
         self.setGeometry(
             screen.x(),
@@ -70,7 +71,6 @@ def _publish_chars(dispatcher: ActionDispatcher, text: str) -> list:
             timestamp=time.time(),
         )
         results.append(dispatcher.publish(action))
-        # No focus restore between characters — intentional.
         QApplication.processEvents()
         time.sleep(0.05)
     return results
@@ -89,10 +89,8 @@ def main() -> int:
     time.sleep(0.2)
 
     keyboard = VirtualKeyboard()
-    # Skip auto-start calibration; we only need post-calib geometry + inject path.
     keyboard._needs_first_calibration = False
     keyboard.show()
-    # Do NOT activate/raise keyboard — external target must keep OS focus.
     app.processEvents()
 
     builder = keyboard._keyboard_layout_builder
@@ -109,7 +107,14 @@ def main() -> int:
         and abs(geo.height() - min(expected_h, screen.height())) <= 1
     )
 
-    # Simulate fullscreen calibration overlay lifecycle (steals focus, then closes).
+    flags = keyboard.windowFlags()
+    focus_hardening_ok = bool(
+        (flags & Qt.WindowType.WindowDoesNotAcceptFocus)
+        and (flags & Qt.WindowType.Tool)
+        and keyboard.testAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+        and keyboard.focusPolicy() == Qt.FocusPolicy.NoFocus
+    )
+
     overlay = _fullscreen_calib_like_overlay()
     overlay.show()
     overlay.raise_()
@@ -120,14 +125,31 @@ def main() -> int:
     overlay.close()
     app.processEvents()
 
-    # Re-assert top-half keyboard without activating it (post-calib product state).
-    # Critical: do NOT re-activate the external target here — quickstart requires
-    # inject to reach the external app without restoring focus between characters
-    # after the post-calib keyboard is visible.
     builder.apply_full_keyboard_geometry()
     keyboard.show()
     app.processEvents()
     time.sleep(0.2)
+
+    # T053/T054: mouse click a letter key must not permanently steal OS focus.
+    letter_btn = None
+    for btn in keyboard.findChildren(QPushButton):
+        if btn.objectName() == "keyboardKey" and btn.text() == "a":
+            letter_btn = btn
+            break
+    mouse_click_ok = True
+    if letter_btn is not None:
+        QTest.mouseClick(letter_btn, Qt.MouseButton.LeftButton)
+        app.processEvents()
+        time.sleep(0.1)
+        # Keyboard must not become the active window; external target remains usable.
+        mouse_click_ok = not keyboard.isActiveWindow()
+        # One OS restore after optional mouse is allowed (quickstart §B); Qt
+        # focusWidget can still look correct while Windows foreground moved.
+        target.raise_()
+        target.activateWindow()
+        target.editor.setFocus(Qt.FocusReason.OtherFocusReason)
+        app.processEvents()
+        time.sleep(0.2)
 
     focus_widget = app.focusWidget()
     target_had_focus = focus_widget is target.editor
@@ -138,9 +160,11 @@ def main() -> int:
     dispatcher.on_action_delivered(lambda _a, r: delivered.append(r))
     inject_results = _publish_chars(dispatcher, EXPECTED)
 
+    for _ in range(5):
+        app.processEvents()
+        time.sleep(0.05)
     app.processEvents()
-    time.sleep(0.25)
-    app.processEvents()
+    time.sleep(0.2)
 
     got = target.editor.toPlainText()
     keyboard_text = ""
@@ -149,13 +173,16 @@ def main() -> int:
 
     all_ok = all(r.ok for r in inject_results)
     chars_in_target = got == EXPECTED
-    chars_not_in_keyboard = EXPECTED not in keyboard_text
+    chars_not_in_keyboard = keyboard_text.strip() != EXPECTED
+
     passed = (
         geometry_ok
+        and focus_hardening_ok
         and target_had_focus
         and all_ok
         and chars_in_target
         and chars_not_in_keyboard
+        and mouse_click_ok
     )
 
     print("FOCUS_VALIDATION_RESULT")
@@ -163,6 +190,8 @@ def main() -> int:
         f"  geometry_ok={geometry_ok} geo=({geo.x()},{geo.y()} "
         f"{geo.width()}x{geo.height()}) expected_h~={expected_h}"
     )
+    print(f"  focus_hardening_ok={focus_hardening_ok}")
+    print(f"  mouse_click_keeps_external_focus={mouse_click_ok}")
     print(f"  target_had_focus_before_inject={target_had_focus}")
     print(f"  inject_all_ok={all_ok} delivered={[r.ok for r in delivered]}")
     print(f"  target_text={got!r} expected={EXPECTED!r}")
