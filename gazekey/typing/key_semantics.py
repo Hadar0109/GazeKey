@@ -1,6 +1,24 @@
-"""Map keyboard button labels to typing actions."""
+"""Map keyboard button labels to typing actions and OS-bound roles."""
+
+from __future__ import annotations
+
+from enum import Enum
+from typing import Optional
 
 from PySide6.QtWidgets import QPushButton
+
+from gazekey.typing.key_action import KeyAction, KeyActionKind, KeyActionSource
+
+
+class KeyRole(str, Enum):
+    """Semantic role for dwell/runtime handling (data-model ActiveTypingKey)."""
+
+    LETTER = "letter"
+    SPACE = "space"
+    BACKSPACE = "backspace"
+    ENTER = "enter"
+    SHIFT_ONESHOT = "shift_oneshot"
+    NON_OS = "non_os"
 
 
 def action_from_button(button: QPushButton) -> str:
@@ -24,3 +42,82 @@ def action_from_label(label: str) -> str:
     if label == "&&":
         return "&"
     return label
+
+
+def role_for_action(action: str) -> KeyRole:
+    """Classify a key action for OS-bound vs non-OS handling."""
+    if action == "SHIFT":
+        return KeyRole.SHIFT_ONESHOT
+    if action in ("CTRL", "ALT"):
+        return KeyRole.NON_OS
+    if action == "BACKSPACE":
+        return KeyRole.BACKSPACE
+    if action == "ENTER":
+        return KeyRole.ENTER
+    if action == " ":
+        return KeyRole.SPACE
+    if len(action) == 1 and action.isalpha() and action.upper() >= "A" and action.upper() <= "Z":
+        return KeyRole.LETTER
+    return KeyRole.NON_OS
+
+
+def is_os_bound_action(action: str) -> bool:
+    """True for A–Z, Space, Backspace, Enter (emit OS KeyAction when session active)."""
+    return role_for_action(action) in {
+        KeyRole.LETTER,
+        KeyRole.SPACE,
+        KeyRole.BACKSPACE,
+        KeyRole.ENTER,
+    }
+
+
+def is_shift_action(action: str) -> bool:
+    return role_for_action(action) is KeyRole.SHIFT_ONESHOT
+
+
+def builds_os_key_action(
+    action: str,
+    *,
+    key_id: str,
+    source: KeyActionSource,
+    timestamp: float,
+    shift_armed: bool,
+) -> Optional[KeyAction]:
+    """
+    Build an OS-bound KeyAction, or None for Shift / Ctrl / Alt / other non-OS.
+
+    Letter casing uses ``shift_armed``; caller must consume Shift after a letter.
+    """
+    role = role_for_action(action)
+    if role is KeyRole.LETTER:
+        ch = action.upper() if shift_armed else action.lower()
+        return KeyAction(
+            kind=KeyActionKind.CHAR,
+            text=ch,
+            source=source,
+            key_id=key_id,
+            timestamp=timestamp,
+        )
+    if role is KeyRole.SPACE:
+        return KeyAction(
+            kind=KeyActionKind.CHAR,
+            text=" ",
+            source=source,
+            key_id=key_id,
+            timestamp=timestamp,
+        )
+    if role is KeyRole.BACKSPACE:
+        return KeyAction(
+            kind=KeyActionKind.BACKSPACE,
+            source=source,
+            key_id=key_id,
+            timestamp=timestamp,
+        )
+    if role is KeyRole.ENTER:
+        return KeyAction(
+            kind=KeyActionKind.ENTER,
+            source=source,
+            key_id=key_id,
+            timestamp=timestamp,
+        )
+    return None

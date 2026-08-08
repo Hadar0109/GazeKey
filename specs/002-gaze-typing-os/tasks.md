@@ -124,15 +124,15 @@ non-OS; mouse optional same path.
 
 ### Dwell engine & session
 
-- [ ] T036 [US1] Implement `TypingSession` state (`inactive`/`active`/`paused`) + Shift oneshot arm/clear rules in `gazekey/typing/typing_session.py`
-- [ ] T037 [US1] Implement dwell engine in `gazekey/typing/dwell_engine.py` (0.9 s dwell, 0.20 s global activation cooldown for keys/Shift/Pause/Resume, same-key lock, 5-frame confirmed leave; **cancel progress and emit no KeyAction on tracking/mapped-gaze loss during dwell**) per `contracts/dwell-selection.md`
-- [ ] T038 [P] [US1] Add unit tests in `tests/unit/test_dwell_engine.py` for progress, cancel, lock, 5-frame leave, cooldown, pause drop, **and tracking/mapped-gaze loss cancel (no KeyAction)**
-- [ ] T039 [P] [US1] Add unit tests in `tests/unit/test_typing_session.py` for Shift clear on Pause / recalib / session reset / termination
+- [x] T036 [US1] Implement `TypingSession` state (`inactive`/`active`/`paused`) + Shift oneshot arm/clear rules in `gazekey/typing/typing_session.py`
+- [x] T037 [US1] Implement dwell engine in `gazekey/typing/dwell_engine.py` (0.9 s dwell, 0.20 s global activation cooldown for keys/Shift/Pause/Resume, same-key lock, 5-frame confirmed leave; **cancel progress and emit no KeyAction on tracking/mapped-gaze loss during dwell**) per `contracts/dwell-selection.md`
+- [x] T038 [P] [US1] Add unit tests in `tests/unit/test_dwell_engine.py` for progress, cancel, lock, 5-frame leave, cooldown, pause drop, **and tracking/mapped-gaze loss cancel (no KeyAction)**
+- [x] T039 [P] [US1] Add unit tests in `tests/unit/test_typing_session.py` for Shift clear on Pause / recalib / session reset / termination
 
 ### Key set & semantics
 
-- [ ] T040 [US1] Update `gazekey/typing/key_semantics.py` (and helpers) so OS-bound set is A–Z, Space, Backspace, Enter; Shift arms oneshot; Ctrl/Alt produce no OS KeyAction
-- [ ] T041 [US1] In typing controller module e.g. `gazekey/typing/gaze_typing_runtime.py` (new rebuild — not old deleted controller): wire **MappedGazePoint → existing keyboard geometry hit-test** (`gazekey/typing/key_hit_tester.py` / `KeyHitTester`) → `target_key_id` → dwell engine as the **single** key-detection path (reuse current layout geometry as SoT; **do not** create a second/parallel key-detection implementation; **do not** change keyboard geometry or mapping behavior); then map dwell/mouse completions to `KeyAction` + dispatcher publish
+- [x] T040 [US1] Update `gazekey/typing/key_semantics.py` (and helpers) so OS-bound set is A–Z, Space, Backspace, Enter; Shift arms oneshot; Ctrl/Alt produce no OS KeyAction
+- [x] T041 [US1] In typing controller module e.g. `gazekey/typing/gaze_typing_runtime.py` (new rebuild — not old deleted controller): wire **MappedGazePoint → existing keyboard geometry hit-test** (`gazekey/typing/key_hit_tester.py` / `KeyHitTester`) → `target_key_id` → dwell engine as the **single** key-detection path (reuse current layout geometry as SoT; **do not** create a second/parallel key-detection implementation; **do not** change keyboard geometry or mapping behavior); then map dwell/mouse completions to `KeyAction` + dispatcher publish
 
 ### Runtime / UI wiring
 
