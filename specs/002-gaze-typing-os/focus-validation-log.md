@@ -53,3 +53,36 @@ geometry. No OS/window-level mitigation and no layout redesign/reposition.
 
 Phase 5 (T036+) remains gated only by this PASS — ready when scheduled.
 Do **not** start dwell / Pause / Shift / full gaze typing in this batch.
+
+---
+
+## Quickstart §C notes (T050) — 2026-08-08
+
+Live webcam short-word gaze typing (§C steps 1–7) requires an operator and
+was **not** executed in this agent batch.
+
+| SC / check | Automated / harness status |
+|------------|----------------------------|
+| SC-007 request vs delivered | **PASS** — `tests/contract/test_typing_dispatch_path.py` |
+| Dwell → KeyAction → FakeOsInputAdapter | **PASS** — contract + unit suites |
+| Mouse same path | **PASS** — contract test |
+| Paused → no OS inject | **PASS** — contract test |
+| Delivery failure non-blocking UI | **PASS** — `test_delivery_failure_shows_nonblocking_status` |
+| Focus path (§B) | **PASS** — earlier T034 log |
+| Live ≥4-char gaze word into Notepad | **PENDING operator** |
+| Live Pause/Resume / Shift / Ctrl-Alt | **PENDING operator** |
+
+## T050 usability revision — key-switch confirmation (2026-08-08)
+
+After the first manual §C run, mid-dwell target transitions were revised:
+
+- Keep 0.9 s dwell, 0.20 s post-fire cooldown, 5-frame post-fire re-arm.
+- Add **0.25 s** continuous key-switch confirmation (selection/dwell layer only).
+- Brief raw hit-test flicker MUST NOT immediately switch/cancel.
+- Tracking/mapped-gaze loss still cancels immediately (no grace).
+
+Docs: `contracts/dwell-selection.md` v1.3.0, spec FR-002/003/004, research R3,
+plan, data-model, quickstart.
+
+**T050 remains incomplete** until operator re-runs §C against this behavior.
+**Do not start T051+** until that PASS is recorded.

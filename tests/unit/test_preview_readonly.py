@@ -1,14 +1,11 @@
-"""US2 / SC-007: read-only gaze preview does not activate keys or text buffer."""
+"""US2 / SC-007: read-only gaze preview does not activate keys or text fields."""
 
 from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
-from PySide6.QtWidgets import QLineEdit, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QWidget
 
-from gazekey.mapping.base import MapperPrediction
-from gazekey.typing.text_buffer import TextBufferController
 from tools.preview.gaze_preview import GazePreviewController
 from tools.devtools_install import install_devtools
 from gazekey.ui.virtual_keyboard import VirtualKeyboard
@@ -29,21 +26,23 @@ def test_gaze_preview_controller_updates_dot_only(qapp):
     assert dot._pos is not None
 
 
-def test_mvp_preview_active_without_product_gaze_typing(qapp):
-    """Product path supports preview gating; dormant gaze-typing stubs are gone."""
+def test_mvp_product_has_gaze_typing_path(qapp):
+    """Product path exposes typing loop methods; preview remains optional/tools."""
     vk = VirtualKeyboard()
     vk._gaze_mapper = MagicMock()
     vk._preview_mode = True
     vk._is_calibrating = False
     vk.is_expanded = True
 
-    assert not hasattr(vk, "_gaze_typing_active")
-    assert not hasattr(vk, "_process_gaze_typing")
-    assert not hasattr(vk._gaze_loop, "process_gaze_typing")
+    assert hasattr(vk._gaze_loop, "process_gaze_typing")
+    assert hasattr(vk._gaze_loop, "gaze_typing_active")
+    assert vk._typing_runtime.session.is_inactive
     assert vk._gaze_preview_active() is True
+    assert vk._gaze_loop.gaze_typing_active() is False
+    assert not hasattr(vk, "_text_buffer")
 
 
-def test_process_gaze_preview_does_not_update_text_buffer(qapp, monkeypatch):
+def test_process_gaze_preview_does_not_update_text_display(qapp, monkeypatch):
     vk = VirtualKeyboard()
     install_devtools(vk, enable_preview=True, enable_benchmark=False, auto_preview_after_calib=False)
     text_before = vk.text_display.text()
@@ -110,10 +109,21 @@ def test_gaze_preview_clear_removes_benchmark_label(qapp):
     assert dot._label == ""
 
 
-def test_text_buffer_unchanged_when_gaze_typing_disabled(qapp):
-    display = QLineEdit()
-    buffer = TextBufferController(display)
-    assert display.text() == ""
-    # Gaze typing controller disabled path — no apply_key invoked.
-    buffer.apply_key is not None  # sanity
-    assert display.text() == ""
+def test_delivery_failure_shows_nonblocking_status(qapp):
+    vk = VirtualKeyboard()
+    vk._typing_runtime.session.activate()
+    from gazekey.input.os_input_adapter import OsInjectResult
+    from gazekey.typing.key_action import KeyAction, KeyActionKind, KeyActionSource
+
+    action = KeyAction(
+        kind=KeyActionKind.CHAR,
+        text="z",
+        source=KeyActionSource.MOUSE,
+        key_id="k",
+        timestamp=1.0,
+    )
+    mapper_before = vk._gaze_mapper
+    vk._on_os_action_delivered(action, OsInjectResult(ok=False, error="no_target"))
+    assert "OS typing unavailable" in vk.text_display.text()
+    assert vk._typing_runtime.session.is_active
+    assert vk._gaze_mapper is mapper_before

@@ -18,7 +18,19 @@ class KeyRole(str, Enum):
     BACKSPACE = "backspace"
     ENTER = "enter"
     SHIFT_ONESHOT = "shift_oneshot"
+    SYSTEM_PAUSE_RESUME = "pause_resume"
     NON_OS = "non_os"
+
+
+PAUSE_RESUME_ACTION = "PAUSE_RESUME"
+_PAUSE_RESUME_LABELS = frozenset(
+    {
+        "Pause",
+        "Resume",
+        "⏸ Pause",
+        "▶ Resume",
+    }
+)
 
 
 def action_from_button(button: QPushButton) -> str:
@@ -27,6 +39,8 @@ def action_from_button(button: QPushButton) -> str:
 
 
 def action_from_label(label: str) -> str:
+    if label in _PAUSE_RESUME_LABELS:
+        return PAUSE_RESUME_ACTION
     if label == "⌫":
         return "BACKSPACE"
     if label == "Space":
@@ -46,6 +60,8 @@ def action_from_label(label: str) -> str:
 
 def role_for_action(action: str) -> KeyRole:
     """Classify a key action for OS-bound vs non-OS handling."""
+    if action == PAUSE_RESUME_ACTION:
+        return KeyRole.SYSTEM_PAUSE_RESUME
     if action == "SHIFT":
         return KeyRole.SHIFT_ONESHOT
     if action in ("CTRL", "ALT"):
@@ -73,6 +89,10 @@ def is_os_bound_action(action: str) -> bool:
 
 def is_shift_action(action: str) -> bool:
     return role_for_action(action) is KeyRole.SHIFT_ONESHOT
+
+
+def is_pause_resume_action(action: str) -> bool:
+    return role_for_action(action) is KeyRole.SYSTEM_PAUSE_RESUME
 
 
 def builds_os_key_action(

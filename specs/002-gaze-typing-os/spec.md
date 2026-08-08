@@ -25,7 +25,7 @@ floors. Calibration → mapping → mapped gaze remains the sealed upstream base
 ### Session 2026-08-08
 
 - Q: When does gaze dwell typing become active after a valid mapped gaze exists? → A: **Revised**: Typing auto-starts after calibration when a **usable mapper / mapped-gaze state** is available (normal calibration flow has produced a mapper capable of supplying mapped gaze for runtime use); **not** gated on `001` benchmark thresholds; read-only preview is developer/debug only (not normal product flow); no user “Enable Typing” step
-- Q: After a dwell selection fires a key, how should the next selection on the same key work? → A: Same-key lockout until confirmed leave; **5 consecutive off-key frames**; dwell **0.9 s**; **0.20 s** global cooldown after successful dwell activations that change typing state (keys, Shift, Pause, Resume unless evidenced otherwise)
+- Q: After a dwell selection fires a key, how should the next selection on the same key work? → A: Same-key lockout until confirmed leave; **5 consecutive off-key frames**; dwell **0.9 s**; **0.20 s** global cooldown after successful dwell activations that change typing state (keys, Shift, Pause, Resume unless evidenced otherwise); **plus** a **0.25 s** continuous key-switch confirmation before changing the active dwell target mid-dwell (selection stability only — not mapping/gaze smoothing)
 - Q: What default dwell duration should complete a key selection in typing mode? → A: Balanced: about 0.8–1.0 seconds (plan locks **0.9 s**)
 - Q: How should the user pause and resume already-active typing? → A: Dwellable Pause/Resume (primary) + optional mouse; never emits OS action; **Pause clears pending Shift**
 - Q: When typing is active, what should a mouse click on a normal typing key do? → A: Mouse clicks produce the same `KeyAction` path as dwell (optional convenience); OS injection only via ActionDispatcher → OsInputAdapter
@@ -76,8 +76,9 @@ gaze dwell via the `KeyAction` → OS input boundary.
    `KeyAction` is delivered through the OS input boundary to the external
    typing target.
 3. **Given** the user begins dwelling on a key, **When** they look away before
-   dwell completes, **Then** no `KeyAction` is produced and dwell feedback
-   resets.
+   dwell completes, **Then** no `KeyAction` is produced until/unless a new key
+   selection later completes; brief raw hit-test flicker MUST NOT immediately
+   cancel or switch the active dwell target (see FR-004 key-switch confirmation).
 4. **Given** a key has just been selected by dwell, **When** the user keeps
    gaze on that same key without a clear/confirmed leave, **Then** no
    additional selection fires; re-arm requires confirmed leave (**5 consecutive
@@ -233,15 +234,24 @@ key detection → selection → `KeyAction` → OS boundary.
   claim typing-target ownership. Do not add retry loops, target-management
   complexity, or new UI flows for this case.
 - What happens when gaze is unstable / leaves and re-enters a key during dwell?
-  Dwell MUST reset or restart per the dwell rules; partial dwells MUST NOT
-  produce a `KeyAction`.
+  A brief raw hit-test change away from the current dwell key MUST NOT
+  immediately switch targets or cancel progress. Dwell progress MUST **freeze**
+  on the current key while a switch is pending; if gaze returns before **0.25 s**
+  continuous confirmation on a different key (or continuous off-key), progress
+  MUST **resume**. A confirmed switch (one different key held continuously for
+  **0.25 s**) MUST cancel the old key’s dwell and start the new key from zero.
+  Continuous off-key for **0.25 s**, or continuous away-time of **0.25 s**
+  without a confirmed new key (wandering), MUST cancel without a `KeyAction`.
+  Tracking/mapped-gaze loss is **not** part of this grace and MUST cancel
+  immediately with no `KeyAction`.
 - What happens after a successful selection if gaze stays on the same key?
   The system MUST NOT auto-repeat that key; re-arm REQUIRES a **clear/confirmed
   gaze leave** of **5 consecutive off-key frames** (not a single-frame boundary
   jitter), then return and a new completed dwell. Global **0.20 s** cooldown
   applies after successful dwell activations that change typing state (typing
   keys, Shift, Pause, Resume) unless evidence justifies an exception; dwell
-  duration default is **0.9 s**.
+  duration default is **0.9 s**; mid-dwell key changes use **0.25 s** switch
+  confirmation (separate from post-fire 5-frame leave).
 - What happens when tracking is lost mid-dwell? Selection MUST cancel; no
   `KeyAction` MUST be produced.
 - What happens when the user dwells on Ctrl, Alt, or other non-OS controls
@@ -311,19 +321,27 @@ key detection → selection → `KeyAction` → OS boundary.
   dwell-based key selection with default **0.9 seconds** dwell, **0.20 seconds**
   global cooldown after successful dwell-based activations that change typing
   state (including OS-bound keys, Shift, Pause, and Resume, unless
-  implementation evidence justifies an exception), same-key lockout, and
-  confirmed leave of **5 consecutive off-key frames**.
+  implementation evidence justifies an exception), same-key lockout,
+  confirmed leave of **5 consecutive off-key frames** after fire, and
+  **0.25 seconds** continuous key-switch confirmation before changing the
+  active dwell target mid-dwell.
 - **FR-003**: System MUST provide visible dwell/selection feedback on the
-  **existing** keyboard layout/geometry (no redesign): the current gaze key MUST
-  show a clearly visible colored border/highlight; a semi-transparent circular
-  progress ring MUST appear on that key and progress over the **0.9 s** dwell;
-  a full circle MUST mean selection/activation; leaving the key before
-  completion MUST hide/reset the ring with **no** selection; moving to another
-  key MUST restart the same visual process there. The user MUST be able to tell
-  which key is being selected and whether dwell is progressing, completed, or
-  cancelled.
-- **FR-004**: System MUST cancel or restart dwell when gaze leaves the key
-  before dwell completes, without producing a `KeyAction`.
+  **existing** keyboard layout/geometry (no redesign): the current **active**
+  dwell key MUST show a clearly visible colored border/highlight; a
+  semi-transparent circular progress ring MUST appear on that key and progress
+  over the **0.9 s** dwell; a full circle MUST mean selection/activation;
+  confirmed leave/cancel before completion MUST hide/reset the ring with **no**
+  selection; during a pending key-switch the visual target MUST remain on the
+  current key with frozen progress; a **confirmed** switch (0.25 s continuous
+  on a different key) MUST move visuals to the new key and restart dwell from
+  zero. The user MUST be able to tell which key is being selected and whether
+  dwell is progressing, completed, or cancelled.
+- **FR-004**: System MUST NOT treat every single raw off-key / other-key
+  hit-test frame as an immediate dwell cancel or target switch. Mid-dwell
+  target changes require **0.25 s** continuous confirmation on one different
+  key (or continuous off-key / unresolved away-time of 0.25 s to cancel).
+  Confirmed cancel/restart MUST NOT produce a `KeyAction`. Tracking or
+  mapped-gaze loss MUST cancel immediately (no grace) with no `KeyAction`.
 - **FR-004a**: After a successful selection, System MUST NOT fire that same key
   again until mapped gaze has made a **clear/confirmed leave** of **5
   consecutive off-key frames** (single-frame jitter MUST NOT qualify); then

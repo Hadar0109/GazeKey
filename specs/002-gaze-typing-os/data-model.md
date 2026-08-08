@@ -44,10 +44,12 @@ Never becomes an OS-bound `KeyAction`.
 
 | Field | Type | Notes |
 |-------|------|-------|
-| target_key_id | str \| null | |
-| progress_01 | float | 0–1 |
-| phase | enum | `idle`, `progressing`, `fired_lock`, `cancelled` |
-| frames_off_target | int | Confirmed-leave counter |
+| target_key_id | str \| null | Active dwell key (stable during pending switch) |
+| progress_01 | float | 0–1 (frozen while switch pending) |
+| phase | enum | `idle`, `progressing`, `switch_pending`, `fired_lock`, `cancelled` |
+| frames_off_target | int | Post-fire confirmed-leave counter |
+| pending_key_id | str \| null | Candidate key during `key_switch_confirm_sec` |
+| away_elapsed_sec | float | Continuous time away from active key |
 
 ### TypingSession (runtime state in product)
 

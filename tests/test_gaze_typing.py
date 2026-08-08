@@ -1,15 +1,13 @@
-"""Unit tests for active typing utilities (hit-test, smoother, text buffer).
+"""Unit tests for active typing utilities (hit-test, smoother).
 
-Dormant dwell/intent/selection paths were removed in 002 (T012–T017).
+In-app TextBufferController removed in 002 T046 — OS is the typing destination.
 """
 
 from PySide6.QtCore import QRect
-from PySide6.QtWidgets import QLineEdit
 
 from gazekey.typing.gaze_smoother import GazeSmoother
 from gazekey.typing.key_hit_tester import hit_test_rects
 from gazekey.typing.key_semantics import action_from_label
-from gazekey.typing.text_buffer import TextBufferController
 
 
 def test_action_from_label_special_keys():
@@ -18,6 +16,7 @@ def test_action_from_label_special_keys():
     assert action_from_label("↵") == "ENTER"
     assert action_from_label("&&") == "&"
     assert action_from_label("Shift") == "SHIFT"
+    assert action_from_label("Pause") == "PAUSE_RESUME"
 
 
 def test_hit_test_no_key():
@@ -51,34 +50,3 @@ def test_gaze_smoother_reduces_jitter():
     assert x1 == 100.0
     assert 100.0 < x2 < 110.0
     assert 190.0 < y2 < 200.0
-
-
-def test_text_buffer_letters_and_shift(qapp):
-    line = QLineEdit()
-    buf = TextBufferController(line)
-    buf.apply_key("a", shift_active=False)
-    assert line.text() == "a"
-    buf.apply_key("b", shift_active=True)
-    assert line.text() == "aB"
-
-
-def test_text_buffer_space_backspace_enter(qapp):
-    line = QLineEdit()
-    buf = TextBufferController(line)
-    for ch in "hi":
-        buf.apply_key(ch)
-    buf.apply_key(" ")
-    assert line.text() == "hi "
-    buf.apply_key("BACKSPACE")
-    assert line.text() == "hi"
-    buf.apply_key("ENTER")
-    assert "\n" in line.text()
-
-
-def test_text_buffer_ignores_ctrl_alt_shift(qapp):
-    line = QLineEdit()
-    buf = TextBufferController(line)
-    buf.apply_key("CTRL")
-    buf.apply_key("ALT")
-    buf.apply_key("SHIFT")
-    assert line.text() == ""

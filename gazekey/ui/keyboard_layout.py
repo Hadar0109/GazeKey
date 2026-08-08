@@ -166,6 +166,31 @@ class KeyboardLayoutBuilder:
         layout.addWidget(h.calibrate_btn)
         layout.addWidget(h.camera_status_label)
 
+        h.pause_resume_btn = QPushButton("Pause")
+        h.pause_resume_btn.setObjectName("gazeTarget")
+        h.pause_resume_btn.setMinimumSize(90, 45)
+        h.pause_resume_btn.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+        h.pause_resume_btn.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(251, 191, 36, 0.14);
+                color: #FBBF24;
+                border: 1px solid rgba(251, 191, 36, 0.35);
+                border-radius: 8px;
+            }
+            QPushButton:hover {
+                background-color: rgba(251, 191, 36, 0.22);
+            }
+            QPushButton#gazeTarget[gazeFocused="true"] {
+                border: 2px solid #FBBF24;
+            }
+            QPushButton#gazeTarget[gazeDwelling="true"] {
+                border: 2px solid #10B981;
+            }
+        """)
+        h.pause_resume_btn.clicked.connect(h.on_pause_resume_clicked)
+        h.pause_resume_btn.setEnabled(False)
+        layout.addWidget(h.pause_resume_btn)
+
         h.preview_btn = QPushButton("PREVIEW")
         h.preview_btn.setMinimumSize(90, 45)
         h.preview_btn.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
@@ -266,8 +291,9 @@ class KeyboardLayoutBuilder:
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         h.text_display = QLineEdit()
-        h.text_display.setPlaceholderText("Typed text appears here…")
+        h.text_display.setPlaceholderText("Types into the focused external app")
         h.text_display.setReadOnly(True)
+        h.text_display.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         h.text_display.setMinimumHeight(34)
         h.text_display.setFont(QFont("Segoe UI", 14))
         h.text_display.setStyleSheet("""
@@ -496,6 +522,7 @@ class KeyboardLayoutBuilder:
         btn.setObjectName("keyboardKey")
         btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         btn.setMinimumHeight(24)
+        btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         btn.setFont(QFont("Segoe UI", 16, QFont.Weight.Medium))
         btn.setStyleSheet(self._keyboard_key_stylesheet())
 
@@ -633,7 +660,7 @@ class KeyboardLayoutBuilder:
         if hasattr(h, "calibrate_btn"):
             h.calibrate_btn.setMinimumHeight(chrome_h)
             h.calibrate_btn.setMaximumHeight(chrome_h)
-        for attr in ("lang_btn", "symbols_btn", "minimize_btn", "close_btn"):
+        for attr in ("lang_btn", "symbols_btn", "minimize_btn", "close_btn", "preview_btn", "pause_resume_btn"):
             if hasattr(h, attr):
                 btn = getattr(h, attr)
                 btn.setMinimumHeight(max(34, chrome_h - 10))

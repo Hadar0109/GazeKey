@@ -50,23 +50,29 @@ delivery); event-bus framework (overkill).
 | `dwell_sec` | **0.9** |
 | `post_activation_cooldown_sec` | **0.20** global after any **successful dwell-based control activation** that changes typing state — including OS-bound typing keys, **Shift**, **Pause**, and **Resume** — unless implementation evidence shows a specific reason to exempt a control |
 | Same-key lockout | Until confirmed leave (typing keys) |
-| Confirmed leave | **5 consecutive off-key frames** |
+| Confirmed leave (post-fire re-arm) | **5 consecutive off-key frames** |
+| Key-switch confirmation (mid-dwell) | **0.25 s** continuous on one different key (or continuous off-key / unresolved away to cancel); freeze+resume if return earlier |
 
 Rebuild in `gazekey/typing/dwell_engine.py` only after cleanup gate + injection
 skeleton + **passing** focus validation.
 
 **On-key visual feedback** (preserve existing keyboard layout/geometry; no
-redesign): current gaze key gets a visible colored border/highlight; a
-semi-transparent circular progress ring appears on that key and fills over the
-0.9 s dwell; full circle = selection/activation; leave before completion
-hides/resets the ring with no selection; move to another key restarts the same
-visual process there.
+redesign): current **active** dwell key gets a visible colored border/highlight;
+a semi-transparent circular progress ring appears on that key and fills over the
+0.9 s dwell; full circle = selection/activation; pending switch keeps the
+current visual target with frozen progress; confirmed leave/cancel hides/resets
+the ring with no selection; confirmed switch to another key restarts dwell from
+zero there.
 
-**Rationale**: Spec band 0.8–1.0; jitter-resistant leave; cooldown as reliability
-guard for all dwell state changes, not only character fires; FR-003 dwell visuals.
+**Rationale**: Spec band 0.8–1.0; jitter-resistant leave and **minimal
+key-transition hysteresis** (T050 usability); cooldown as reliability guard for
+all dwell state changes, not only character fires; FR-003 dwell visuals.
+Selection stability only — not mapping/gaze smoothing or a second hit-test.
 
 **Alternatives considered**: Cooldown only after CHAR fires (rejected — apply
-consistently unless evidenced); reuse SelectionPolicy (rejected).
+consistently unless evidenced); reuse SelectionPolicy / intent scoring
+(rejected); immediate cancel on every raw off-key frame (rejected after T050
+usability — causes flicker).
 
 ---
 

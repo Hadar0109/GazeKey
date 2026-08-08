@@ -67,12 +67,18 @@ def test_gaze_loss_cancels_no_publish():
     assert adapter.injected == []
 
 
-def test_paused_drops_os_dwell():
+def test_paused_drops_os_dwell_but_allows_pause_resume():
     runtime, adapter, keys = _runtime()
     runtime.session.pause()
     gaze = MappedGazePoint(x=20, y=20, valid=True)
     result = runtime.on_mapped_gaze(gaze, DWELL_SEC, keys)
     assert result.published is None
+    assert adapter.injected == []
+
+    pause_keys = [_key("pause", "PAUSE_RESUME", QRect(0, 0, 40, 40))]
+    result = runtime.on_mapped_gaze(MappedGazePoint(20, 20, True), DWELL_SEC, pause_keys)
+    assert result.system_toggled is True
+    assert runtime.session.is_active
     assert adapter.injected == []
 
 

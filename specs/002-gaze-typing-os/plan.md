@@ -40,10 +40,12 @@ not product modes.
    successful dwell-based activations that change typing state (including typing
    keys, Shift, Pause, Resume, unless implementation evidence justifies an
    exception); same-key lockout; **5 consecutive off-key frames** for confirmed
-   leave. On-key visual feedback: colored border/highlight on the current gaze
-   key plus a semi-transparent circular progress ring that fills over 0.9 s;
-   full circle = activate; leave before completion hides/resets with no
-   selection; move to another key restarts there — **preserve existing keyboard
+   leave after fire; **0.25 s** continuous key-switch confirmation mid-dwell
+   (freeze/resume; no immediate raw-frame cancel/switch). On-key visual
+   feedback: colored border/highlight on the current **active** gaze key plus a
+   semi-transparent circular progress ring that fills over 0.9 s; full circle =
+   activate; confirmed leave before completion hides/resets with no selection;
+   confirmed move to another key restarts there — **preserve existing keyboard
    geometry** (no redesign). Rebuild only after cleanup gate + injection
    skeleton + **passing** focus check.
 4. **Active OS key set** — A–Z, Space, Backspace, Enter; **Shift = one-shot** for
@@ -199,7 +201,8 @@ Not tasks yet — **implementation order** (binding):
 5. **Full dwell / typing integration** — 0.9 s dwell; circular on-key progress
    feedback; 0.20 s global cooldown after successful dwell activations that change
    typing state (keys, Shift, Pause, Resume unless evidence says otherwise);
-   same-key lock; 5-frame leave; auto-start when usable mapper/mapped-gaze is
+   same-key lock; 5-frame leave after fire; **0.25 s** mid-dwell key-switch
+   confirmation; auto-start when usable mapper/mapped-gaze is
    available after calibration (not 001 thresholds); Pause/Resume; Shift one-shot
    with clears; Ctrl/Alt non-OS; mouse path.
 6. **Dev entry points polish** — Finalize separate preview and benchmark launches

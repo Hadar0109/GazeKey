@@ -1,8 +1,7 @@
 """Gaze typing runtime — MappedGazePoint → hit-test → dwell → KeyAction.
 
 Single key-detection path: existing ``hit_test_layout_keys`` / layout geometry.
-Does not change keyboard geometry or mapping behavior. Gaze-loop auto-start
-wiring is T042; this module is the callable typing path for that wiring.
+Does not change keyboard geometry or mapping behavior.
 """
 
 from __future__ import annotations
@@ -18,6 +17,7 @@ from gazekey.typing.key_hit_tester import hit_test_layout_keys
 from gazekey.typing.key_semantics import (
     builds_os_key_action,
     is_os_bound_action,
+    is_pause_resume_action,
     is_shift_action,
     role_for_action,
     KeyRole,
@@ -41,6 +41,7 @@ class GazeTypingFrameResult:
     target_key_id: Optional[str]
     dwell: DwellFrameResult
     published: Optional[KeyAction] = None
+    system_toggled: bool = False
 
 
 class GazeTypingRuntime:
@@ -58,12 +59,16 @@ class GazeTypingRuntime:
         dispatcher: ActionDispatcher,
         *,
         clock: Callable[[], float] = time.time,
+        on_session_ui_sync: Optional[Callable[[], None]] = None,
     ) -> None:
         self.session = session
         self.dwell = dwell
         self.dispatcher = dispatcher
         self._clock = clock
+        self._on_session_ui_sync = on_session_ui_sync
         self._last_dwell: Optional[DwellFrameResult] = None
+        # Hard gate: False during calibration fixation (T045).
+        self.os_inject_enabled = True
 
     @property
     def last_dwell(self) -> Optional[DwellFrameResult]:
@@ -73,6 +78,13 @@ class GazeTypingRuntime:
         """Clear dwell + session (recalib / mapping reset)."""
         self.dwell.reset()
         self.session.reset()
+        self._sync_ui()
+
+    def set_os_inject_enabled(self, enabled: bool) -> None:
+        """Disable OS inject during calibration; cancel in-flight dwell."""
+        self.os_inject_enabled = bool(enabled)
+        if not self.os_inject_enabled:
+            self.dwell.cancel_progress()
 
     def on_mapped_gaze(
         self,
@@ -84,6 +96,7 @@ class GazeTypingRuntime:
         Process one mapped-gaze frame.
 
         When ``gaze.valid`` is False, cancels dwell progress and emits no KeyAction.
+        When ``os_inject_enabled`` is False (calibration), never publishes OS actions.
         """
         target_key_id: Optional[str] = None
         key_action: Optional[str] = None
@@ -99,27 +112,34 @@ class GazeTypingRuntime:
         dwell_result = self.dwell.update(
             target_key_id,
             dt,
-            gaze_valid=gaze.valid,
-            dwell_enabled=dwell_enabled,
+            gaze_valid=gaze.valid and self.os_inject_enabled,
+            dwell_enabled=dwell_enabled and self.os_inject_enabled,
         )
         self._last_dwell = dwell_result
 
         published: Optional[KeyAction] = None
-        if dwell_result.fired and dwell_result.fired_key_id is not None:
+        system_toggled = False
+        if (
+            self.os_inject_enabled
+            and dwell_result.fired
+            and dwell_result.fired_key_id is not None
+        ):
             action_str = key_action
             if action_str is None and layout_keys:
                 action_str = self._action_for_key_id(layout_keys, dwell_result.fired_key_id)
             if action_str is not None:
-                published = self._handle_activation(
+                published, system_toggled = self._handle_activation(
                     key_id=dwell_result.fired_key_id,
                     action=action_str,
                     source=KeyActionSource.DWELL,
+                    apply_mouse_cooldown=False,
                 )
 
         return GazeTypingFrameResult(
             target_key_id=target_key_id,
             dwell=dwell_result,
             published=published,
+            system_toggled=system_toggled,
         )
 
     def on_mouse_key(
@@ -128,17 +148,16 @@ class GazeTypingRuntime:
         key_id: str,
         action: str,
     ) -> Optional[KeyAction]:
-        """Optional mouse path — same KeyAction completion handling as dwell."""
-        if self.session.state is not TypingSessionState.ACTIVE:
-            # Pause/Resume mouse handling arrives in T043; OS keys ignored when not active.
-            if is_shift_action(action) or is_os_bound_action(action):
-                return None
+        """Optional mouse path — same KeyAction / system-control handling as dwell."""
+        if not self.os_inject_enabled:
             return None
-        return self._handle_activation(
+        published, _system = self._handle_activation(
             key_id=key_id,
             action=action,
             source=KeyActionSource.MOUSE,
+            apply_mouse_cooldown=True,
         )
+        return published
 
     def _dwell_enabled_for_action(self, action: Optional[str]) -> bool:
         state = self.session.state
@@ -146,18 +165,10 @@ class GazeTypingRuntime:
             return False
         if state is TypingSessionState.ACTIVE:
             return True
-        # paused: drop OS-key / Shift dwell; system controls (T043) can re-enable later
+        # paused: only Pause/Resume remains dwellable (Resume)
         if action is None:
             return False
-        role = role_for_action(action)
-        return role not in {
-            KeyRole.LETTER,
-            KeyRole.SPACE,
-            KeyRole.BACKSPACE,
-            KeyRole.ENTER,
-            KeyRole.SHIFT_ONESHOT,
-            KeyRole.NON_OS,
-        }
+        return is_pause_resume_action(action)
 
     def _handle_activation(
         self,
@@ -165,17 +176,29 @@ class GazeTypingRuntime:
         key_id: str,
         action: str,
         source: KeyActionSource,
-    ) -> Optional[KeyAction]:
+        apply_mouse_cooldown: bool,
+    ) -> tuple[Optional[KeyAction], bool]:
+        if is_pause_resume_action(action):
+            toggled = self._toggle_pause_resume()
+            if toggled and apply_mouse_cooldown:
+                self.dwell.begin_cooldown()
+            if toggled:
+                self._sync_ui()
+            return None, toggled
+
         if is_shift_action(action):
             if self.session.is_active:
                 self.session.arm_shift()
-            return None
+                if apply_mouse_cooldown:
+                    self.dwell.begin_cooldown()
+                self._sync_ui()
+            return None, False
 
         if not is_os_bound_action(action):
-            return None
+            return None, False
 
         if not self.session.is_active:
-            return None
+            return None, False
 
         shift_armed = self.session.shift_oneshot_armed
         key_action = builds_os_key_action(
@@ -186,13 +209,31 @@ class GazeTypingRuntime:
             shift_armed=shift_armed,
         )
         if key_action is None:
-            return None
+            return None, False
 
         if role_for_action(action) is KeyRole.LETTER:
             self.session.consume_shift_for_letter()
+            self._sync_ui()
+
+        if apply_mouse_cooldown:
+            self.dwell.begin_cooldown()
 
         self.dispatcher.publish(key_action)
-        return key_action
+        return key_action, False
+
+    def _toggle_pause_resume(self) -> bool:
+        if self.session.is_active:
+            self.session.pause()
+            self.dwell.cancel_progress()
+            return True
+        if self.session.is_paused:
+            self.session.resume()
+            return True
+        return False
+
+    def _sync_ui(self) -> None:
+        if self._on_session_ui_sync is not None:
+            self._on_session_ui_sync()
 
     @staticmethod
     def _action_for_key_id(layout_keys: Sequence, key_id: str) -> Optional[str]:

@@ -116,7 +116,10 @@ def inspect_keyboard_layout(
 
         label = btn.text()
         action = action_from_label(label)
-        is_special = action in {"BACKSPACE", "ENTER", "SHIFT", "CTRL", "ALT", " "} or len(action) != 1
+        is_special = (
+            action in {"BACKSPACE", "ENTER", "SHIFT", "CTRL", "ALT", " ", "PAUSE_RESUME"}
+            or len(action) != 1
+        )
         weight = float(special_key_weight if is_special else normal_key_weight)
 
         hitbox = _enlarged_hitbox(rect, margin_px=int(hitbox_margin_px))

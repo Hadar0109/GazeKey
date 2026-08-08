@@ -97,6 +97,9 @@ class CalibrationFinishController:
             h._log_verbose(f"[calib] ridge fit failed: {outcome.failure_reason}")
             h._preview_mode = False
             h._set_post_calibration_controls(False)
+            reset_typing = getattr(h, "_reset_typing_for_recalibration", None)
+            if callable(reset_typing):
+                reset_typing()
             h._devtools.on_calibration_failed_artifacts(h, failure_reason=outcome.failure_reason)
             h._show_recalibrate_prompt(
                 "Calibration could not find a reliable mapper — keep head still, eyes on each dot"
@@ -112,6 +115,9 @@ class CalibrationFinishController:
                 h._log_verbose(f"[calib]   reason: {reason}")
             h._preview_mode = False
             h._set_post_calibration_controls(False)
+            reset_typing = getattr(h, "_reset_typing_for_recalibration", None)
+            if callable(reset_typing):
+                reset_typing()
             h._devtools.on_calibration_failed_artifacts(
                 h,
                 failure_reason=outcome.failure_reason,
@@ -141,6 +147,16 @@ class CalibrationFinishController:
         h._last_v2_pred_x = None
         h._last_v2_pred_y = None
         h._last_v2_pred_t = None
+
+        # T042: auto-start typing when usable mapper is available (not 001 thresholds).
+        runtime = getattr(h, "_typing_runtime", None)
+        if runtime is not None:
+            runtime.dwell.reset()
+            runtime.set_os_inject_enabled(True)
+            runtime.session.activate()
+            sync = getattr(h, "_sync_typing_session_ui", None)
+            if callable(sync):
+                sync()
 
         h._reset_calibrate_button_style()
         status_suffix = " (best-effort)" if getattr(ridge_fit, "best_effort", False) else ""

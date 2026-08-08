@@ -125,8 +125,8 @@ non-OS; mouse optional same path.
 ### Dwell engine & session
 
 - [x] T036 [US1] Implement `TypingSession` state (`inactive`/`active`/`paused`) + Shift oneshot arm/clear rules in `gazekey/typing/typing_session.py`
-- [x] T037 [US1] Implement dwell engine in `gazekey/typing/dwell_engine.py` (0.9 s dwell, 0.20 s global activation cooldown for keys/Shift/Pause/Resume, same-key lock, 5-frame confirmed leave; **cancel progress and emit no KeyAction on tracking/mapped-gaze loss during dwell**) per `contracts/dwell-selection.md`
-- [x] T038 [P] [US1] Add unit tests in `tests/unit/test_dwell_engine.py` for progress, cancel, lock, 5-frame leave, cooldown, pause drop, **and tracking/mapped-gaze loss cancel (no KeyAction)**
+- [x] T037 [US1] Implement dwell engine in `gazekey/typing/dwell_engine.py` (0.9 s dwell, 0.20 s global activation cooldown for keys/Shift/Pause/Resume, same-key lock, 5-frame confirmed leave, **0.25 s key-switch confirmation / hysteresis**; **cancel progress and emit no KeyAction on tracking/mapped-gaze loss during dwell**) per `contracts/dwell-selection.md`
+- [x] T038 [P] [US1] Add unit tests in `tests/unit/test_dwell_engine.py` for progress, cancel, lock, 5-frame leave, cooldown, pause drop, **key-switch confirmation (freeze/resume/confirm/wander-cancel)**, **and tracking/mapped-gaze loss cancel (no KeyAction)**
 - [x] T039 [P] [US1] Add unit tests in `tests/unit/test_typing_session.py` for Shift clear on Pause / recalib / session reset / termination
 
 ### Key set & semantics
@@ -136,18 +136,18 @@ non-OS; mouse optional same path.
 
 ### Runtime / UI wiring
 
-- [ ] T042 [US1] Wire `gazekey/runtime/gaze_loop.py` to **auto-start typing after calibration when a usable mapper / mapped-gaze state is available** — usable = normal calibration flow has produced a mapper capable of supplying mapped gaze for runtime use (no Enable Typing; no product preview-first; **do not** gate on 001 benchmark thresholds) — and feed each MappedGazePoint through the T041 path only: existing hit-test → `target_key_id` → dwell engine (no parallel key detection)
-- [ ] T043 [US1] Add Pause/Resume system control (dwell primary + optional mouse) in `gazekey/ui/` / keyboard layout without emitting OS KeyAction; apply activation cooldown
-- [ ] T044 [US1] Route optional mouse clicks on OS-bound keys through same ActionDispatcher path in `gazekey/ui/virtual_keyboard.py` (or key handler module)
-- [ ] T045 [US1] Ensure calibration fixation path in `gazekey/ui/calibration_overlay.py` / session never dwell-injects OS input
-- [ ] T046 [US1] Disconnect in-app `TextBufferController` from the product typing success path; **delete or move** `gazekey/typing/text_buffer.py` (and VK wiring) if it has no justified runtime purpose — do **not** leave it as dormant product code
-- [ ] T047 [US1] Implement dwell **visual feedback on existing key geometry** in `gazekey/ui/` (e.g. key style + overlay on the hovered key in `keyboard_layout.py` / VK): clearly visible colored border/highlight on the current gaze key; semi-transparent circular progress ring over that key that fills over the full 0.9 s dwell; on full cycle complete selection/activate; on gaze leave before completion hide/reset ring and do not activate; on move to another key restart the same process there; **preserve current keyboard layout/size/position** — no redesign; no retry/prediction/advanced interaction behavior
-- [ ] T048 [US1] Add simple **non-blocking** UI feedback for **failed OS delivery** (`on_action_delivered` / `OsInjectResult.ok == false`) **and for no usable external typing target**, in `gazekey/ui/virtual_keyboard.py` (or status surface): do not crash; do not corrupt or end the active calibration/mapping session; no retry logic, target-management complexity, or new UI flows
+- [x] T042 [US1] Wire `gazekey/runtime/gaze_loop.py` to **auto-start typing after calibration when a usable mapper / mapped-gaze state is available** — usable = normal calibration flow has produced a mapper capable of supplying mapped gaze for runtime use (no Enable Typing; no product preview-first; **do not** gate on 001 benchmark thresholds) — and feed each MappedGazePoint through the T041 path only: existing hit-test → `target_key_id` → dwell engine (no parallel key detection)
+- [x] T043 [US1] Add Pause/Resume system control (dwell primary + optional mouse) in `gazekey/ui/` / keyboard layout without emitting OS KeyAction; apply activation cooldown
+- [x] T044 [US1] Route optional mouse clicks on OS-bound keys through same ActionDispatcher path in `gazekey/ui/virtual_keyboard.py` (or key handler module)
+- [x] T045 [US1] Ensure calibration fixation path in `gazekey/ui/calibration_overlay.py` / session never dwell-injects OS input
+- [x] T046 [US1] Disconnect in-app `TextBufferController` from the product typing success path; **delete or move** `gazekey/typing/text_buffer.py` (and VK wiring) if it has no justified runtime purpose — do **not** leave it as dormant product code
+- [x] T047 [US1] Implement dwell **visual feedback on existing key geometry** in `gazekey/ui/` (e.g. key style + overlay on the hovered key in `keyboard_layout.py` / VK): clearly visible colored border/highlight on the current gaze key; semi-transparent circular progress ring over that key that fills over the full 0.9 s dwell; on full cycle complete selection/activate; on gaze leave before completion hide/reset ring and do not activate; on move to another key restart the same process there; **preserve current keyboard layout/size/position** — no redesign; no retry/prediction/advanced interaction behavior
+- [x] T048 [US1] Add simple **non-blocking** UI feedback for **failed OS delivery** (`on_action_delivered` / `OsInjectResult.ok == false`) **and for no usable external typing target**, in `gazekey/ui/virtual_keyboard.py` (or status surface): do not crash; do not corrupt or end the active calibration/mapping session; no retry logic, target-management complexity, or new UI flows
 
 ### US1 tests & verification
 
-- [ ] T049 [P] [US1] Add automated contract/integration test in `tests/contract/test_typing_dispatch_path.py` (or `tests/integration/`) covering selection → `KeyAction` → `ActionDispatcher` → `FakeOsInputAdapter` for dwell completion, mouse click, paused state (no inject), and delivery failure
-- [ ] T050 [US1] Manual short-word gaze test per quickstart §C; confirm SC-001/SC-001a/SC-002/SC-003 notes in `focus-validation-log.md` or `quickstart-gate-log.md`
+- [x] T049 [P] [US1] Add automated contract/integration test in `tests/contract/test_typing_dispatch_path.py` (or `tests/integration/`) covering selection → `KeyAction` → `ActionDispatcher` → `FakeOsInputAdapter` for dwell completion, mouse click, paused state (no inject), and delivery failure
+- [ ] T050 [US1] Manual short-word gaze test per quickstart §C; confirm SC-001/SC-001a/SC-002/SC-003 notes in `focus-validation-log.md` or `quickstart-gate-log.md` — **blocked on re-validation after 0.25 s key-switch confirmation (T050 usability revision); do not start T051+ until PASS**
 
 **Checkpoint**: External app receives gaze-typed characters; visuals/Pause/Shift/cooldown/loss/failure feedback behave per spec.
 

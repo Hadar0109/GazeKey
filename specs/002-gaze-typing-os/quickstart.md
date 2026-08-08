@@ -49,7 +49,8 @@ runtime-capable mapper — **not** `001` thresholds). Typing auto-starts; no
 Enable Typing step.
 
 1. Type a short word (≥4 chars) by **gaze dwell only** (~0.9 s); confirm circular
-   progress ring / key highlight on existing geometry
+   progress ring / key highlight on existing geometry; brief gaze jitter across
+   neighboring keys MUST NOT flicker/cancel immediately (0.25 s switch confirm)
 2. Pause / Resume via gaze; Pause emits no character; Shift clears on Pause
 3. Same-key double: fire, clear leave (≥5 frames), return, dwell again
 4. Shift one-shot then letter; confirm Shift clears after letter; also confirm
@@ -69,5 +70,6 @@ Enable Typing step.
 pytest tests/unit -k "dwell or key_action or os_input or typing_session"
 ```
 
-Expect: 0.9 s / 0.20 s activation cooldown / 5-frame leave; request vs delivered;
+Expect: 0.9 s / 0.20 s activation cooldown / 5-frame post-fire leave /
+0.25 s key-switch confirmation; request vs delivered;
 Shift clear rules; pause; no Ctrl/Alt OS actions; fake adapter only.
