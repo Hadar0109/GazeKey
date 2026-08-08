@@ -36,18 +36,28 @@ Requires KeyAction → ActionDispatcher → OsInputAdapter path.
 3. Confirm top-half keyboard geometry unchanged
 4. Inject a few characters via the minimal path **without** clicking Notepad
    between characters
-5. **Pass**: continuous inject into Notepad. **Fail**: document as OS/window
-   issue only (no layout reposition)
+5. **Pass**: continuous inject into Notepad. **Fail**: apply the **minimum
+   OS/window-only** fix (no layout redesign/reposition), **rerun** this section,
+   and require **PASS** before §C. If the minimal fix still fails, **stop for
+   review** (do not expand scope automatically). Documented mitigation without a
+   passing rerun is not enough.
 
-## C. Full product typing path (after focus check)
+## C. Full product typing path (after focus PASS)
 
-1. Type a short word (≥4 chars) by **gaze dwell only** (~0.9 s)
+Requires usable mapper/mapped-gaze after calibration (normal calib produced a
+runtime-capable mapper — **not** `001` thresholds). Typing auto-starts; no
+Enable Typing step.
+
+1. Type a short word (≥4 chars) by **gaze dwell only** (~0.9 s); confirm circular
+   progress ring / key highlight on existing geometry
 2. Pause / Resume via gaze; Pause emits no character; Shift clears on Pause
 3. Same-key double: fire, clear leave (≥5 frames), return, dwell again
 4. Shift one-shot then letter; confirm Shift clears after letter; also confirm
    Shift clears if Pause/recalibrate instead of typing the letter
 5. Ctrl/Alt: no OS shortcuts
 6. Optional mouse on a letter — same OS path
+7. With no usable external target (e.g. desktop focus): simple non-blocking
+   feedback; no crash; calib/mapping session preserved
 
 ## Developer tooling
 

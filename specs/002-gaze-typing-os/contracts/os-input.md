@@ -36,7 +36,9 @@ CHAR is built — adapter types the final character.
 
 ## Failure
 
-- `ok=false` + short reason; non-blocking UI status allowed
+- `ok=false` + short reason; simple non-blocking UI status allowed
+- Same handling when there is **no usable external typing target** (no crash;
+  preserve active calibration/mapping session; no retry/target-management flows)
 - Must not corrupt calibration/mapping
 - Must not crash gaze loop
 - Dispatcher still emits `on_action_delivered` with failure

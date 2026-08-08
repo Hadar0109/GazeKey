@@ -24,7 +24,7 @@ floors. Calibration → mapping → mapped gaze remains the sealed upstream base
 
 ### Session 2026-08-08
 
-- Q: When does gaze dwell typing become active after a valid mapped gaze exists? → A: **Revised**: Typing auto-starts after successful calibration/mapping; read-only preview is developer/debug only (not normal product flow); no user “Enable Typing” step
+- Q: When does gaze dwell typing become active after a valid mapped gaze exists? → A: **Revised**: Typing auto-starts after calibration when a **usable mapper / mapped-gaze state** is available (normal calibration flow has produced a mapper capable of supplying mapped gaze for runtime use); **not** gated on `001` benchmark thresholds; read-only preview is developer/debug only (not normal product flow); no user “Enable Typing” step
 - Q: After a dwell selection fires a key, how should the next selection on the same key work? → A: Same-key lockout until confirmed leave; **5 consecutive off-key frames**; dwell **0.9 s**; **0.20 s** global cooldown after successful dwell activations that change typing state (keys, Shift, Pause, Resume unless evidenced otherwise)
 - Q: What default dwell duration should complete a key selection in typing mode? → A: Balanced: about 0.8–1.0 seconds (plan locks **0.9 s**)
 - Q: How should the user pause and resume already-active typing? → A: Dwellable Pause/Resume (primary) + optional mouse; never emits OS action; **Pause clears pending Shift**
@@ -42,7 +42,9 @@ floors. Calibration → mapping → mapped gaze remains the sealed upstream base
 
 ### User Story 1 - Type Into an External App by Gaze Dwell (Priority: P1)
 
-After successful calibration/mapping produces a mapped gaze point, **typing
+After calibration, when a **usable mapper / mapped-gaze state** is available
+(normal calibration flow has produced a mapper capable of supplying mapped gaze
+for runtime use — **not** requiring `001` benchmark thresholds), **typing
 auto-starts** as the normal product flow. Looking at an **active typing key**
 and holding gaze for a short dwell period completes selection, which produces a
 **`KeyAction`**. A dedicated OS input boundary consumes that action and delivers
@@ -54,8 +56,8 @@ of the normal user journey. The primary success path uses gaze only (no mouse
 required).
 
 **Why this priority**: This is the core product value of this stage — GazeKey
-becomes a real input device for other programs immediately after mapping is
-ready.
+becomes a real input device for other programs as soon as a usable mapped-gaze
+mapper is available after calibration.
 
 **Independent Test**: Focus an external text field, complete successful
 calibration/mapping, dwell on active typing keys for a short known word without
@@ -133,7 +135,8 @@ several characters without re-focusing the editor between them.
 2. **Given** GazeKey is shown in its existing geometry, **When** a typing key is
    selected by dwell or optional mouse click, **Then** the resulting `KeyAction`
    is delivered through the OS input boundary to the intended external target.
-3. **Given** calibration has just completed and typing auto-starts, **When**
+3. **Given** calibration has completed with a usable mapper/mapped-gaze state and
+   typing auto-starts, **When**
    the user immediately dwell-selects keys, **Then** input reaches the external
    target without permanently capturing typing ownership and without requiring
    focus restore between every character (early validation criterion).
@@ -224,9 +227,11 @@ key detection → selection → `KeyAction` → OS boundary.
 ### Edge Cases
 
 - What happens when no external app has a usable typing target (desktop, empty
-  focus)? The system MUST NOT crash; the user gets clear feedback that input
-  could not be delivered; no false “typed into GazeKey” success; GazeKey MUST
-  NOT permanently claim typing-target ownership.
+  focus)? The system MUST NOT crash; provide **simple non-blocking feedback**
+  that input could not be delivered; preserve the active calibration/mapping
+  session; no false “typed into GazeKey” success; GazeKey MUST NOT permanently
+  claim typing-target ownership. Do not add retry loops, target-management
+  complexity, or new UI flows for this case.
 - What happens when gaze is unstable / leaves and re-enters a key during dwell?
   Dwell MUST reset or restart per the dwell rules; partial dwells MUST NOT
   produce a `KeyAction`.
@@ -270,11 +275,14 @@ key detection → selection → `KeyAction` → OS boundary.
 
 - **FR-001**: System MUST determine which virtual keyboard key corresponds to
   the current mapped gaze point (key detection).
-- **FR-001a**: After successful calibration/mapping, System MUST
+- **FR-001a**: After calibration, when a **usable mapper / mapped-gaze state** is
+  available — defined as the normal calibration flow having produced a mapper
+  capable of supplying mapped gaze for runtime use — System MUST
   **automatically start typing** (selection → `KeyAction` → OS input boundary)
-  as the normal product flow. There MUST NOT be a required user “Enable Typing”
-  step. Read-only gaze preview orchestration MUST be developer/debug only and
-  MUST NOT be part of the normal product flow.
+  as the normal product flow. Auto-start MUST NOT require `001` benchmark
+  thresholds. There MUST NOT be a required user “Enable Typing” step. Read-only
+  gaze preview orchestration MUST be developer/debug only and MUST NOT be part
+  of the normal product flow.
 - **FR-001b**: System MUST allow the user to **pause** and **resume**
   already-active typing. Gaze dwell on a Pause/Resume control is the **primary
   hands-free** method; an equivalent mouse-click control MAY exist only as
@@ -305,9 +313,15 @@ key detection → selection → `KeyAction` → OS boundary.
   state (including OS-bound keys, Shift, Pause, and Resume, unless
   implementation evidence justifies an exception), same-key lockout, and
   confirmed leave of **5 consecutive off-key frames**.
-- **FR-003**: System MUST provide visible dwell/selection feedback so the user
-  can tell which key is being selected and whether dwell is progressing,
-  completed, or cancelled.
+- **FR-003**: System MUST provide visible dwell/selection feedback on the
+  **existing** keyboard layout/geometry (no redesign): the current gaze key MUST
+  show a clearly visible colored border/highlight; a semi-transparent circular
+  progress ring MUST appear on that key and progress over the **0.9 s** dwell;
+  a full circle MUST mean selection/activation; leaving the key before
+  completion MUST hide/reset the ring with **no** selection; moving to another
+  key MUST restart the same visual process there. The user MUST be able to tell
+  which key is being selected and whether dwell is progressing, completed, or
+  cancelled.
 - **FR-004**: System MUST cancel or restart dwell when gaze leaves the key
   before dwell completes, without producing a `KeyAction`.
 - **FR-004a**: After a successful selection, System MUST NOT fire that same key
@@ -358,9 +372,11 @@ key detection → selection → `KeyAction` → OS boundary.
   developer use.
 - **FR-014**: This feature MUST NOT require meeting `001` key-hit accuracy
   floors as a prerequisite for accepting typing/OS behavior.
-- **FR-015**: System MUST handle lost tracking, failed OS delivery, and missing
-  external typing target without crashing or corrupting calibration/mapping
-  state.
+- **FR-015**: System MUST handle lost tracking, failed OS delivery, and **no
+  usable external typing target** without crashing or corrupting/ending the
+  active calibration/mapping session. Feedback for failed delivery or missing
+  target MUST be **simple and non-blocking**. The system MUST NOT add retry
+  logic, target-management complexity, or new UI flows solely for these cases.
 - **FR-016**: Predictive text, language switching, symbols-layout typing,
   Ctrl/Alt shortcuts, multi-key combinations, personalization, multi-monitor
   support, keyboard redesign/reposition, and advanced accessibility polish are
@@ -388,9 +404,10 @@ key detection → selection → `KeyAction` → OS boundary.
 
 ### Measurable Outcomes
 
-- **SC-001**: After successful calibration/mapping (no enable-typing step), a
-  user can type a fixed short word (≥4 characters) into an external field using
-  **only** gaze dwell on OS-bound keys.
+- **SC-001**: After calibration when a usable mapper/mapped-gaze state is
+  available (no enable-typing step; not gated on `001` thresholds), a user can
+  type a fixed short word (≥4 characters) into an external field using **only**
+  gaze dwell on OS-bound keys.
 - **SC-001a**: Using only gaze, pause then resume without recalibrating; Pause
   emits no OS character.
 - **SC-002**: For completed dwells on OS-bound keys, delivered OS action matches
@@ -406,7 +423,8 @@ key detection → selection → `KeyAction` → OS boundary.
   dormant typing stacks in product; preview/benchmark not product modes;
   unjustified flags/artifacts gone.
 - **SC-006**: Calibration/mapping unchanged in role; no dwell/OS during
-  fixation; typing auto-starts after mapping without permanently capturing
+  fixation; typing auto-starts when a usable mapper/mapped-gaze state is
+  available after calibration without permanently capturing
   external typing ownership.
 - **SC-007**: Tests can observe requested `KeyAction`s without live OS inject and
   can observe delivery success/failure via the adapter boundary.
@@ -445,7 +463,12 @@ key detection → selection → `KeyAction` → OS boundary.
   existing top-half keyboard.
 - Upstream `001` mapping flow supplies mapped gaze; this feature does not change
   it.
-- Typing auto-starts; preview/benchmark are separate developer entry points.
+- Typing auto-starts when a usable mapper/mapped-gaze state is available after
+  calibration (usable = normal calib produced a runtime-capable mapper); not
+  gated on `001` thresholds; preview/benchmark are separate developer entry
+  points.
+- Dwell visuals: colored key highlight + semi-transparent circular progress ring
+  on existing geometry (no redesign).
 - Dwell defaults: 0.9 s / 0.20 s activation cooldown / 5-frame leave (not a tuning
   study).
 - Shift is one-shot; clears on letter consume and on Pause/recalib/session
@@ -454,7 +477,9 @@ key detection → selection → `KeyAction` → OS boundary.
   validation → full dwell/typing; `GAZEKEY_*` changes require KEEP/MOVE/DELETE
   inventory first.
 - Focus issues are OS/window-only; early validation after calib→keyboard using
-  the minimal inject path.
+  the minimal inject path: validate → minimal OS/window-only fix if needed →
+  rerun → **PASS** before full typing; if still failing after the minimal fix,
+  stop for review (do not expand scope automatically).
 - In-app text buffer is not the success destination.
 - Obsolete future/intent/selection/dormant dwell deleted in cleanup; developer
   writers live in tools.

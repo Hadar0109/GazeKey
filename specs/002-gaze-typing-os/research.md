@@ -53,10 +53,17 @@ delivery); event-bus framework (overkill).
 | Confirmed leave | **5 consecutive off-key frames** |
 
 Rebuild in `gazekey/typing/dwell_engine.py` only after cleanup gate + injection
-skeleton + focus validation.
+skeleton + **passing** focus validation.
+
+**On-key visual feedback** (preserve existing keyboard layout/geometry; no
+redesign): current gaze key gets a visible colored border/highlight; a
+semi-transparent circular progress ring appears on that key and fills over the
+0.9 s dwell; full circle = selection/activation; leave before completion
+hides/resets the ring with no selection; move to another key restarts the same
+visual process there.
 
 **Rationale**: Spec band 0.8–1.0; jitter-resistant leave; cooldown as reliability
-guard for all dwell state changes, not only character fires.
+guard for all dwell state changes, not only character fires; FR-003 dwell visuals.
 
 **Alternatives considered**: Cooldown only after CHAR fires (rejected — apply
 consistently unless evidenced); reuse SelectionPolicy (rejected).
@@ -109,12 +116,17 @@ Search the repo for any additional `GAZEKEY_*` before closing the inventory.
   as today, then keyboard in its **current top-half** geometry with the external
   app usable in the **lower half**.
 - Treat focus as an **OS/window-behavior** issue only.
-- **Early focus validation** runs **after** a minimal KeyAction → dispatcher →
-  adapter path exists (cannot precede injection skeleton). After calib →
-  top-half keyboard, confirm inject reaches the external app without restoring
-  focus between characters.
+- **Early focus validation (hard gate)** runs **after** a minimal KeyAction →
+  dispatcher → adapter path exists (cannot precede injection skeleton). After
+  calib → top-half keyboard, confirm inject reaches the external app without
+  restoring focus between characters. Rule: validate → if fail, apply the
+  **minimum OS/window-only** fix → rerun → require **PASS** before full typing;
+  if the minimal fix still does not pass, **stop for review** (do not expand
+  scope automatically). Documented mitigation without a passing rerun is not
+  sufficient.
 
-**Rationale**: Layout constraint; focus proof needs a real inject path.
+**Rationale**: Layout constraint; focus proof needs a real inject path; hard
+gate prevents typing UX from proceeding on an unproven focus path.
 
 **Alternatives considered**: Focus check before adapter exists (impossible);
 layout change to “fix” focus (rejected).
@@ -189,15 +201,33 @@ as tooling-in-product).
 2. **Post-cleanup behavior gate**: product launch, fullscreen calib, PCA4 mapped
    gaze, top-half keyboard preserved, tools benchmark still runs independently
 3. Minimal KeyAction + ActionDispatcher + OsInputAdapter skeleton
-4. Early Windows focus validation (needs step 3)
-5. Full dwell/typing integration
+4. Early Windows focus validation — hard gate: PASS required before full typing;
+   stop for review if minimal OS/window-only fix still fails (needs step 3)
+5. Full dwell/typing integration (auto-start when usable mapper/mapped-gaze is
+   available after calibration — not 001 thresholds; circular dwell visuals)
 6. Dev entry polish / tests / quickstart
 
 **Rationale**: Focus proof cannot precede inject path; cleanup must not silently
 break sealed calibration/mapping.
 
 **Alternatives considered**: Focus before skeleton (rejected); typing before
-cleanup gate (rejected).
+cleanup gate (rejected); continue Phase 5 on documented-only mitigation
+(rejected).
+
+---
+
+## R9a — Typing auto-start (“usable”)
+
+**Decision**: Typing **auto-starts after calibration when a usable mapper /
+mapped-gaze state is available**. **Usable** means the normal calibration flow
+has produced a mapper capable of supplying mapped gaze for runtime use. This
+does **not** require `001` benchmark thresholds.
+
+**Rationale**: Spec FR-001a; parallel with mapping improvement; product flow
+must not wait on key-hit floors.
+
+**Alternatives considered**: Gate on 001 SC thresholds (rejected); require
+Enable Typing (rejected).
 
 ---
 

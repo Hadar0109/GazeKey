@@ -12,10 +12,13 @@ mapping → mapped gaze`) with a **product typing path**:
 `mapped gaze → key detection → dwell/click selection → KeyAction →
 ActionDispatcher → OsInputAdapter → intended external typing target`.
 
-Typing **auto-starts** after successful calibration/mapping. Calibration/mapping
-remain isolated and unchanged. UI layout stays as today: **fullscreen
-calibration**, then keyboard in its **current top-half** position with the
-external app usable in the lower half — no redesign or reposition.
+Typing **auto-starts after calibration when a usable mapper / mapped-gaze state
+is available** (normal calibration flow has produced a mapper capable of
+supplying mapped gaze for runtime use). This does **not** require `001`
+benchmark thresholds. Calibration/mapping remain isolated and unchanged. UI
+layout stays as today: **fullscreen calibration**, then keyboard in its
+**current top-half** position with the external app usable in the lower half —
+no redesign or reposition.
 
 Cleanup and package boundaries (`gazekey/` vs `tools/`, delete obsolete
 future/intent/selection/dormant typing) happen **before** most new typing
@@ -37,7 +40,12 @@ not product modes.
    successful dwell-based activations that change typing state (including typing
    keys, Shift, Pause, Resume, unless implementation evidence justifies an
    exception); same-key lockout; **5 consecutive off-key frames** for confirmed
-   leave. Rebuild only after cleanup gate + injection skeleton + focus check.
+   leave. On-key visual feedback: colored border/highlight on the current gaze
+   key plus a semi-transparent circular progress ring that fills over 0.9 s;
+   full circle = activate; leave before completion hides/resets with no
+   selection; move to another key restarts there — **preserve existing keyboard
+   geometry** (no redesign). Rebuild only after cleanup gate + injection
+   skeleton + **passing** focus check.
 4. **Active OS key set** — A–Z, Space, Backspace, Enter; **Shift = one-shot** for
    the next letter; clear pending Shift on Pause, recalibration, mapping/session
    reset, tracking/mapping session termination, and similar unsafe transitions.
@@ -45,7 +53,10 @@ not product modes.
    internal (no OS `KeyAction`).
 5. **Layout preserved** — No keyboard reposition/redesign. Focus is an
    OS/window-behavior concern only; **early focus validation runs only after** a
-   minimal KeyAction→dispatcher→adapter path exists.
+   minimal KeyAction→dispatcher→adapter path exists. Rule: validate → if fail,
+   apply minimum OS/window-only fix → rerun → **PASS** before full typing; if
+   still failing after the minimal fix, **stop for review** (do not expand scope
+   automatically).
 6. **Dev tooling** — Separate entry points for preview and benchmark; `GAZEKEY_*`
    changes only after an explicit KEEP / MOVE TO TOOLS / DELETE inventory.
 
@@ -177,17 +188,21 @@ Not tasks yet — **implementation order** (binding):
 3. **Minimal injection skeleton** — `KeyAction`, `ActionDispatcher` (requested vs
    delivered), `OsInputAdapter` protocol + fake + pynput impl — enough to inject
    a test `KeyAction` under test/manual harness.
-4. **Early Windows focus validation** — Using that minimal path, after fullscreen
-   calib → top-half keyboard, verify injected KeyActions reach the external app
-   without per-character focus restore (OS/window behavior only; no layout
-   redesign). Focus proof **requires** the skeleton from step 3. Gate further
-   dwell/typing UX on this check (or a documented mitigation if it fails).
-5. **Full dwell / typing integration** — 0.9 s dwell; 0.20 s global cooldown after
-   successful dwell activations that change typing state (keys, Shift, Pause,
-   Resume unless evidence says otherwise); same-key lock; 5-frame leave;
-   auto-start typing; Pause/Resume; Shift one-shot with clears on Pause /
-   recalibrate / mapping-session reset / termination; Ctrl/Alt non-OS; mouse path.
+4. **Early Windows focus validation (hard gate)** — Using the minimal path, after
+   fullscreen calib → top-half keyboard, verify injected KeyActions reach the
+   external app without per-character focus restore (OS/window behavior only; no
+   layout redesign). Focus proof **requires** the skeleton from step 3. Rule:
+   run validation → if fail, apply the **minimum OS/window-only** fix → **rerun**
+   → require **PASS** before full typing continues. If the minimal fix still does
+   not pass, **stop for review** rather than expanding scope automatically.
+   Documented mitigation without a passing rerun is **not** sufficient.
+5. **Full dwell / typing integration** — 0.9 s dwell; circular on-key progress
+   feedback; 0.20 s global cooldown after successful dwell activations that change
+   typing state (keys, Shift, Pause, Resume unless evidence says otherwise);
+   same-key lock; 5-frame leave; auto-start when usable mapper/mapped-gaze is
+   available after calibration (not 001 thresholds); Pause/Resume; Shift one-shot
+   with clears; Ctrl/Alt non-OS; mouse path.
 6. **Dev entry points polish** — Finalize separate preview and benchmark launches
    (not product modes) if not already done in step 1.
 7. **Tests + quickstart** — Unit/contract + manual checklist (post-cleanup gate,
-   focus validation, layout preservation, Shift clears, cooldown).
+   focus validation PASS, layout preservation, Shift clears, cooldown).

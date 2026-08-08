@@ -31,7 +31,10 @@ mapping is **unchanged** from `001`.
 1. Calibration/mapping fit/predict MUST NOT import typing input or dwell.
 2. Dwell/UI MUST NOT import `pynput`.
 3. Only `OsInputAdapter` performs native injection.
-4. Typing auto-starts when mapping becomes usable.
+4. Typing auto-starts after calibration when a **usable** mapper / mapped-gaze
+   state is available. **Usable** = normal calibration flow has produced a
+   mapper capable of supplying mapped gaze for runtime use. Auto-start MUST NOT
+   require `001` benchmark thresholds.
 5. Pause/Resume never enters KeyAction→OS path; Pause clears pending Shift.
 6. UI layout: fullscreen calib as today → top-half keyboard; no reposition in 002.
 7. Obsolete future/intent/selection/dormant typing are not pipeline stages

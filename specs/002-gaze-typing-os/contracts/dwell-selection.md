@@ -43,6 +43,16 @@ Exempt a control only if implementation evidence documents a specific reason.
    mapping/session reset, tracking/mapping session termination, and similar
    unsafe transitions.
 
+## Visual feedback (on existing key geometry)
+
+- Current gaze key: visible colored border/highlight
+- Semi-transparent circular progress ring on that key over `dwell_sec` (0.9 s)
+- Full circle = selection/activation
+- Leave before completion → hide/reset ring; no selection
+- Move to another key → restart the same process there
+- Preserve existing keyboard layout/geometry (no redesign)
+
 ## Non-goals
 
 - Intent scoring, cross-row hysteresis, Ctrl/Alt chords
+- Keyboard redesign/reposition (dwell visuals overlay existing key geometry only)
