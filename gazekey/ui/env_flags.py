@@ -1,48 +1,43 @@
-"""Centralized product ``GAZEKEY_*`` environment flag reads.
+"""Product runtime flags — reads process :mod:`gazekey.app_config` (CLI boundary).
 
-Developer-only flags live in ``tools.flags`` (``DEV_BENCHMARK``, ``CALIB_GEOM_DEBUG``).
+No ``GAZEKEY_*`` environment-variable fallback.
 """
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 
-
-def env_bool(name: str, *, default: str = "0") -> bool:
-    return os.environ.get(name, default).strip() == "1"
-
-
-def env_str(name: str, *, default: str = "") -> str:
-    return os.environ.get(name, default).strip()
+from gazekey.app_config import (
+    effective_calib_debug,
+    effective_rt2_debug,
+    get_config,
+)
 
 
 def verbose() -> bool:
-    return env_bool("GAZEKEY_VERBOSE")
+    return get_config().verbose
 
 
 def camera_preview_during_calib() -> bool:
     """Allow the standard camera preview window during fixation (default off)."""
-    return env_bool("GAZEKEY_CAMERA_PREVIEW_DURING_CALIB")
+    return get_config().camera_preview_during_calib
 
 
 def calib_mode_override() -> str:
-    """Optional layout override — preserved / re-evaluate (may become tools-only later)."""
-    return env_str("GAZEKEY_CALIB_MODE")
+    """Optional layout override from ``--calib-mode`` (empty → mapping default)."""
+    return get_config().calib_mode
 
 
 def gaze_debug() -> bool:
-    """Extra gaze debug labels — preserved / re-evaluate."""
-    return env_bool("GAZEKEY_GAZE_DEBUG")
+    return get_config().gaze_debug
 
 
 def calib_debug() -> bool:
-    """Verbose calibration overlay — preserved / re-evaluate."""
-    return env_bool("GAZEKEY_CALIB_DEBUG")
+    return get_config().calib_debug
 
 
 def verbose_fixation_ui() -> bool:
-    return verbose() or calib_debug()
+    return effective_calib_debug()
 
 
 @dataclass(frozen=True)
@@ -55,9 +50,9 @@ class EnvFlags:
 
     @classmethod
     def load(cls) -> EnvFlags:
-        v = verbose()
+        cfg = get_config()
         return cls(
-            verbose=v,
-            rt2_debug=v or gaze_debug(),
-            calib_debug=v or calib_debug(),
+            verbose=cfg.verbose,
+            rt2_debug=effective_rt2_debug(cfg),
+            calib_debug=effective_calib_debug(cfg),
         )

@@ -2,6 +2,7 @@
 
 Usage:
     python -m tools.preview
+    python -m tools.preview --verbose --gaze-debug
 """
 
 from __future__ import annotations
@@ -10,11 +11,14 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
+from gazekey.app_config import apply_config, parse_preview_args
 from gazekey.ui.virtual_keyboard import VirtualKeyboard
 from tools.devtools_install import install_devtools
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    apply_config(parse_preview_args(argv))
+
     app = QApplication(sys.argv)
     app.setApplicationName("GazeKey Preview (tools)")
     keyboard = VirtualKeyboard()

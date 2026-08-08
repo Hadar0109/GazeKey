@@ -69,7 +69,7 @@ class BenchmarkController:
         if not self._begin_session():
             return
         self._host._log_verbose(
-            "[benchmark] started — dev MVP benchmark (15 keys, GAZEKEY_DEV_BENCHMARK=1)"
+            "[benchmark] started — tools evaluation benchmark (15 keys)"
         )
 
     def process_eye_data(self, eye_data) -> None:

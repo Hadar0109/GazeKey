@@ -159,7 +159,7 @@ class CalibFinishArtifacts:
 
     def maybe_show_geometry_overlay(self, *, samples, model, loocv_detail) -> None:
         h = self._host
-        if not calib_geom_debug(calib_debug_cached=h._calib_debug):
+        if not calib_geom_debug():
             return
         try:
             self.show_geometry_overlay(samples=samples, model=model, loocv_detail=loocv_detail)

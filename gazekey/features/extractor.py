@@ -11,38 +11,9 @@ from __future__ import annotations
 from typing import List, Optional, Tuple
 
 import numpy as np
-import os
 
 from gazekey.features.feature_types import FrameFeatures
 from gazekey.tracking.eye_detector import EyeData
-
-
-def _diag_raw_eye_geometry(
-    *,
-    tag: str,
-    iris: Tuple[float, float] | None,
-    eye: List[Tuple[float, float]] | None,
-) -> None:
-    """Print raw iris + eye landmark geometry before computing ratios."""
-    if iris is None or eye is None or len(eye) < 9:
-        return
-    try:
-        a = eye[0]
-        b = eye[8]
-        pts = np.array(eye, dtype=np.float64)
-        xmin = float(np.min(pts[:, 0]))
-        xmax = float(np.max(pts[:, 0]))
-        ymin = float(np.min(pts[:, 1]))
-        ymax = float(np.max(pts[:, 1]))
-        print(
-            "[diag] extractor raw "
-            f"{tag}: iris=({float(iris[0]):.4f},{float(iris[1]):.4f}) "
-            f"cornerA=({float(a[0]):.4f},{float(a[1]):.4f}) "
-            f"cornerB=({float(b[0]):.4f},{float(b[1]):.4f}) "
-            f"bbox=({xmin:.4f},{ymin:.4f})-({xmax:.4f},{ymax:.4f}) n={len(eye)}"
-        )
-    except Exception:
-        return
 
 
 def _bbox_size(points: List[Tuple[float, float]]) -> Tuple[float, float]:
@@ -129,9 +100,6 @@ def _eye_uv_one_eye(
 
 
 class FeatureExtractor:
-    # Enable with env var `GAZEKEY_DIAG_EXTRACTOR=1` (kept off by default to avoid console spam).
-    DIAG_RAW: bool = os.environ.get("GAZEKEY_DIAG_EXTRACTOR", "0").strip() == "1"
-
     @staticmethod
     def from_eye_data(eye_data: EyeData, *, timestamp_ms: int) -> FrameFeatures:
         face_detected = bool(eye_data.face_detected)
@@ -150,8 +118,6 @@ class FeatureExtractor:
         pca_uL = pca_vL = pca_uR = pca_vR = None  # raw eye-local coords for geometric mappers
         if face_detected and not blink:
             if left_iris is not None and left_eye is not None:
-                if FeatureExtractor.DIAG_RAW and (int(timestamp_ms) % 500) < 25:
-                    _diag_raw_eye_geometry(tag="L", iris=left_iris, eye=left_eye)
                 uv = _eye_uv_one_eye(left_eye, left_iris)
                 if uv is not None:
                     pca_uL, pca_vL = uv
@@ -159,8 +125,6 @@ class FeatureExtractor:
                     Lh = float(max(0.0, min(1.0, 0.5 + float(pca_uL))))
                     Lv = float(max(0.0, min(1.0, 0.5 + float(pca_vL))))
             if right_iris is not None and right_eye is not None:
-                if FeatureExtractor.DIAG_RAW and (int(timestamp_ms) % 500) < 25:
-                    _diag_raw_eye_geometry(tag="R", iris=right_iris, eye=right_eye)
                 uv = _eye_uv_one_eye(right_eye, right_iris)
                 if uv is not None:
                     pca_uR, pca_vR = uv

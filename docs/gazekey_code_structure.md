@@ -29,7 +29,8 @@ Session artifacts are written under **`runs/<session_id>/`**.
 | File | Role |
 |------|------|
 | `__init__.py` | Package marker (`__version__`). |
-| `mvp_log.py` | Quiet-by-default logging (`GAZEKEY_VERBOSE=1`). |
+| `mvp_log.py` | Quiet-by-default logging (`--verbose`). |
+| `app_config.py` | CLI → process `AppConfig` (no `GAZEKEY_*` env). |
 
 ---
 
@@ -49,7 +50,7 @@ Session artifacts are written under **`runs/<session_id>/`**.
 | File | Role |
 |------|------|
 | `feature_types.py` | `FrameFeatures` dataclass. |
-| `extractor.py` | `EyeData` → `FrameFeatures` (`GAZEKEY_DIAG_EXTRACTOR` optional). |
+| `extractor.py` | `EyeData` → `FrameFeatures`. |
 | `feature_smoother.py` | Runtime PCA EMA (`FEATURE_SMOOTHER_ALPHA`). |
 
 ---
@@ -59,7 +60,7 @@ Session artifacts are written under **`runs/<session_id>/`**.
 | File | Role |
 |------|------|
 | `session.py` | `CalibrationSession`, `CalibrationResult`. |
-| `targets.py` | Target layouts (`keyboard15` default; override via `GAZEKEY_CALIB_MODE`). |
+| `targets.py` | Target layouts (`keyboard15` default; override via `--calib-mode`). |
 | `fixation_gate.py` | Fixation stability gating. |
 | `quality.py` | Post-fit quality / usable-mapper gates. |
 | `region_quality.py` | Per-target region LOOCV checks. |
@@ -129,7 +130,7 @@ Layout CSV export: **`tools/debug/layout_csv.py`**.
 | `calibration_finish.py` | Post-session fit; delegates tools artifacts via DevTools. |
 | `camera_preview_window.py` | Floating webcam PiP. |
 | `devtools_api.py` | `DevTools` protocol + `NullDevTools`. |
-| `env_flags.py` | Product `GAZEKEY_*` flags only. |
+| `env_flags.py` | Thin helpers over `gazekey.app_config`. |
 
 ---
 

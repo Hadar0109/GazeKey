@@ -21,21 +21,36 @@ Product code under `gazekey/` must **not** import `tools.*`. Tools attach to a
 | Debug overlays / diagnostics | imported by tools entries | `tools/debug/` |
 | Offline correction-layer analysis | `python tools/debug/analyze_correction_layers.py` | `tools/debug/` |
 
-Benchmark auto-start (tools entry only):
+`python -m tools.evaluation` **implies** auto-benchmark after calib+preview — no
+extra flag required.
+
+## CLI options
+
+Shared (product + tools):
+
+| Option | Effect |
+|--------|--------|
+| `--verbose` | Detailed console logs |
+| `--calib-mode <mode>` | Calibration layout override |
+| `--calib-debug` | Verbose fixation UI |
+| `--gaze-debug` | Extra mapped-gaze labels |
+| `--camera-preview-during-calib` | Camera PiP during fixation |
+
+Tools-only:
+
+| Option | Effect |
+|--------|--------|
+| `--calib-geom-debug` | Post-fit geometry overlay (independent of `--verbose` / `--calib-debug`) |
+
+Examples:
 
 ```text
-set GAZEKEY_DEV_BENCHMARK=1
-python -m tools.evaluation
+python -m tools.preview --gaze-debug
+python -m tools.evaluation --verbose --calib-geom-debug
 ```
 
-## Tools-only flags (`tools/flags.py`)
-
-| Flag | Effect |
-|------|--------|
-| `GAZEKEY_DEV_BENCHMARK=1` | Auto-start 15-key benchmark after tools calib+preview |
-| `GAZEKEY_CALIB_GEOM_DEBUG=1` | Post-fit geometry overlay |
-
-Product flags remain in `gazekey/ui/env_flags.py` (see env-flag inventory).
+Config boundary: `gazekey/app_config.py` (no `GAZEKEY_*` env fallback).
+Helpers: `tools/flags.py` reads `get_config()`.
 
 ## Layout
 
@@ -43,10 +58,10 @@ Product flags remain in `gazekey/ui/env_flags.py` (see env-flag inventory).
 tools/
   __init__.py
   README.md
-  flags.py                 # DEV_BENCHMARK, CALIB_GEOM_DEBUG
+  flags.py                 # auto_benchmark + calib_geom_debug from AppConfig
   devtools_install.py      # attach writers / preview / benchmark to product VK
   evaluation/
-    __main__.py            # benchmark entry
+    __main__.py            # benchmark entry (implies auto-benchmark)
     benchmark_*.py
     run_summary.py
     session_paths.py
@@ -66,4 +81,4 @@ tools/
 ## Related inventory
 
 Reviewed decisions: `specs/002-gaze-typing-os/inventory-review.md`  
-Flag inventory: `specs/002-gaze-typing-os/env-flag-inventory.md`
+Flag / CLI inventory: `specs/002-gaze-typing-os/env-flag-inventory.md`

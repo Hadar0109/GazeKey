@@ -130,7 +130,7 @@ flowchart TB
 6. Quality gates decide usable mapper vs RECALIBRATE.
 7. On pass: keyboard returns to **top-half** geometry; typing session auto-starts.
 8. Mapped gaze → dwell/mouse → OS injection into the focused external app.
-9. Tools (optional): preview and/or `GAZEKEY_DEV_BENCHMARK=1` scoring — independent of product typing.
+9. Tools (optional): `python -m tools.preview` / `python -m tools.evaluation` — independent of product typing.
 
 ---
 
@@ -169,26 +169,29 @@ standalone camera MediaPipe demos under `scripts/`.
 
 ---
 
-## 8. Environment flags
+## 8. Launch options (CLI)
 
-### Product (`gazekey/ui/env_flags.py`)
+Parsed at entry points into `gazekey/app_config.py`. **No** `GAZEKEY_*` env fallback.
 
-| Variable | Effect |
-|----------|--------|
-| `GAZEKEY_VERBOSE=1` | Detailed logs |
-| `GAZEKEY_CALIB_MODE` | Layout override (re-evaluate) |
-| `GAZEKEY_CALIB_DEBUG=1` | Verbose fixation UI (re-evaluate) |
-| `GAZEKEY_GAZE_DEBUG=1` | Extra gaze logs (re-evaluate) |
-| `GAZEKEY_CAMERA_PREVIEW_DURING_CALIB=1` | Camera during calib (re-evaluate) |
+### Product (`python main.py`)
 
-### Tools (`tools/flags.py`)
+| Option | Effect |
+|--------|--------|
+| `--verbose` | Detailed logs |
+| `--calib-mode <mode>` | Layout override |
+| `--calib-debug` | Verbose fixation UI |
+| `--gaze-debug` | Extra gaze labels |
+| `--camera-preview-during-calib` | Camera during calib |
 
-| Variable | Effect |
-|----------|--------|
-| `GAZEKEY_DEV_BENCHMARK=1` | Auto benchmark via `python -m tools.evaluation` |
-| `GAZEKEY_CALIB_GEOM_DEBUG=1` | Post-fit geometry overlay |
+### Tools
 
-No product `GAZEKEY_ENABLE_TYPING` flag — typing auto-starts when a usable mapper exists.
+| Option | Effect |
+|--------|--------|
+| Shared product options | Same on preview/evaluation |
+| `--calib-geom-debug` | Post-fit geometry overlay |
+| `python -m tools.evaluation` | Implies auto-benchmark |
+
+No product typing enable flag — typing auto-starts when a usable mapper exists.
 
 ---
 

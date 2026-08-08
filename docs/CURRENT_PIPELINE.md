@@ -18,11 +18,12 @@ Developer sessions that need preview / benchmark / debug overlays use:
 
 ```
 python -m tools.preview
-python -m tools.evaluation   # optional GAZEKEY_DEV_BENCHMARK=1
+python -m tools.evaluation   # implies auto-benchmark after calib+preview
 ```
 
 Those entries call `tools.devtools_install.install_devtools` so product code never
-imports `tools.*`.
+imports `tools.*`. Launch options are CLI flags via `gazekey.app_config` (no
+`GAZEKEY_*` env).
 
 ### High-level diagram
 
@@ -68,7 +69,8 @@ same KeyAction → dispatcher → OS path when the typing session is active.
 | `tools/evaluation/` | Benchmark UI/scoring (001 mapping accuracy path) |
 | `tools/debug/` | Mapper snapshot, layout CSV, geometry overlay/diagnostics |
 | `tools/focus_validation.py` | §B external-focus harness |
-| `tools/flags.py` | `GAZEKEY_DEV_BENCHMARK`, `GAZEKEY_CALIB_GEOM_DEBUG` |
+| `tools/flags.py` | `auto_benchmark` / `calib_geom_debug` from `AppConfig` |
+| `gazekey/app_config.py` | CLI → process config boundary |
 
 ---
 
@@ -100,7 +102,7 @@ Gates decide usable mapper vs RECALIBRATE. They are **not** retuned for typing.
 | Mode | How | Points |
 |------|-----|--------|
 | `keyboard15` | Default (`mapping/config.py`) | 15 on real key centers + row structure |
-| Other layouts | `GAZEKEY_CALIB_MODE` (product, re-evaluate) | See `gazekey/calibration/targets.py` |
+| Other layouts | `--calib-mode <mode>` | See `gazekey/calibration/targets.py` |
 
 Clip bounds for predict: letter-keys region (`_calib_clip_rect`) in keyboard mode.
 
@@ -133,7 +135,7 @@ Clip bounds for predict: letter-keys region (`_calib_clip_rect`) in keyboard mod
 
 13. `python -m tools.preview` or `tools.evaluation` attaches DevTools
 14. Preview: mapped gaze dot only (read-only; not product typing)
-15. Benchmark (`GAZEKEY_DEV_BENCHMARK=1`): sequential keys via tools hit-tester + `benchmark_runner`
+15. Benchmark (`python -m tools.evaluation`): sequential keys via tools hit-tester + `benchmark_runner`
 16. Write `benchmark_summary.txt` + `benchmark_diag.json` under the session folder
 
 ---
@@ -158,27 +160,31 @@ Nothing new is written to the repository root.
 
 ---
 
-### Environment variables
+### Launch options (CLI)
 
-#### Product (`gazekey/ui/env_flags.py`)
+Parsed at entry points into `gazekey.app_config.AppConfig`. **No** `GAZEKEY_*`
+environment fallback.
 
-| Variable | Effect |
-|----------|--------|
-| `GAZEKEY_VERBOSE=1` | Verbose calibration/runtime logs |
-| `GAZEKEY_CALIB_MODE` | Override calibration target layout (re-evaluate) |
-| `GAZEKEY_CALIB_DEBUG=1` | Verbose fixation overlay (re-evaluate) |
-| `GAZEKEY_GAZE_DEBUG=1` | Extra gaze predict logs (re-evaluate) |
-| `GAZEKEY_CAMERA_PREVIEW_DURING_CALIB=1` | Camera PiP during fixation (re-evaluate) |
+#### Product (`python main.py`)
 
-#### Tools (`tools/flags.py`)
+| Option | Effect |
+|--------|--------|
+| `--verbose` | Verbose calibration/runtime logs |
+| `--calib-mode <mode>` | Override calibration target layout |
+| `--calib-debug` | Verbose fixation overlay |
+| `--gaze-debug` | Extra gaze predict labels |
+| `--camera-preview-during-calib` | Camera PiP during fixation |
 
-| Variable | Effect |
-|----------|--------|
-| `GAZEKEY_DEV_BENCHMARK=1` | Auto 15-key benchmark after tools calib+preview |
-| `GAZEKEY_CALIB_GEOM_DEBUG=1` | Post-fit geometry overlay |
+#### Tools
 
-Deleted (do not use): `GAZEKEY_SELECTION_DEBUG`, `GAZEKEY_GAZE_DEBUG_PRED`,
-`GAZEKEY_GAZE_DEBUG_SELECTION`, product typing enable flags, and obsolete accuracy flag names.
+| Option | Effect |
+|--------|--------|
+| Shared product options | Same meanings on preview/evaluation |
+| `--calib-geom-debug` | Post-fit geometry overlay (independent of verbose/calib-debug) |
+| `python -m tools.evaluation` | Implies auto-benchmark after calib+preview |
+
+Deleted (do not use): former `GAZEKEY_*` env names, product typing enable flags,
+and obsolete accuracy flag names.
 
 ---
 

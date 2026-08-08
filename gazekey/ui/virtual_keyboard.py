@@ -123,7 +123,7 @@ class VirtualKeyboard(QWidget):
         # (see gazekey/mapping/typing_candidate.ACTIVE_MAPPER). The old runtime mapper-selection
         # toggles (_use_ridge_mapper / _row_aware_mapping) are removed so no experimental mapper
         # can be selected at runtime. Variant code in ridge.py is removed in Phase 10 (T043).
-        # Verbose detail: GAZEKEY_VERBOSE=1 (legacy per-flag env vars still honored).
+        # Verbose / debug options come from launch CLI via app_config (no GAZEKEY_* env).
         self._rt2_debug = env_flags.rt2_debug
         self._calib_debug = env_flags.calib_debug
         self._camera_preview_during_calib = camera_preview_during_calib()

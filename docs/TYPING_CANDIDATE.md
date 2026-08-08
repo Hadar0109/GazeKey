@@ -55,23 +55,23 @@ Key takeaways retained:
 
 ```bash
 python -m tools.preview
-set GAZEKEY_DEV_BENCHMARK=1
 python -m tools.evaluation
 ```
 
 See `tools/README.md`. Preview/benchmark are **not** product modes.
 
-### Diagnostics
+### Diagnostics (CLI)
 
-| Variable | Where | Effect |
-|----------|-------|--------|
-| `GAZEKEY_VERBOSE=1` | Product | Detailed calibration/runtime logs |
-| `GAZEKEY_CALIB_DEBUG=1` | Product (re-evaluate) | Verbose calibration overlay |
-| `GAZEKEY_GAZE_DEBUG=1` | Product (re-evaluate) | Extra gaze/predict logs |
-| `GAZEKEY_CALIB_GEOM_DEBUG=1` | Tools | Post-fit geometry overlay |
-| `GAZEKEY_DEV_BENCHMARK=1` | Tools | Auto 15-key benchmark + `benchmark_summary.txt` |
+| Option | Where | Effect |
+|--------|-------|--------|
+| `--verbose` | All entries | Detailed calibration/runtime logs |
+| `--calib-debug` | All entries | Verbose calibration overlay |
+| `--gaze-debug` | All entries | Extra gaze/predict labels |
+| `--calib-geom-debug` | Tools | Post-fit geometry overlay |
+| `python -m tools.evaluation` | Evaluation entry | Auto 15-key benchmark + `benchmark_summary.txt` |
 
 No product typing enable flag — session activates after usable mapper.
+No `GAZEKEY_*` environment fallback.
 
 ## Expected quality
 

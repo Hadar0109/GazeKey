@@ -2,9 +2,9 @@
 
 Usage:
     python -m tools.evaluation
+    python -m tools.evaluation --verbose --calib-geom-debug
 
-Optional:
-    set GAZEKEY_DEV_BENCHMARK=1  — auto-start benchmark after calibration+preview
+The evaluation entry itself enables auto-benchmark after calib+preview.
 """
 
 from __future__ import annotations
@@ -13,11 +13,14 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
+from gazekey.app_config import apply_config, parse_evaluation_args
 from gazekey.ui.virtual_keyboard import VirtualKeyboard
 from tools.devtools_install import install_devtools
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    apply_config(parse_evaluation_args(argv))
+
     app = QApplication(sys.argv)
     app.setApplicationName("GazeKey Benchmark (tools)")
     keyboard = VirtualKeyboard()
@@ -30,7 +33,7 @@ def main() -> int:
     keyboard.show()
     keyboard.on_app_started()
     print("GazeKey tools evaluation/benchmark started.")
-    print("Set GAZEKEY_DEV_BENCHMARK=1 to auto-run the 15-key benchmark after calib.")
+    print("Auto-benchmark runs after successful calibration + preview.")
     print("Product launch remains: python main.py")
     return app.exec()
 

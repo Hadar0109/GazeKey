@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-import os
+from gazekey.app_config import get_config
 
 
 def mvp_verbose() -> bool:
-    return os.environ.get("GAZEKEY_VERBOSE", "0").strip() == "1"
+    return get_config().verbose
 
 
 def mvp_log(message: str, *, always: bool = False) -> None:
-    """Print when always=True or GAZEKEY_VERBOSE=1."""
+    """Print when always=True or ``--verbose`` was set at launch."""
     if always or mvp_verbose():
         print(message)

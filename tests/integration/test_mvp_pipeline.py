@@ -149,11 +149,10 @@ def test_geometry_sanity_key_centers_match_layout_snapshot(qapp):
 
 
 def test_normal_flow_calibrate_preview_only(qapp, tmp_path, monkeypatch, capsys):
-    monkeypatch.delenv("GAZEKEY_DEV_BENCHMARK", raising=False)
-    monkeypatch.delenv("GAZEKEY_VERBOSE", raising=False)
-
+    from gazekey.app_config import AppConfig, apply_config
     from gazekey.ui.virtual_keyboard import VirtualKeyboard
 
+    apply_config(AppConfig())  # preview-style: no auto-benchmark
     vk = VirtualKeyboard()
     install_devtools(
         vk,
@@ -188,11 +187,10 @@ def test_normal_flow_calibrate_preview_only(qapp, tmp_path, monkeypatch, capsys)
 
 
 def test_dev_benchmark_flow_auto_start_and_summary(qapp, tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("GAZEKEY_DEV_BENCHMARK", "1")
-    monkeypatch.delenv("GAZEKEY_VERBOSE", raising=False)
-
+    from gazekey.app_config import AppConfig, apply_config
     from gazekey.ui.virtual_keyboard import VirtualKeyboard
 
+    apply_config(AppConfig(auto_benchmark=True))  # evaluation entry
     vk = VirtualKeyboard()
     install_devtools(
         vk,

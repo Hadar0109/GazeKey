@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from gazekey.app_config import AppConfig, apply_config
 from gazekey.mvp_log import mvp_log, mvp_verbose
 
 
-def test_mvp_log_quiet_by_default(capsys, monkeypatch):
-    monkeypatch.delenv("GAZEKEY_VERBOSE", raising=False)
+def test_mvp_log_quiet_by_default(capsys):
+    apply_config(AppConfig())
     assert mvp_verbose() is False
     mvp_log("diag-only")
     mvp_log("essential", always=True)
@@ -15,8 +16,8 @@ def test_mvp_log_quiet_by_default(capsys, monkeypatch):
     assert "essential" in out
 
 
-def test_mvp_log_verbose_enabled(capsys, monkeypatch):
-    monkeypatch.setenv("GAZEKEY_VERBOSE", "1")
+def test_mvp_log_verbose_enabled(capsys):
+    apply_config(AppConfig(verbose=True))
     mvp_log("verbose-detail")
     out = capsys.readouterr().out
     assert "verbose-detail" in out

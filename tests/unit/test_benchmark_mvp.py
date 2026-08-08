@@ -1,4 +1,4 @@
-"""US3: dev-flag benchmark trigger and summary."""
+"""US3: evaluation auto-benchmark trigger and summary."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from gazekey.app_config import AppConfig, apply_config
 from tools.evaluation.benchmark_runner import (
     KeyAccuracyResultRow,
     build_benchmark_run,
@@ -85,8 +86,7 @@ def test_benchmark_run_summary_includes_failure_analysis(tmp_path):
     assert "reason=" in text
 
 
-def test_no_benchmark_button_in_control_bar(qapp, monkeypatch):
-    monkeypatch.delenv("GAZEKEY_DEV_BENCHMARK", raising=False)
+def test_no_benchmark_button_in_control_bar(qapp):
     from gazekey.ui.virtual_keyboard import VirtualKeyboard
 
     kb = VirtualKeyboard()
@@ -94,10 +94,10 @@ def test_no_benchmark_button_in_control_bar(qapp, monkeypatch):
     assert not hasattr(kb, "benchmark_btn")
 
 
-def test_benchmark_does_not_auto_start_by_default(monkeypatch):
-    monkeypatch.delenv("GAZEKEY_DEV_BENCHMARK", raising=False)
+def test_benchmark_does_not_auto_start_without_evaluation_entry():
     from tools.evaluation.benchmark_controller import BenchmarkController
 
+    apply_config(AppConfig())  # product/preview defaults
     kb = _bare_keyboard()
     _set_usable_mapper(kb)
     kb._preview_mode = True
@@ -111,10 +111,10 @@ def test_benchmark_does_not_auto_start_by_default(monkeypatch):
     ctrl.start_mvp_benchmark.assert_not_called()
 
 
-def test_dev_benchmark_auto_starts_when_usable_and_preview_ready(monkeypatch):
-    monkeypatch.setenv("GAZEKEY_DEV_BENCHMARK", "1")
+def test_evaluation_auto_starts_when_usable_and_preview_ready():
     from tools.evaluation.benchmark_controller import BenchmarkController
 
+    apply_config(AppConfig(auto_benchmark=True))
     kb = _bare_keyboard()
     _set_usable_mapper(kb)
     kb._preview_mode = True
@@ -129,10 +129,10 @@ def test_dev_benchmark_auto_starts_when_usable_and_preview_ready(monkeypatch):
     ctrl.start_mvp_benchmark.assert_called_once()
 
 
-def test_dev_benchmark_blocked_without_usable_mapper(monkeypatch):
-    monkeypatch.setenv("GAZEKEY_DEV_BENCHMARK", "1")
+def test_evaluation_benchmark_blocked_without_usable_mapper():
     from tools.evaluation.benchmark_controller import BenchmarkController
 
+    apply_config(AppConfig(auto_benchmark=True))
     kb = _bare_keyboard()
     kb._preview_mode = True
     ctrl = BenchmarkController(kb)
@@ -145,10 +145,10 @@ def test_dev_benchmark_blocked_without_usable_mapper(monkeypatch):
     ctrl.start_mvp_benchmark.assert_not_called()
 
 
-def test_dev_benchmark_blocked_until_preview_ready(monkeypatch):
-    monkeypatch.setenv("GAZEKEY_DEV_BENCHMARK", "1")
+def test_evaluation_benchmark_blocked_until_preview_ready():
     from tools.evaluation.benchmark_controller import BenchmarkController
 
+    apply_config(AppConfig(auto_benchmark=True))
     kb = _bare_keyboard()
     _set_usable_mapper(kb)
     kb._preview_mode = False
@@ -162,10 +162,10 @@ def test_dev_benchmark_blocked_until_preview_ready(monkeypatch):
     ctrl.start_mvp_benchmark.assert_not_called()
 
 
-def test_dev_benchmark_blocked_during_calibration(monkeypatch):
-    monkeypatch.setenv("GAZEKEY_DEV_BENCHMARK", "1")
+def test_evaluation_benchmark_blocked_during_calibration():
     from tools.evaluation.benchmark_controller import BenchmarkController
 
+    apply_config(AppConfig(auto_benchmark=True))
     kb = _bare_keyboard()
     _set_usable_mapper(kb)
     kb._preview_mode = True

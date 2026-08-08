@@ -1,59 +1,60 @@
-# GAZEKEY_* environment flag inventory (002)
+# GAZEKEY_* / launch-option inventory (002)
 
 **Feature**: `002-gaze-typing-os`  
-**Status**: **Reviewed + T020–T021 applied** (2026-08-08)  
+**Status**: **ENV → CLI migration complete** (2026-08-08)  
 **Date**: 2026-08-08
 
 **Rules**:
-- Classifications below match `inventory-review.md` sign-off.
-- RE-EVALUATE flags remain in product until a later decision — no final MOVE/DELETE yet.
-- `CALIB_MODE` may eventually become a developer override while the product keeps one
-  default calibration configuration.
+- Normal workflows do **not** require environment variables.
+- Launch options are explicit CLI flags on entry points.
+- **No** `GAZEKEY_*` environment-variable fallback after migration.
+- Process config lives in `gazekey/app_config.py` (apply at entry; runtime reads
+  `get_config()` / thin helpers only).
 
 ---
 
-## Inventory (post T020–T021)
+## Entry points
 
-| Flag | Read sites | Classification | Status |
-|------|------------|----------------|--------|
-| `GAZEKEY_VERBOSE` | `gazekey/ui/env_flags.py`; `gazekey/mvp_log.py` | **KEEP** | In product |
-| `GAZEKEY_DEV_BENCHMARK` | `tools/flags.py` → `tools/evaluation/benchmark_controller.py` | **MOVE TO TOOLS** | **Done** — removed from product `env_flags` |
-| `GAZEKEY_CALIB_GEOM_DEBUG` | `tools/flags.py` → `tools/evaluation/calib_finish_artifacts.py` | **MOVE TO TOOLS** | **Done** — removed from product `env_flags` |
-| `GAZEKEY_SELECTION_DEBUG` | *(none)* | **DELETE** | **Done** — removed from `env_flags` / VK |
-| `GAZEKEY_GAZE_DEBUG_PRED` | *(none)* | **DELETE** | **Done** |
-| `GAZEKEY_GAZE_DEBUG_SELECTION` | *(none)* | **DELETE** | **Done** |
-| `GAZEKEY_CAMERA_PREVIEW_DURING_CALIB` | `env_flags` → VK / gaze_loop | **RE-EVALUATE** | Preserved in product |
-| `GAZEKEY_CALIB_MODE` | `env_flags` → `calibration_controller` | **RE-EVALUATE** | Preserved in product |
-| `GAZEKEY_GAZE_DEBUG` | `env_flags` → `rt2_debug` | **RE-EVALUATE** | Preserved in product |
-| `GAZEKEY_CALIB_DEBUG` | `env_flags` → VK / fixation UI | **RE-EVALUATE** | Preserved in product |
-| `GAZEKEY_DIAG_EXTRACTOR` | `gazekey/features/extractor.py` | **RE-EVALUATE** | Preserved |
+| Entry | Meaning |
+|-------|---------|
+| `python main.py` | Product: calibration → typing |
+| `python -m tools.preview` | Developer mapped-gaze preview |
+| `python -m tools.evaluation` | Developer benchmark/evaluation (**implies** auto-benchmark) |
 
-### Docs-only / scrubbed
+## CLI options
 
-| Flag | Classification | Status |
-|------|----------------|--------|
-| `GAZEKEY_KEYBOARD_ACCURACY_DEBUG` | **DELETE** (docs) | Scrubbed from active docs (T022) |
-| `GAZEKEY_KEYBOARD_ACCURACY_COMPARE` | **DELETE** (docs) | Scrubbed from active docs (T022) |
+| Option | Product | Preview | Evaluation | Notes |
+|--------|:-------:|:-------:|:----------:|-------|
+| `--verbose` | ✓ | ✓ | ✓ | Quiet-by-default detail logs |
+| `--calib-mode <mode>` | ✓ | ✓ | ✓ | Override layout; default `keyboard15` |
+| `--calib-debug` | ✓ | ✓ | ✓ | Verbose fixation UI |
+| `--gaze-debug` | ✓ | ✓ | ✓ | Extra mapped-gaze labels |
+| `--camera-preview-during-calib` | ✓ | ✓ | ✓ | Camera PiP during fixation |
+| `--calib-geom-debug` | — | ✓ | ✓ | Tools-only; **independent** of verbose/calib-debug |
 
----
+Evaluation does **not** take `--no-auto-benchmark`; the entry itself enables it.
 
-## Classification summary
+## Deleted (no code reads)
 
-| Classification | Flags |
-|----------------|-------|
-| **KEEP** | `GAZEKEY_VERBOSE` |
-| **MOVE TO TOOLS** (executed) | `GAZEKEY_DEV_BENCHMARK`, `GAZEKEY_CALIB_GEOM_DEBUG` |
-| **DELETE** (executed) | `GAZEKEY_SELECTION_DEBUG`, `GAZEKEY_GAZE_DEBUG_PRED`, `GAZEKEY_GAZE_DEBUG_SELECTION` (+ docs-only accuracy names) |
-| **RE-EVALUATE** (preserve) | `GAZEKEY_CALIB_MODE`, `GAZEKEY_GAZE_DEBUG`, `GAZEKEY_CALIB_DEBUG`, `GAZEKEY_DIAG_EXTRACTOR`, `GAZEKEY_CAMERA_PREVIEW_DURING_CALIB` |
+| Former env | Disposition |
+|------------|-------------|
+| `GAZEKEY_DEV_BENCHMARK` | **DELETE** — replaced by evaluation entry |
+| `GAZEKEY_DIAG_EXTRACTOR` | **DELETE** |
+| `GAZEKEY_VERBOSE` | **DELETE** — `--verbose` |
+| `GAZEKEY_CALIB_MODE` | **DELETE** — `--calib-mode` |
+| `GAZEKEY_CALIB_DEBUG` | **DELETE** — `--calib-debug` |
+| `GAZEKEY_GAZE_DEBUG` | **DELETE** — `--gaze-debug` |
+| `GAZEKEY_CAMERA_PREVIEW_DURING_CALIB` | **DELETE** — `--camera-preview-during-calib` |
+| `GAZEKEY_CALIB_GEOM_DEBUG` | **DELETE** — `--calib-geom-debug` |
+| `GAZEKEY_SELECTION_DEBUG` / `GAZEKEY_GAZE_DEBUG_PRED` / `GAZEKEY_GAZE_DEBUG_SELECTION` | Already deleted |
+| `GAZEKEY_KEYBOARD_ACCURACY_*` | Docs-only; remain deleted |
+| `GAZEKEY_ENABLE_TYPING` | Never a real flag |
 
----
+## Modules
 
-## Review sign-off
-
-| Field | Value |
-|-------|-------|
-| Review gate (T019) | Signed off — see `inventory-review.md` |
-| T020 MOVE | Done (`tools/flags.py`) |
-| T021 DELETE | Done |
-| T022 cleanup/docs | Done |
-| Next gate | T023+ (do not start until review of this stop) |
+| Module | Role |
+|--------|------|
+| `gazekey/app_config.py` | `AppConfig`, parsers, `apply_config` / `get_config` |
+| `gazekey/ui/env_flags.py` | Thin product helpers over `get_config()` |
+| `tools/flags.py` | `auto_benchmark_enabled`, `calib_geom_debug` over `get_config()` |
+| `gazekey/mvp_log.py` | Verbose gate from `get_config().verbose` |

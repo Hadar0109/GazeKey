@@ -74,7 +74,6 @@ def test_process_gaze_preview_does_not_update_text_display(qapp, monkeypatch):
 
 
 def test_preview_shows_single_mapped_dot_by_default(qapp, monkeypatch):
-    monkeypatch.delenv("GAZEKEY_GAZE_DEBUG", raising=False)
     vk = VirtualKeyboard()
     install_devtools(vk, enable_preview=True, enable_benchmark=False, auto_preview_after_calib=False)
     vk._gaze_mapper = MagicMock()

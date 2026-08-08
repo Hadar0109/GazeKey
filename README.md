@@ -49,9 +49,16 @@ python main.py
 ### Developer tools (optional)
 
 ```bash
-python -m tools.preview          # read-only gaze preview (devtools attached)
-set GAZEKEY_DEV_BENCHMARK=1
+python -m tools.preview          # read-only gaze preview
 python -m tools.evaluation       # 15-key accuracy benchmark after calib+preview
+```
+
+Optional launch flags (examples):
+
+```bash
+python main.py --verbose
+python -m tools.preview --gaze-debug --calib-geom-debug
+python -m tools.evaluation --verbose --calib-mode keyboard_full9
 ```
 
 Details: **`tools/README.md`**. Focus harness: `python tools/focus_validation.py`.
@@ -64,6 +71,7 @@ Virtual Keyboard/
 ├── docs/                        # Pipeline, structure, typing-candidate notes
 ├── runs/<session_id>/           # Per-session artifacts
 ├── gazekey/                     # Product runtime only
+│   ├── app_config.py            # CLI → process config boundary
 │   ├── ui/                      # VirtualKeyboard + calibration UI + dwell overlay
 │   ├── runtime/                 # Gaze loop, mapper fit, session id
 │   ├── calibration/             # Target collection, fixation gate, quality
@@ -96,26 +104,32 @@ All runtime-generated files go under **`runs/<session_id>/`** (not the repo root
 | `benchmark_summary.txt` | 15-key benchmark result (tools) |
 | `benchmark_diag.json` | Full benchmark diagnostics (tools) |
 
-## Environment variables
+## Launch options (CLI)
 
-### Product
+Normal workflows do **not** require environment variables. Options are parsed at
+entry points into `gazekey.app_config.AppConfig`.
 
-| Variable | Effect |
-|----------|--------|
-| `GAZEKEY_VERBOSE=1` | Verbose logs |
-| `GAZEKEY_CALIB_MODE` | Override calibration layout (re-evaluate; may become tools-only later) |
-| `GAZEKEY_CALIB_DEBUG=1` | Verbose calibration overlay (re-evaluate) |
-| `GAZEKEY_GAZE_DEBUG=1` | Extra gaze/predict logs (re-evaluate) |
-| `GAZEKEY_CAMERA_PREVIEW_DURING_CALIB=1` | Camera PiP during fixation (re-evaluate) |
+### Product (`python main.py`)
+
+| Option | Effect |
+|--------|--------|
+| `--verbose` | Verbose logs |
+| `--calib-mode <mode>` | Override calibration layout |
+| `--calib-debug` | Verbose calibration overlay |
+| `--gaze-debug` | Extra gaze/predict labels |
+| `--camera-preview-during-calib` | Camera PiP during fixation |
 
 Typing has **no** enable flag — it starts after a usable mapper is available.
 
-### Tools only
+### Tools
 
-| Variable | Effect |
-|----------|--------|
-| `GAZEKEY_DEV_BENCHMARK=1` | Auto 15-key benchmark via `python -m tools.evaluation` |
-| `GAZEKEY_CALIB_GEOM_DEBUG=1` | Post-fit geometry overlay (tools sessions) |
+| Option | Preview | Evaluation | Effect |
+|--------|:-------:|:----------:|--------|
+| Shared product options above | ✓ | ✓ | Same meanings |
+| `--calib-geom-debug` | ✓ | ✓ | Post-fit geometry overlay |
+| *(entry itself)* | — | auto-benchmark | `python -m tools.evaluation` implies benchmark |
+
+There is **no** `GAZEKEY_*` environment fallback.
 
 ## Tests
 

@@ -92,17 +92,19 @@ def test_camera_preview_blocked_during_calibration(qapp):
     assert win.isVisible()
 
 
-def test_camera_preview_during_calib_flag_default_off(monkeypatch):
-    monkeypatch.delenv("GAZEKEY_CAMERA_PREVIEW_DURING_CALIB", raising=False)
+def test_camera_preview_during_calib_flag_default_off():
+    from gazekey.app_config import AppConfig, apply_config
     from gazekey.ui.env_flags import camera_preview_during_calib
 
+    apply_config(AppConfig())
     assert camera_preview_during_calib() is False
 
 
-def test_camera_preview_during_calib_flag_opt_in(monkeypatch):
-    monkeypatch.setenv("GAZEKEY_CAMERA_PREVIEW_DURING_CALIB", "1")
+def test_camera_preview_during_calib_flag_opt_in():
+    from gazekey.app_config import AppConfig, apply_config
     from gazekey.ui.env_flags import camera_preview_during_calib
 
+    apply_config(AppConfig(camera_preview_during_calib=True))
     assert camera_preview_during_calib() is True
 
 
