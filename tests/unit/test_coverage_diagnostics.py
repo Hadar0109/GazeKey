@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import math
 
-from gazekey.evaluation.coverage_diagnostics import (
+from tools.evaluation.coverage_diagnostics import (
     build_coverage_report,
     coverage_path,
     write_coverage_diagnostics,

@@ -23,9 +23,9 @@ spec.md US1–US4. **US3 (cleanup) runs before US1** despite P3 priority.
 
 **Purpose**: Scaffold `tools/` and planning inventories without breaking product yet.
 
-- [ ] T001 Confirm branch `002-gaze-typing-os` and feature dir `specs/002-gaze-typing-os/`
-- [ ] T002 Create `tools/` package layout with `tools/__init__.py`, `tools/evaluation/`, `tools/debug/`, `tools/preview/` per `specs/002-gaze-typing-os/plan.md`
-- [ ] T003 [P] Add `specs/002-gaze-typing-os/env-flag-inventory.md` skeleton table (Flag | Read sites | Tests/docs | KEEP/MOVE/DELETE) seeded from research R4 — **no flag deletions until inventory complete and reviewed**
+- [x] T001 Confirm branch `002-gaze-typing-os` and feature dir `specs/002-gaze-typing-os/`
+- [x] T002 Create `tools/` package layout with `tools/__init__.py`, `tools/evaluation/`, `tools/debug/`, `tools/preview/` per `specs/002-gaze-typing-os/plan.md`
+- [x] T003 [P] Add `specs/002-gaze-typing-os/env-flag-inventory.md` skeleton table (Flag | Read sites | Tests/docs | KEEP/MOVE/DELETE) seeded from research R4 — **no flag deletions until inventory complete and reviewed**
 
 **Checkpoint**: `tools/` exists; flag inventory file started.
 
@@ -35,8 +35,8 @@ spec.md US1–US4. **US3 (cleanup) runs before US1** despite P3 priority.
 
 **Purpose**: Explicit `GAZEKEY_*` inventory before any flag MOVE/DELETE.
 
-- [ ] T004 Complete `specs/002-gaze-typing-os/env-flag-inventory.md` by repo-searching all `GAZEKEY_*` reads (include `gazekey/ui/env_flags.py`, `gazekey/mvp_log.py`, `gazekey/features/extractor.py`, tests, docs) with KEEP / MOVE TO TOOLS / DELETE
-- [ ] T005 [P] Document intended tools entry points in `tools/README.md` (preview module path, benchmark module path) — not product modes
+- [x] T004 Complete `specs/002-gaze-typing-os/env-flag-inventory.md` by repo-searching all `GAZEKEY_*` reads (include `gazekey/ui/env_flags.py`, `gazekey/mvp_log.py`, `gazekey/features/extractor.py`, tests, docs) with KEEP / MOVE TO TOOLS / DELETE
+- [x] T005 [P] Document intended tools entry points in `tools/README.md` (preview module path, benchmark module path) — not product modes
 
 **Checkpoint**: Flag inventory drafted (still must pass Phase 3 review gate before MOVE/DELETE).
 
@@ -51,12 +51,12 @@ paths removed; product still calibrates/maps.
 
 ### Move developer code to `tools/`
 
-- [ ] T006 [US3] Move benchmark stack from `gazekey/evaluation/benchmark_*.py`, `failure_analysis.py`, `benchmark_diagnostics.py`, `coverage_diagnostics.py` into `tools/evaluation/` and update imports
-- [ ] T007 [US3] Move `gazekey/debug/` modules into `tools/debug/` and update imports
-- [ ] T008 [US3] Move read-only preview orchestration from product default path into `tools/preview/` (e.g. extract from `gazekey/ui/gaze_preview.py` / VK wiring); product MUST NOT require preview mode
-- [ ] T009 [US3] Relocate developer artifact/summary writers used only for tooling from product modules into `tools/` (keep only in-process runtime state in `gazekey/`); update `gazekey/ui/calibration_finish.py` / `virtual_keyboard.py` imports accordingly
-- [ ] T010 [US3] Remove product imports of `tools.*` from default `main.py` / `gazekey/ui/virtual_keyboard.py` path; wire tools-only entry for benchmark (e.g. `python -m tools.evaluation` or `tools/run_benchmark.py`)
-- [ ] T011 [US3] Add tools preview entry (e.g. `python -m tools.preview` or `tools/run_preview.py`) separate from product launch
+- [x] T006 [US3] Move benchmark stack from `gazekey/evaluation/benchmark_*.py`, `failure_analysis.py`, `benchmark_diagnostics.py`, `coverage_diagnostics.py` into `tools/evaluation/` and update imports
+- [x] T007 [US3] Move `gazekey/debug/` modules into `tools/debug/` and update imports
+- [x] T008 [US3] Move read-only preview orchestration from product default path into `tools/preview/` (e.g. extract from `gazekey/ui/gaze_preview.py` / VK wiring); product MUST NOT require preview mode
+- [x] T009 [US3] Relocate developer artifact/summary writers used only for tooling from product modules into `tools/` (keep only in-process runtime state in `gazekey/`); update `gazekey/ui/calibration_finish.py` / `virtual_keyboard.py` imports accordingly
+- [x] T010 [US3] Remove product imports of `tools.*` from default `main.py` / `gazekey/ui/virtual_keyboard.py` path; wire tools-only entry for benchmark (e.g. `python -m tools.evaluation` or `tools/run_benchmark.py`)
+- [x] T011 [US3] Add tools preview entry (e.g. `python -m tools.preview` or `tools/run_preview.py`) separate from product launch
 
 ### Delete / disconnect obsolete typing paths (one task each)
 

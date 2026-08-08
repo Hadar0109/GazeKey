@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from gazekey.evaluation.benchmark_runner import (
+from tools.evaluation.benchmark_runner import (
     BenchmarkMetrics,
     KeyAccuracyResultRow,
     build_benchmark_run,
     compute_benchmark_metrics,
     evaluate_benchmark_pass,
 )
-from gazekey.evaluation.run_summary import RunSummary, RunSummaryWriter, benchmark_thresholds
+from tools.evaluation.run_summary import RunSummary, RunSummaryWriter, benchmark_thresholds
 
 
 def _row(*, correct: bool, err: float, row_ok: bool = True) -> KeyAccuracyResultRow:
@@ -42,7 +42,7 @@ def test_benchmark_thresholds_match_cq1():
 
 
 def test_display_key_hit_pct_rounds_10_of_15():
-    from gazekey.evaluation.run_summary import display_key_hit_pct
+    from tools.evaluation.run_summary import display_key_hit_pct
 
     assert display_key_hit_pct(10, 15) == 67
 
@@ -105,7 +105,7 @@ def test_build_benchmark_run_status():
 
 
 def test_write_benchmark_summary_appends_failure_analysis(tmp_path):
-    from gazekey.evaluation.failure_analysis import format_failure_analysis
+    from tools.evaluation.failure_analysis import format_failure_analysis
 
     writer = RunSummaryWriter(runs_dir=tmp_path)
     rows = [_row(correct=False, err=80.0) for _ in range(15)]

@@ -9,8 +9,9 @@ from PySide6.QtTest import QTest
 
 from gazekey.calibration.quality import CalibrationQualityResult
 from gazekey.calibration.session import CalibrationResult
-from gazekey.evaluation.benchmark_runner import KeyAccuracyResultRow, build_benchmark_run
-from gazekey.evaluation.run_summary import RunSummaryWriter
+from tools.evaluation.benchmark_runner import KeyAccuracyResultRow, build_benchmark_run
+from tools.evaluation.run_summary import RunSummaryWriter
+from tools.devtools_install import install_devtools
 from gazekey.layout.layout_inspector import inspect_keyboard_layout
 from gazekey.calibration.targets import keyboard_geometry_targets
 from gazekey.typing.gaze_ui_mapper import letter_keys_region_rect
@@ -97,7 +98,11 @@ def _prepare_session(vk, qapp, monkeypatch):
     monkeypatch.setattr(vk, "_print_target_sample_quality", MagicMock())
     monkeypatch.setattr(vk, "_print_row_v_stats_and_export_ratio_space", MagicMock())
     monkeypatch.setattr(
-        "gazekey.ui.calibration_finish.print_geometric_diagnostics",
+        "tools.debug.calibration_geometry_diagnostics.print_geometric_diagnostics",
+        MagicMock(),
+    )
+    monkeypatch.setattr(
+        "tools.evaluation.calib_finish_artifacts.print_geometric_diagnostics",
         MagicMock(),
     )
     monkeypatch.setattr(
@@ -150,7 +155,13 @@ def test_normal_flow_calibrate_preview_only(qapp, tmp_path, monkeypatch, capsys)
     from gazekey.ui.virtual_keyboard import VirtualKeyboard
 
     vk = VirtualKeyboard()
-    vk._run_summary_writer = RunSummaryWriter(runs_dir=tmp_path)
+    install_devtools(
+        vk,
+        enable_preview=True,
+        enable_benchmark=True,
+        auto_preview_after_calib=True,
+        runs_dir=tmp_path,
+    )
     qapp.processEvents()
 
     start_benchmark = MagicMock()
@@ -161,7 +172,7 @@ def test_normal_flow_calibrate_preview_only(qapp, tmp_path, monkeypatch, capsys)
     assert vk._gaze_mapper is not None
     assert vk._preview_mode is True
     assert vk._gaze_preview_active() is True
-    assert not vk._benchmark_controller.active()
+    assert not vk._devtools.benchmark_active()
     start_benchmark.assert_not_called()
 
     cal_path = tmp_path / "mvp-int-001" / "calibration_summary.txt"
@@ -183,7 +194,13 @@ def test_dev_benchmark_flow_auto_start_and_summary(qapp, tmp_path, monkeypatch, 
     from gazekey.ui.virtual_keyboard import VirtualKeyboard
 
     vk = VirtualKeyboard()
-    vk._run_summary_writer = RunSummaryWriter(runs_dir=tmp_path)
+    install_devtools(
+        vk,
+        enable_preview=True,
+        enable_benchmark=True,
+        auto_preview_after_calib=True,
+        runs_dir=tmp_path,
+    )
     qapp.processEvents()
 
     _prepare_session(vk, qapp, monkeypatch)
@@ -192,6 +209,7 @@ def test_dev_benchmark_flow_auto_start_and_summary(qapp, tmp_path, monkeypatch, 
     assert vk._preview_mode is True
     QTest.qWait(200)
     qapp.processEvents()
+    assert vk._benchmark_controller is not None
     assert vk._benchmark_controller.active()
 
     rows = [_bench_row(correct=True, err=25.0, target=f"K{i}") for i in range(15)]

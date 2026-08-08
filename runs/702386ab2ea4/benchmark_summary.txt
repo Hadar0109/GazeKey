@@ -1,0 +1,20 @@
+[benchmark] FAILED session=702386ab2ea4-bench1786199974 keys=1/15 (7%) row=4/15 median_err=343px reason=key-hit 1/15 (7%) < 10/15 (~67%); median_err 342.6px > 55px; row 4/15 (27%) < 80%
+failure_analysis:
+  likely_cause: mapping
+  keys_failed: 14/15
+  rows_failed: 11/15
+  per_key_misses:
+    Q -> D dx=+328.1 dy=+98.7 err=342.6px
+    E -> H dx=+424.9 dy=+52.2 err=428.1px
+    T -> F dx=-20.7 dy=+51.8 err=55.7px
+    U -> X dx=-370.1 dy=+109.9 err=386.0px
+    A -> X dx=+201.1 dy=+48.4 err=206.8px
+    D -> Space dx=+491.0 dy=+119.1 err=505.2px
+    G -> ↵ dx=+447.8 dy=+124.5 err=464.8px
+    J -> M dx=+131.7 dy=+45.4 err=139.3px
+    L -> B dx=-312.8 dy=+64.9 err=319.5px
+    Z -> ⌫ dx=+912.2 dy=-9.9 err=912.3px
+    C -> V dx=+90.5 dy=+15.9 err=91.9px
+    B -> ↵ dx=+431.8 dy=+86.0 err=440.3px
+    M -> ↵ dx=+285.0 dy=+103.0 err=303.0px
+    Space -> ↵ dx=+489.4 dy=-27.8 err=490.1px

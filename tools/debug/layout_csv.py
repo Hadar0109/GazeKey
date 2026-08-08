@@ -10,7 +10,7 @@ from typing import List, Optional, Union
 
 from PySide6.QtCore import QRect
 
-from gazekey.evaluation.session_paths import ensure_session_dir, keyboard_layout_path
+from tools.evaluation.session_paths import ensure_session_dir, keyboard_layout_path
 from gazekey.layout.layout_inspector import KeyGeometryRow
 
 

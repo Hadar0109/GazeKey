@@ -43,9 +43,10 @@ class CalibrationQualityResult:
     """Calibration usability vs supplementary mapping-quality signals.
 
     ``usable`` / ``accepted``: True when collection + basic sanity passed and the
-    PCA4 mapper can predict (preview/benchmark may proceed). LOOCV, region, and
-    train pixel gates are recorded as ``warnings`` on keyboard mode — benchmark
-    decides mapping acceptance (FR-009, calibration-session contract).
+    PCA4 mapper can predict for runtime use. LOOCV, region, and train pixel gates
+    are recorded as ``warnings`` on keyboard mode — independent mapping-accuracy
+    acceptance remains on the developer tools benchmark (FR-009, calibration-session
+    contract), not as a product runtime gate.
     """
 
     usable: bool
@@ -544,7 +545,7 @@ def evaluate_calibration_quality(
         if not region.passed:
             mvp_log(
                 "[calib] keyboard region quality warning: wrong calibration region "
-                "(row/col) — supplementary; benchmark decides mapping acceptance"
+                "(row/col) — supplementary; tools benchmark evaluates mapping accuracy"
             )
         elif pixel_reasons or loocv_pixel:
             mvp_log(
@@ -635,14 +636,15 @@ def evaluate_calibration_quality(
     if usable:
         if warnings:
             mvp_log(
-                f"[calib] calibration usable for preview/benchmark "
-                f"({len(warnings)} quality warning(s); benchmark decides mapping acceptance)",
+                f"[calib] calibration usable for runtime "
+                f"({len(warnings)} quality warning(s); tools benchmark remains "
+                f"the independent mapping-accuracy check)",
                 always=True,
             )
             for w in warnings:
                 mvp_log(f"[calib]   quality warning: {w}")
         else:
-            mvp_log("[calib] calibration usable for preview/benchmark", always=True)
+            mvp_log("[calib] calibration usable for runtime", always=True)
     else:
         mvp_log("[calib] calibration NOT usable (basic sanity / mapper failed)", always=True)
         for r in reasons:

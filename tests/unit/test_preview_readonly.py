@@ -9,7 +9,8 @@ from PySide6.QtWidgets import QLineEdit, QPushButton, QVBoxLayout, QWidget
 
 from gazekey.mapping.base import MapperPrediction
 from gazekey.typing.text_buffer import TextBufferController
-from gazekey.ui.gaze_preview import GazePreviewController
+from tools.preview.gaze_preview import GazePreviewController
+from tools.devtools_install import install_devtools
 from gazekey.ui.virtual_keyboard import VirtualKeyboard
 
 
@@ -41,6 +42,7 @@ def test_mvp_disables_gaze_typing_enables_preview(qapp):
 
 def test_process_gaze_preview_does_not_update_text_buffer(qapp, monkeypatch):
     vk = VirtualKeyboard()
+    install_devtools(vk, enable_preview=True, enable_benchmark=False, auto_preview_after_calib=False)
     text_before = vk.text_display.text()
     vk._gaze_mapper = MagicMock()
     vk._preview_mode = True
@@ -66,6 +68,7 @@ def test_process_gaze_preview_does_not_update_text_buffer(qapp, monkeypatch):
 def test_preview_shows_single_mapped_dot_by_default(qapp, monkeypatch):
     monkeypatch.delenv("GAZEKEY_GAZE_DEBUG", raising=False)
     vk = VirtualKeyboard()
+    install_devtools(vk, enable_preview=True, enable_benchmark=False, auto_preview_after_calib=False)
     vk._gaze_mapper = MagicMock()
     vk._preview_mode = True
     vk._is_calibrating = False

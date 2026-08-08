@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, List, Optional, Sequence
 
-from gazekey.evaluation.benchmark_runner import KeyAccuracyResultRow
+from tools.evaluation.benchmark_runner import KeyAccuracyResultRow
 
 SCHEMA_VERSION = 1
 
@@ -203,7 +203,7 @@ def build_benchmark_diagnostics(
     active_calibration_mode: Optional[str] = None,
 ) -> dict[str, Any]:
     """Assemble the full diagnostics record (does not write anything)."""
-    from gazekey.evaluation.run_summary import benchmark_thresholds, display_key_hit_pct
+    from tools.evaluation.run_summary import benchmark_thresholds, display_key_hit_pct
 
     rows = list(rows)
     t = thresholds or benchmark_thresholds()
@@ -271,7 +271,7 @@ def build_benchmark_diagnostics(
 
 
 def diagnostics_path(session_id: str, runs_dir: Optional[Path] = None) -> Path:
-    from gazekey.evaluation.session_paths import benchmark_diag_path, runs_root
+    from tools.evaluation.session_paths import benchmark_diag_path, runs_root
 
     return benchmark_diag_path(session_id, runs_dir=runs_dir or runs_root())
 
@@ -283,7 +283,7 @@ def write_benchmark_diagnostics(
     runs_dir: Optional[Path] = None,
 ) -> Path:
     """Persist diagnostics JSON under ``runs/<session_id>/benchmark_diag.json``."""
-    from gazekey.evaluation.session_paths import benchmark_diag_path, ensure_session_dir, runs_root
+    from tools.evaluation.session_paths import benchmark_diag_path, ensure_session_dir, runs_root
 
     root = runs_dir or runs_root()
     ensure_session_dir(session_id, runs_dir=root)

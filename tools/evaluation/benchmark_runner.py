@@ -225,7 +225,7 @@ def compute_benchmark_metrics(
 
 def evaluate_benchmark_pass(metrics: BenchmarkMetrics) -> Tuple[bool, str]:
     """Return (passed, failure_reason) against SC-001–SC-003 thresholds."""
-    from gazekey.evaluation.run_summary import benchmark_thresholds, display_key_hit_pct
+    from tools.evaluation.run_summary import benchmark_thresholds, display_key_hit_pct
 
     t = benchmark_thresholds()
     reasons: List[str] = []

@@ -9,9 +9,9 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QLabel
 
-from gazekey.evaluation.benchmark_runner import build_benchmark_run, evaluate_benchmark_pass
-from gazekey.evaluation.benchmark_session import BenchmarkEvalSession, resolve_sample_keys
-from gazekey.evaluation.failure_analysis import format_failure_analysis, infer_likely_cause
+from tools.evaluation.benchmark_runner import build_benchmark_run, evaluate_benchmark_pass
+from tools.evaluation.benchmark_session import BenchmarkEvalSession, resolve_sample_keys
+from tools.evaluation.failure_analysis import format_failure_analysis, infer_likely_cause
 from gazekey.features import FeatureExtractor
 from gazekey.mapping.config import CALIBRATION_MODE
 from gazekey.ui.env_flags import dev_benchmark_enabled as env_dev_benchmark_enabled
@@ -205,7 +205,7 @@ class BenchmarkController:
         return True
 
     def _finish_session(self) -> None:
-        from gazekey.evaluation.benchmark_diagnostics import (
+        from tools.evaluation.benchmark_diagnostics import (
             build_benchmark_diagnostics,
             write_benchmark_diagnostics,
         )

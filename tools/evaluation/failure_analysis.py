@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import List, Sequence
 
-from gazekey.evaluation.benchmark_runner import KeyAccuracyResultRow
+from tools.evaluation.benchmark_runner import KeyAccuracyResultRow
 
 
 def format_failure_analysis(

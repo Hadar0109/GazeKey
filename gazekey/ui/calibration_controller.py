@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QApplication, QWidget
 from gazekey.calibration.fixation_gate import FixationGateConfig
 from gazekey.calibration.session import CalibrationResult, CalibrationSession
 from gazekey.calibration.targets import keyboard_geometry_targets
-from gazekey.evaluation.session import new_session_id
+from gazekey.runtime.session_id import new_session_id
 from gazekey.layout.layout_inspector import inspect_keyboard_layout
 from gazekey.mapping.config import CALIBRATION_MODE
 from gazekey.typing.gaze_ui_mapper import letter_keys_region_rect

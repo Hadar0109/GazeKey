@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Callable, List, Optional, Sequence, Tuple
 
-from gazekey.evaluation.benchmark_runner import (
+from tools.evaluation.benchmark_runner import (
     COLLECT_MS,
     KeyAccuracyResultRow,
     SETTLE_MS,

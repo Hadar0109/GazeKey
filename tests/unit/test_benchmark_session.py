@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from gazekey.evaluation.benchmark_runner import COLLECT_MS, SETTLE_MS
-from gazekey.evaluation.benchmark_session import BenchmarkEvalSession
+from tools.evaluation.benchmark_runner import COLLECT_MS, SETTLE_MS
+from tools.evaluation.benchmark_session import BenchmarkEvalSession
 from gazekey.features.feature_types import FrameFeatures
 from gazekey.layout.layout_inspector import KeyGeometryRow
 

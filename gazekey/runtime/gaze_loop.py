@@ -60,9 +60,9 @@ class GazeLoopController:
             self._process_calibration_eye_data(eye_data, dt)
             return
 
-        if h._benchmark_controller.active():
+        if h._devtools.benchmark_active():
             try:
-                h._benchmark_controller.process_eye_data(eye_data)
+                h._devtools.process_benchmark_eye_data(eye_data)
             except Exception as e:
                 h._log_verbose(f"[benchmark] frame handler failed: {e}")
             return
@@ -77,7 +77,7 @@ class GazeLoopController:
             and not h._is_calibrating
             and h._gaze_mapper is not None
             and h._preview_mode
-            and not h._benchmark_controller.active()
+            and not h._devtools.benchmark_active()
         )
 
     def _process_calibration_eye_data(self, eye_data, dt: float) -> None:

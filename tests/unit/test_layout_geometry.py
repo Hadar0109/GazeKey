@@ -9,11 +9,11 @@ from PySide6.QtCore import QPoint, QRect, Qt
 from PySide6.QtWidgets import QPushButton, QWidget
 
 from gazekey.calibration.targets import keyboard_geometry_targets
-from gazekey.debug.layout_geometry_check import format_geometry_report, verify_keyboard_geometry
+from tools.debug.layout_geometry_check import format_geometry_report, verify_keyboard_geometry
 from gazekey.layout.layout_inspector import inspect_keyboard_layout
 from gazekey.typing.gaze_ui_mapper import letter_keys_region_rect
-from gazekey.evaluation.benchmark_runner import predict_key_at
-from gazekey.evaluation.session_paths import ensure_session_dir, geometry_check_path
+from tools.evaluation.benchmark_runner import predict_key_at
+from tools.evaluation.session_paths import ensure_session_dir, geometry_check_path
 from gazekey.typing.key_hit_tester import (
     GAZE_HIT_OBJECT_NAMES,
     KEY_OBJECT_NAME,

@@ -8,7 +8,7 @@ from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 
-from gazekey.evaluation.session_paths import calibration_v2_path, ensure_session_dir
+from tools.evaluation.session_paths import calibration_v2_path, ensure_session_dir
 from gazekey.mapping.ridge import Pca4BaselineMapper, RidgeCalibrationMapper, _unwrap_core
 from gazekey.mapping.row_bias import MapperWithRowBias, attach_row_y_bias
 from gazekey.mvp_log import mvp_log

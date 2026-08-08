@@ -1,6 +1,6 @@
-"""Minimal benchmark evaluation: runner, run summaries, failure analysis."""
+"""Developer evaluation: benchmark runner, summaries, failure analysis."""
 
-from gazekey.evaluation.benchmark_runner import (
+from tools.evaluation.benchmark_runner import (
     BenchmarkMetrics,
     BenchmarkRun,
     DEFAULT_SAMPLE_KEYS,
@@ -8,8 +8,8 @@ from gazekey.evaluation.benchmark_runner import (
     evaluate_benchmark_pass,
     resolve_sample_keys,
 )
-from gazekey.evaluation.failure_analysis import format_failure_analysis
-from gazekey.evaluation.run_summary import RunSummary, RunSummaryWriter, benchmark_thresholds
+from tools.evaluation.failure_analysis import format_failure_analysis
+from tools.evaluation.run_summary import RunSummary, RunSummaryWriter, benchmark_thresholds
 
 __all__ = [
     "BenchmarkMetrics",

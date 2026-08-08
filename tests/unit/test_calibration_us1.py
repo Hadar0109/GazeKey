@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QPushButton, QWidget
 from gazekey.calibration.fixation_gate import FixationGateConfig
 from gazekey.calibration.session import CalibrationResult, CalibrationSession
 from gazekey.calibration.targets import CalibrationTarget
-from gazekey.evaluation.run_summary import RunSummaryWriter
+from tools.evaluation.run_summary import RunSummaryWriter
 from gazekey.ui.calibration_controller import CalibrationController
 from gazekey.ui.calibration_overlay import CalibrationOverlay
 from gazekey.ui.camera_preview_window import CameraPreviewWindow

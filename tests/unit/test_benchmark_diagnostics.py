@@ -10,13 +10,13 @@ from __future__ import annotations
 import json
 
 from gazekey.calibration.targets import CalibrationTarget
-from gazekey.evaluation.benchmark_diagnostics import (
+from tools.evaluation.benchmark_diagnostics import (
     build_benchmark_diagnostics,
     compute_residual_stats,
     diagnostics_path,
     write_benchmark_diagnostics,
 )
-from gazekey.evaluation.benchmark_runner import KeyAccuracyResultRow, build_benchmark_run
+from tools.evaluation.benchmark_runner import KeyAccuracyResultRow, build_benchmark_run
 
 
 def _row(

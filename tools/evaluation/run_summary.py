@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal, Optional
 
-from gazekey.evaluation.session_paths import (
+from tools.evaluation.session_paths import (
     benchmark_summary_path,
     calibration_summary_path,
     ensure_session_dir,

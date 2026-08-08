@@ -731,11 +731,13 @@ class KeyboardLayoutBuilder:
         try:
             region_rect = typing_region_rect(h.keyboard_widget, h.calibrate_btn)
             keys = inspect_keyboard_layout(h.main_content_widget)
-            h._layout_version = h._layout_exporter.export(
-                window_rect=window_rect,
-                typing_region_rect=region_rect,
-                keys=keys,
-            )
+            exporter = h._devtools.layout_exporter() if hasattr(h, "_devtools") else getattr(h, "_layout_exporter", None)
+            if exporter is not None:
+                h._layout_version = exporter.export(
+                    window_rect=window_rect,
+                    typing_region_rect=region_rect,
+                    keys=keys,
+                )
             h._layout_keys = keys
             h._keys_by_id = {k.key_id: k for k in keys}
             h._key_semantic_row = self.derive_key_semantic_rows(keys)

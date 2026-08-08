@@ -165,7 +165,7 @@ def build_coverage_report(
 
 
 def coverage_path(session_id: str, runs_dir: Optional[str] = None) -> str:
-    from gazekey.evaluation.session_paths import coverage_path as _coverage_path
+    from tools.evaluation.session_paths import coverage_path as _coverage_path
 
     return str(_coverage_path(session_id, runs_dir=runs_dir))
 
@@ -176,7 +176,7 @@ def write_coverage_diagnostics(
     session_id: str,
     runs_dir: Optional[str] = None,
 ) -> str:
-    from gazekey.evaluation.session_paths import coverage_path as _coverage_path, ensure_session_dir
+    from tools.evaluation.session_paths import coverage_path as _coverage_path, ensure_session_dir
 
     ensure_session_dir(session_id, runs_dir=runs_dir)
     path = _coverage_path(session_id, runs_dir=runs_dir)

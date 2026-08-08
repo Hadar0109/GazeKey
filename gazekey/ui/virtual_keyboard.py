@@ -10,21 +10,18 @@ from gazekey.ui.camera_preview_window import CameraPreviewWindow
 from gazekey.ui.calibration_controller import CalibrationController
 from gazekey.ui.calibration_finish import CalibrationFinishController
 from gazekey.ui.calibration_overlay import CalibrationOverlay
-from gazekey.ui.gaze_preview import GazePreviewController
+from gazekey.ui.devtools_api import NullDevTools
 from gazekey.ui.keyboard_layout import KeyboardLayoutBuilder
-from gazekey.ui.benchmark_controller import BenchmarkController
 from gazekey.runtime.mapper_runtime import MapperRuntime
 from gazekey.runtime.gaze_loop import GazeLoopController
 from gazekey.runtime.tracking_controller import TrackingController
-from gazekey.ui.env_flags import EnvFlags, camera_preview_during_calib, dev_benchmark_enabled
-from gazekey.evaluation.run_summary import RunSummaryWriter
+from gazekey.ui.env_flags import EnvFlags, camera_preview_during_calib
 from gazekey.mvp_log import mvp_log
 from gazekey.tracking import TrackingBridge
 from gazekey.calibration.session import CalibrationSession
 from gazekey.features import FeatureExtractor
 from gazekey.features.feature_types import FrameFeatures
 from gazekey.mapping.base import MapperPrediction
-from gazekey.debug.layout_csv import KeyboardLayoutCsvExporter
 from gazekey.calibration.fixation_gate import FixationGateConfig
 from gazekey.mapping.config import (
     CALIB_HEAD_DRIFT_EYE_H,
@@ -59,7 +56,10 @@ class VirtualKeyboard(QWidget):
         self._tracking_controller = TrackingController(self)
         self._calibration_finish = CalibrationFinishController(self)
         self._calibration_controller = CalibrationController()
-        self._run_summary_writer = RunSummaryWriter()
+        self._devtools = NullDevTools()
+        self._run_summary_writer = None  # set only when tools install DevTools
+        self._layout_exporter = None
+        self._benchmark_controller = None
         self._calibration_overlay: CalibrationOverlay | None = None
         self._calibration_session: CalibrationSession | None = None
         self._is_calibrating = False
@@ -73,7 +73,6 @@ class VirtualKeyboard(QWidget):
         self._layout_keys = []
         self._keys_by_id = {}
         env_flags = EnvFlags.load()
-        self._layout_exporter = KeyboardLayoutCsvExporter(runs_dir=self._run_summary_writer.runs_dir)
         self._layout_version = ""
         self._layout_export_pending = False
         self._verbose = env_flags.verbose
@@ -87,7 +86,8 @@ class VirtualKeyboard(QWidget):
         self._last_v2_focused_key_id = None
         self._last_calib_log_ms = 0
         self._preview_mode = False
-        self._gaze_preview: GazePreviewController | None = None
+        self._gaze_preview = None
+        self._tools_auto_preview_after_calib = False
         self._calib_mode = CALIBRATION_MODE
         # Persisted "what are we using right now?" runtime labels.
         # - mapper_mode: which calibration target set / session mode we ran (e.g. "row_aware", "precision13")
@@ -108,7 +108,6 @@ class VirtualKeyboard(QWidget):
         self._calib_debug = env_flags.calib_debug
         self._camera_preview_during_calib = camera_preview_during_calib()
         self._last_calib_samples = []
-        self._benchmark_controller = BenchmarkController(self)
         self._last_raw_mapped_x: float | None = None
         self._last_raw_mapped_y: float | None = None
         # Runtime prediction safety.
@@ -127,7 +126,6 @@ class VirtualKeyboard(QWidget):
         self._keyboard_layout_builder = KeyboardLayoutBuilder(self)
         self.init_ui()
         self._text_buffer = TextBufferController(self.text_display)
-        self._gaze_preview = GazePreviewController(self.keyboard_widget)
         self._keyboard_layout_builder.schedule_layout_export()
         self._init_calibration_on_startup()
 
@@ -156,40 +154,25 @@ class VirtualKeyboard(QWidget):
             return self.__dict__.get("_gaze_mapper") is not None
         return runtime.usable()
 
+    def _benchmark_active(self) -> bool:
+        return bool(self._devtools.benchmark_active())
+
     def _set_post_calibration_controls(self, enabled: bool) -> None:
         if hasattr(self, "preview_btn"):
-            self.preview_btn.setEnabled(enabled and not self._benchmark_controller.active())
-
-    @staticmethod
-    def _dev_benchmark_enabled() -> bool:
-        return dev_benchmark_enabled()
+            self.preview_btn.setEnabled(enabled and not self._benchmark_active())
 
     def _maybe_start_dev_benchmark(self) -> None:
-        ctrl = getattr(self, "_benchmark_controller", None)
-        if ctrl is not None:
-            ctrl.maybe_start_dev_benchmark()
-            return
-        if not self._dev_benchmark_enabled():
-            return
-        if not self._calibration_usable():
-            self._log_verbose("[benchmark] dev auto-start blocked — calibration not usable")
-            return
-        if self._is_calibrating:
-            self._log_verbose("[benchmark] dev auto-start blocked — calibration in progress")
-            return
-        if self._benchmark_controller.active():
-            self._log_verbose("[benchmark] dev auto-start blocked — another run active")
-            return
-        if not self._preview_mode:
-            self._log_verbose("[benchmark] dev auto-start blocked — preview not ready")
-            return
-        self._start_mvp_benchmark()
+        self._devtools.maybe_start_dev_benchmark()
 
     def on_preview_clicked(self) -> None:
         if not self._calibration_usable():
             self._log_verbose("[preview] blocked — calibration required before preview (CQ-2)")
             return
-        if self._is_calibrating or self._benchmark_controller.active():
+        if self._is_calibrating or self._benchmark_active():
+            return
+        # Preview is a tools capability; product button only toggles when tools installed a preview.
+        if self._devtools.ensure_gaze_preview(self) is None and not self._preview_mode:
+            self._log_verbose("[preview] unavailable on product path — use: python -m tools.preview")
             return
         self._preview_mode = not bool(self._preview_mode)
         if hasattr(self, "preview_btn"):
@@ -202,13 +185,11 @@ class VirtualKeyboard(QWidget):
             self._clear_v2_focus()
 
     def _hide_preview_dot(self) -> None:
-        if self._gaze_preview is not None:
-            self._gaze_preview.hide()
+        self._devtools.hide_gaze_preview()
 
     def _reset_preview_overlay(self) -> None:
         """Clear benchmark/debug gaze state; single mapped dot on next frame."""
-        if self._gaze_preview is not None:
-            self._gaze_preview.clear_gaze()
+        self._devtools.clear_gaze_preview()
 
     def _preview_mapped_screen_xy(self, eye_data, *, now_ms: int) -> Optional[Tuple[float, float]]:
         """Mapped point for preview — same path as benchmark hit testing (PCA4 + feature smooth)."""
@@ -224,12 +205,11 @@ class VirtualKeyboard(QWidget):
         raw_global: Tuple[float, float] | None = None,
         show_raw: bool = False,
     ) -> None:
-        """Show mapped gaze on the keyboard (read-only preview overlay)."""
-        if self._gaze_preview is None:
-            self._gaze_preview = GazePreviewController(self.keyboard_widget)
-        self._gaze_preview.show_gaze(
-            screen_x,
-            screen_y,
+        """Show mapped gaze on the keyboard (read-only preview overlay via tools)."""
+        self._devtools.update_gaze_preview_dot(
+            self,
+            screen_x=screen_x,
+            screen_y=screen_y,
             label=label if self._rt2_debug else "",
             raw_global=raw_global,
             show_raw=show_raw and self._rt2_debug,
@@ -244,7 +224,7 @@ class VirtualKeyboard(QWidget):
 
     def on_key_pressed(self, key):
         """Handle key press from mouse or gaze dwell."""
-        if self._is_calibrating or self._benchmark_controller.active():
+        if self._is_calibrating or self._benchmark_active():
             return
         if key == "SHIFT":
             return
@@ -308,9 +288,8 @@ class VirtualKeyboard(QWidget):
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
         self._keyboard_layout_builder.update_responsive_sizes()
-        if self._gaze_preview is not None:
-            self._gaze_preview.resize_to_keyboard()
-        self._benchmark_controller.update_banner_geometry()
+        self._devtools.resize_gaze_preview()
+        self._devtools.update_benchmark_banner_geometry()
         self._keyboard_layout_builder.schedule_layout_export()
 
     def _init_calibration_on_startup(self) -> None:
@@ -424,7 +403,7 @@ class VirtualKeyboard(QWidget):
                 and not self._is_calibrating
                 and self._gaze_mapper is not None
                 and self._preview_mode
-                and not self._benchmark_controller.active()
+                and not self._benchmark_active()
             )
         return loop.gaze_preview_active()
 
@@ -454,10 +433,13 @@ class VirtualKeyboard(QWidget):
         self._keyboard_layout_builder.schedule_layout_export()
 
     def _bind_session_artifact_paths(self, session_id: str) -> None:
-        self._layout_exporter.set_session(
-            session_id,
-            runs_dir=self._run_summary_writer.runs_dir,
-        )
+        exporter = self._devtools.layout_exporter()
+        if exporter is None:
+            return
+        runs_dir = self._devtools.runs_dir
+        if runs_dir is None:
+            return
+        exporter.set_session(session_id, runs_dir=runs_dir)
 
     def _export_keyboard_layout(self) -> None:
         session_id = self._calibration_controller.session_id
@@ -469,7 +451,7 @@ class VirtualKeyboard(QWidget):
         pass
 
     def _start_mvp_benchmark(self) -> None:
-        self._benchmark_controller.start_mvp_benchmark()
+        self._devtools.start_mvp_benchmark()
 
     def _predict_screen_xy(self, raw) -> Optional[Tuple[float, float]]:
         return self._mapper_runtime.key_accuracy_predict_screen_xy(raw)
