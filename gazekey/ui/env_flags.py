@@ -1,4 +1,7 @@
-"""Centralized GAZEKEY_* environment flag reads for the UI layer (T050)."""
+"""Centralized product ``GAZEKEY_*`` environment flag reads.
+
+Developer-only flags live in ``tools.flags`` (``DEV_BENCHMARK``, ``CALIB_GEOM_DEBUG``).
+"""
 
 from __future__ import annotations
 
@@ -18,41 +21,24 @@ def verbose() -> bool:
     return env_bool("GAZEKEY_VERBOSE")
 
 
-def dev_benchmark_enabled() -> bool:
-    return env_bool("GAZEKEY_DEV_BENCHMARK")
-
-
 def camera_preview_during_calib() -> bool:
-    """Allow the standard camera preview window during fixation (default off — CQ-4)."""
+    """Allow the standard camera preview window during fixation (default off)."""
     return env_bool("GAZEKEY_CAMERA_PREVIEW_DURING_CALIB")
 
 
 def calib_mode_override() -> str:
+    """Optional layout override — preserved / re-evaluate (may become tools-only later)."""
     return env_str("GAZEKEY_CALIB_MODE")
 
 
-def selection_debug() -> bool:
-    return env_bool("GAZEKEY_SELECTION_DEBUG")
-
-
 def gaze_debug() -> bool:
+    """Extra gaze debug labels — preserved / re-evaluate."""
     return env_bool("GAZEKEY_GAZE_DEBUG")
 
 
-def gaze_debug_pred() -> bool:
-    return env_bool("GAZEKEY_GAZE_DEBUG_PRED")
-
-
-def gaze_debug_selection() -> bool:
-    return env_bool("GAZEKEY_GAZE_DEBUG_SELECTION")
-
-
 def calib_debug() -> bool:
+    """Verbose calibration overlay — preserved / re-evaluate."""
     return env_bool("GAZEKEY_CALIB_DEBUG")
-
-
-def calib_geom_debug(*, calib_debug_cached: bool = False) -> bool:
-    return calib_debug_cached or env_bool("GAZEKEY_CALIB_GEOM_DEBUG")
 
 
 def verbose_fixation_ui() -> bool:
@@ -61,24 +47,17 @@ def verbose_fixation_ui() -> bool:
 
 @dataclass(frozen=True)
 class EnvFlags:
-    """Snapshot of UI runtime flags (typically read once at VirtualKeyboard init)."""
+    """Snapshot of product UI runtime flags (read once at VirtualKeyboard init)."""
 
     verbose: bool
-    selection_debug: bool
     rt2_debug: bool
-    rt2_debug_pred: bool
-    rt2_debug_selection: bool
     calib_debug: bool
 
     @classmethod
     def load(cls) -> EnvFlags:
         v = verbose()
-        rt2 = v or gaze_debug()
         return cls(
             verbose=v,
-            selection_debug=selection_debug(),
-            rt2_debug=rt2,
-            rt2_debug_pred=rt2 or gaze_debug_pred(),
-            rt2_debug_selection=v or gaze_debug_selection(),
+            rt2_debug=v or gaze_debug(),
             calib_debug=v or calib_debug(),
         )

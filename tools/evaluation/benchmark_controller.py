@@ -14,7 +14,7 @@ from tools.evaluation.benchmark_session import BenchmarkEvalSession, resolve_sam
 from tools.evaluation.failure_analysis import format_failure_analysis, infer_likely_cause
 from gazekey.features import FeatureExtractor
 from gazekey.mapping.config import CALIBRATION_MODE
-from gazekey.ui.env_flags import dev_benchmark_enabled as env_dev_benchmark_enabled
+from tools.flags import dev_benchmark_enabled as env_dev_benchmark_enabled
 
 if TYPE_CHECKING:
     from gazekey.ui.virtual_keyboard import VirtualKeyboard

@@ -12,13 +12,14 @@ python main.py
 Product code under `gazekey/` must **not** import `tools.*`. Tools attach to a
 `VirtualKeyboard` via `tools.devtools_install.install_devtools`.
 
-## Entry points (T010–T011)
+## Entry points
 
 | Capability | Command | Package |
 |------------|---------|---------|
 | Read-only gaze preview | `python -m tools.preview` | `tools/preview/` |
 | Key-hit benchmark / evaluation | `python -m tools.evaluation` | `tools/evaluation/` |
 | Debug overlays / diagnostics | imported by tools entries | `tools/debug/` |
+| Offline correction-layer analysis | `python tools/debug/analyze_correction_layers.py` | `tools/debug/` |
 
 Benchmark auto-start (tools entry only):
 
@@ -27,12 +28,22 @@ set GAZEKEY_DEV_BENCHMARK=1
 python -m tools.evaluation
 ```
 
+## Tools-only flags (`tools/flags.py`)
+
+| Flag | Effect |
+|------|--------|
+| `GAZEKEY_DEV_BENCHMARK=1` | Auto-start 15-key benchmark after tools calib+preview |
+| `GAZEKEY_CALIB_GEOM_DEBUG=1` | Post-fit geometry overlay |
+
+Product flags remain in `gazekey/ui/env_flags.py` (see env-flag inventory).
+
 ## Layout
 
 ```text
 tools/
   __init__.py
   README.md
+  flags.py                 # DEV_BENCHMARK, CALIB_GEOM_DEBUG
   devtools_install.py      # attach writers / preview / benchmark to product VK
   evaluation/
     __main__.py            # benchmark entry
@@ -45,6 +56,7 @@ tools/
     calibration_geometry_overlay.py
     mapper_store.py
     layout_csv.py
+    analyze_correction_layers.py
     ...
   preview/
     __main__.py            # preview entry
@@ -53,5 +65,5 @@ tools/
 
 ## Related inventory
 
-Flag MOVE/DELETE decisions: `specs/002-gaze-typing-os/env-flag-inventory.md`
-(provisional — do not apply until review).
+Reviewed decisions: `specs/002-gaze-typing-os/inventory-review.md`  
+Flag inventory: `specs/002-gaze-typing-os/env-flag-inventory.md`

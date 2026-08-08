@@ -1,5 +1,10 @@
-"""One-off analysis: correction layer contribution from saved session CSVs."""
+"""One-off analysis: correction layer contribution from saved session CSVs.
 
+Developer tooling (moved from ``scripts/``). Expects artifact CSVs next to the
+repo root working directory (historical layout). Run::
+
+    python tools/debug/analyze_correction_layers.py
+"""
 from __future__ import annotations
 
 import csv
@@ -11,7 +16,7 @@ from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 

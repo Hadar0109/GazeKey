@@ -25,7 +25,7 @@ from tools.evaluation.session_paths import (
 )
 from gazekey.layout import inspect_keyboard_layout
 from gazekey.mapping.config import CALIBRATION_MODE
-from gazekey.ui.env_flags import calib_geom_debug
+from tools.flags import calib_geom_debug
 
 if TYPE_CHECKING:
     from gazekey.ui.virtual_keyboard import VirtualKeyboard

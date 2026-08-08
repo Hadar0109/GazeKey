@@ -69,14 +69,14 @@ paths removed; product still calibrates/maps.
 
 ### Inventories + STOP/review gate (before broad deletions)
 
-- [ ] T018 [P] [US3] Repo-wide cleanup inventory only: list obsolete `archive/` leftovers, unjustified `scripts/`, stale docs/tests in `specs/002-gaze-typing-os/cleanup-inventory.md` with proposed KEEP / MOVE / DELETE (no deletions in this task)
-- [ ] T019 [US3] **STOP / review gate**: Report completed `env-flag-inventory.md` and `cleanup-inventory.md` (KEEP/MOVE/DELETE) for review; **do not** execute broad flag MOVE/DELETE or archive/script/test/doc deletions until review sign-off is recorded in both inventory files (or a short `specs/002-gaze-typing-os/inventory-review.md`)
+- [x] T018 [P] [US3] Repo-wide cleanup inventory only: list obsolete `archive/` leftovers, unjustified `scripts/`, stale docs/tests in `specs/002-gaze-typing-os/cleanup-inventory.md` with proposed KEEP / MOVE / DELETE (no deletions in this task)
+- [x] T019 [US3] **STOP / review gate**: Report completed `env-flag-inventory.md` and `cleanup-inventory.md` (KEEP/MOVE/DELETE) for review; **do not** execute broad flag MOVE/DELETE or archive/script/test/doc deletions until review sign-off is recorded in both inventory files (or a short `specs/002-gaze-typing-os/inventory-review.md`)
 
 ### Apply reviewed deletions / moves
 
-- [ ] T020 [US3] Apply **reviewed** `env-flag-inventory.md`: MOVE classified flags into tools entrypoints/docs
-- [ ] T021 [US3] Apply **reviewed** `env-flag-inventory.md`: DELETE classified flags from `gazekey/ui/env_flags.py` and call sites
-- [ ] T022 [US3] Execute **reviewed** deletions from `cleanup-inventory.md` (one logical group per follow-up if list is long; start with clearly approved dead items)
+- [x] T020 [US3] Apply **reviewed** `env-flag-inventory.md`: MOVE classified flags into tools entrypoints/docs
+- [x] T021 [US3] Apply **reviewed** `env-flag-inventory.md`: DELETE classified flags from `gazekey/ui/env_flags.py` and call sites
+- [x] T022 [US3] Execute **reviewed** deletions from `cleanup-inventory.md` (one logical group per follow-up if list is long; start with clearly approved dead items)
 
 ### Post-cleanup behavior gate
 

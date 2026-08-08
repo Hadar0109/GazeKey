@@ -103,8 +103,6 @@ class VirtualKeyboard(QWidget):
         # can be selected at runtime. Variant code in ridge.py is removed in Phase 10 (T043).
         # Verbose detail: GAZEKEY_VERBOSE=1 (legacy per-flag env vars still honored).
         self._rt2_debug = env_flags.rt2_debug
-        self._rt2_debug_pred = env_flags.rt2_debug_pred
-        self._rt2_debug_selection = env_flags.rt2_debug_selection
         self._calib_debug = env_flags.calib_debug
         self._camera_preview_during_calib = camera_preview_during_calib()
         self._last_calib_samples = []

@@ -2,16 +2,13 @@
 
 Eye-tracking virtual keyboard using a standard webcam and MediaPipe face landmarks.
 
-## What it does today (MVP)
+## What it does today
 
-On launch the app **calibrates every session** (no loading saved mappers from disk), fits a **PCA4 ridge gaze mapper** on 15 keyboard-aligned targets, then enables **read-only gaze preview** — a dot that tracks where you look. Keys are activated by **mouse click** only; dwell-based gaze typing is dormant (`gazekey/future/`).
+On launch the app **calibrates every session** (no loading saved mappers from disk), fits a **PCA4 ridge gaze mapper** on 15 keyboard-aligned targets, then keeps a **usable mapped-gaze** path ready for the product UI. Keys are activated by **mouse click** today; dwell-based gaze typing and OS injection are in progress under feature `002-gaze-typing-os` (not enabled yet on the default product path).
 
-Optional dev tooling:
+**Product** launch does **not** start gaze preview or the accuracy benchmark. Those are **developer tools**.
 
-- **`GAZEKEY_DEV_BENCHMARK=1`** — auto-runs a 15-key accuracy benchmark after calibration
-- **`GAZEKEY_VERBOSE=1`** — detailed calibration/runtime logs
-
-See **`CURRENT_PIPELINE.md`** for the exact runtime flow and **`TYPING_CANDIDATE.md`** for frozen mapper configuration.
+See **`docs/CURRENT_PIPELINE.md`** for the runtime flow and **`docs/TYPING_CANDIDATE.md`** for frozen mapper configuration.
 
 ## Quick start
 
@@ -31,7 +28,7 @@ pip install -r requirements.txt
 
 MediaPipe model: `models/face_landmarker.task` (downloaded on first run if missing).
 
-### Run
+### Run (product)
 
 ```bash
 python main.py
@@ -39,36 +36,43 @@ python main.py
 
 1. App opens the virtual keyboard and starts calibration automatically.
 2. Fixate each on-screen dot until the session completes.
-3. On success, gaze preview is enabled (mapped dot on the keyboard).
+3. On success, a usable mapper is available for the product path.
 4. Click keys with the mouse to type into the text field.
-5. Use **Preview** to toggle the gaze dot; use **RECALIBRATE** to run calibration again.
+5. Use **RECALIBRATE** to run calibration again.
+
+### Developer tools (optional)
+
+```bash
+python -m tools.preview          # read-only gaze preview (devtools attached)
+set GAZEKEY_DEV_BENCHMARK=1
+python -m tools.evaluation       # 15-key accuracy benchmark after calib+preview
+```
+
+Details: **`tools/README.md`**.
 
 ## Project layout
 
 ```
 Virtual Keyboard/
-├── main.py                      # Entry point
-├── CURRENT_PIPELINE.md          # Runtime flow (authoritative)
-├── TYPING_CANDIDATE.md          # Frozen mapper / gate configuration
-├── runs/<session_id>/           # Per-session artifacts (see below)
-├── gazekey/
-│   ├── ui/                      # VirtualKeyboard + calibration/benchmark UI
-│   ├── runtime/                 # Gaze loop, mapper fit, tracking lifecycle
+├── main.py                      # Product entry point
+├── docs/                        # Pipeline, structure, typing-candidate notes
+├── runs/<session_id>/           # Per-session artifacts
+├── gazekey/                     # Product runtime only
+│   ├── ui/                      # VirtualKeyboard + calibration UI
+│   ├── runtime/                 # Gaze loop, mapper fit, session id
 │   ├── calibration/             # Target collection, fixation gate, quality
 │   ├── mapping/                 # PCA4 ridge (config.py, ridge.py, row_bias.py)
 │   ├── features/                # EyeData → FrameFeatures + PCA smoother
 │   ├── tracking/                # Webcam + MediaPipe thread
-│   ├── evaluation/              # Benchmark scoring, run summaries, session paths
 │   ├── layout/                  # Key geometry inspection
-│   ├── typing/                  # Hit testing, text buffer, gaze smoother
-│   ├── debug/                   # Diagnostics exports (CSV, mapper snapshot, geometry)
-│   └── future/                  # Dormant intent / dwell typing (not on MVP path)
+│   └── typing/                  # Hit testing, text buffer, gaze smoother
+├── tools/                       # Developer preview / evaluation / debug
 ├── archive/                     # Legacy v1 calibration and experiment code
 ├── tests/                       # Pytest suite
 └── specs/                       # Spec Kit feature docs
 ```
 
-Deeper module map: **`docs/gazekey_code_structure.md`**.
+Deeper maps: **`docs/gazekey_code_structure.md`**, **`docs/PROJECT_STRUCTURE.md`**.
 
 ## Session artifacts
 
@@ -82,19 +86,27 @@ All runtime-generated files go under **`runs/<session_id>/`** (not the repo root
 | `coverage.json` | Calibration anchor vs key coverage |
 | `calibration_debug.csv` | Per-target train/LOOCV diagnostics |
 | `calibration_ratio_space.csv` | Row-level avg_v stats |
-| `benchmark_summary.txt` | 15-key benchmark result (dev) |
-| `benchmark_diag.json` | Full benchmark diagnostics (dev) |
+| `benchmark_summary.txt` | 15-key benchmark result (tools) |
+| `benchmark_diag.json` | Full benchmark diagnostics (tools) |
 
 ## Environment variables
+
+### Product
 
 | Variable | Effect |
 |----------|--------|
 | `GAZEKEY_VERBOSE=1` | Verbose logs |
-| `GAZEKEY_DEV_BENCHMARK=1` | Auto 15-key benchmark after calibration |
-| `GAZEKEY_CALIB_MODE` | Override calibration layout (e.g. `keyboard15`) |
-| `GAZEKEY_CALIB_DEBUG=1` | Verbose calibration overlay |
-| `GAZEKEY_CALIB_GEOM_DEBUG=1` | Post-fit geometry overlay |
-| `GAZEKEY_GAZE_DEBUG=1` | Extra gaze/predict logs |
+| `GAZEKEY_CALIB_MODE` | Override calibration layout (re-evaluate; may become tools-only later) |
+| `GAZEKEY_CALIB_DEBUG=1` | Verbose calibration overlay (re-evaluate) |
+| `GAZEKEY_GAZE_DEBUG=1` | Extra gaze/predict logs (re-evaluate) |
+| `GAZEKEY_CAMERA_PREVIEW_DURING_CALIB=1` | Camera PiP during fixation (re-evaluate) |
+
+### Tools only
+
+| Variable | Effect |
+|----------|--------|
+| `GAZEKEY_DEV_BENCHMARK=1` | Auto 15-key benchmark via `python -m tools.evaluation` |
+| `GAZEKEY_CALIB_GEOM_DEBUG=1` | Post-fit geometry overlay (tools sessions) |
 
 ## Tests
 
@@ -113,7 +125,7 @@ python -m pytest tests/ -q
 
 **Camera not opening** — check OS privacy settings; close other apps using the webcam.
 
-**Calibration fails / preview blocked** — keep head still, move eyes only, tap RECALIBRATE.
+**Calibration fails** — keep head still, move eyes only, tap RECALIBRATE.
 
 **Low detection rate** — improve lighting; face the camera directly.
 
