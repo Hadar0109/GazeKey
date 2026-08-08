@@ -40,19 +40,19 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-Reference: `.specify/memory/constitution.md` (GazeKey v1.2.0)
+Reference: `.specify/memory/constitution.md` (GazeKey v1.3.0)
 
 | Gate | Requirement | Pass? |
 |------|-------------|-------|
-| Accuracy First | Feature scope is calibration/mapping reliability only; no dwell, prediction, language, or OS injection work | ☐ |
-| Measurable Progress | Success criteria include key-hit accuracy, pixel error, row accuracy, and session repeatability | ☐ |
-| Simple Pipeline | Design follows `tracking → features → calibration → mapping → preview → benchmark`; new layers justified by benchmark | ☐ |
+| Accuracy First | Mapping remains independently validated; downstream features consume mapped gaze only and MUST NOT compensate via mapping changes | ☐ |
+| Measurable Progress | Mapping changes use key-hit / pixel / row / repeatability; other features use their own spec acceptance criteria | ☐ |
+| Simple Pipeline | Sealed upstream through mapped gaze; new mapping layers justified by mapping benchmark; specified downstream stages allowed | ☐ |
 | Spec Before Code | `spec.md`, clarifications, `plan.md`, and `tasks.md` approved before implementation | ☐ |
-| MVP Scope Control | No predictive text, Hebrew/English switching, OS injection, personalization, multi-monitor, or accessibility polish | ☐ |
-| Testable Architecture | Tracking, calibration, mapping, evaluation, and UI feedback are separable modules/interfaces | ☐ |
-| Run Clarity | Each run answers pass/fail + key metrics via simple summary; no diagnostics platform or artifact sprawl | ☐ |
+| Feature Scope Control | Scope matches the active feature spec; advanced capabilities require their own specs; mapping foundation stays isolated | ☐ |
+| Testable Architecture | Tracking, calibration, mapping, evaluation, UI, and (when present) typing/OS are separable | ☐ |
+| Run Clarity | Each mapping run answers pass/fail + key metrics via simple summary; no diagnostics platform or artifact sprawl | ☐ |
 | Documentation Hierarchy | Spec Kit docs are source of truth for this phase; PDF is long-term vision only | ☐ |
-| Targeted Cleanup | Active path unambiguous; first-MVP cleanup only where legacy/placeholder/experimental causes confusion; approved tasks for deletions | ☐ |
+| Targeted Cleanup | Active path unambiguous; inventory-first deletions via approved tasks | ☐ |
 | Simple Logging | Readable logs; quiet normal runs; optional verbose flag — no multi-mode logging framework | ☐ |
 | Minimal Calibration UI | Fixation screen shows only dot + optional progress; detail off-screen; pass/fail only after session ends | ☐ |
 

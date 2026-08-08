@@ -117,7 +117,9 @@
   Principle II (Measurable Progress Only). For calibration/mapping features,
   MUST include: key-hit accuracy (primary), pixel error, row accuracy, and
   repeatability across sessions. Internal model metrics (LOOCV, RMS) may
-  supplement but MUST NOT be sole acceptance criteria.
+  supplement but MUST NOT be sole acceptance criteria. Non-mapping features
+  MUST define their own measurable outcomes and MUST NOT replace independent
+  mapping benchmarks.
 -->
 
 ### Measurable Outcomes
@@ -130,15 +132,20 @@
 ## MVP Scope *(mandatory for GazeKey)*
 
 <!--
-  ACTION REQUIRED: Confirm scope aligns with Constitution Principle V.
-  Explicitly list in-scope and out-of-scope items for this feature.
+  ACTION REQUIRED: Confirm scope aligns with Constitution Principle V
+  (Feature Scope Control). Explicitly list in-scope and out-of-scope items.
+  Mapping foundation stays isolated; post-mapping features (dwell/typing/OS)
+  are allowed when this feature's spec defines them — they must consume mapped
+  gaze only and must not compensate via mapping changes. Advanced capabilities
+  (prediction, language, personalization, multi-monitor, a11y polish) still
+  need their own specs when undertaken.
 -->
 
-**In scope**: [calibration, mapping, benchmark tooling, minimum UI/instrumentation]
+**In scope**: [for this feature — e.g. calibration/mapping, or dwell→KeyAction→OS]
 
-**Out of scope** (deferred until mapping is stable): predictive text, Hebrew/English
-switching, OS-level typing injection, personalization, multi-monitor support,
-advanced accessibility polish
+**Out of scope**: [explicit exclusions for this feature; do not treat dwell/OS as
+constitutionally forbidden if this feature specifies them — still exclude
+unspecified advanced capabilities]
 
 ## Assumptions
 
@@ -149,6 +156,6 @@ advanced accessibility polish
 -->
 
 - [Assumption about target users, e.g., "Single monitor, fixed keyboard layout"]
-- [Assumption about scope boundaries, e.g., "In-app text buffer only; no OS injection"]
+- [Assumption about scope boundaries, e.g., "Consumes mapped gaze only; does not retune PCA4 fit"]
 - [Assumption about data/environment, e.g., "Webcam at 640×480; existing MediaPipe pipeline"]
 - [Dependency on existing system/service, e.g., "Reuses gazekey/ tracking and calibration modules"]
