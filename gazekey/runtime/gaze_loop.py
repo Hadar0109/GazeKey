@@ -96,7 +96,7 @@ class GazeLoopController:
         h._calibration_overlay.add_features_dt(features, dt_ms=dt * 1000.0)
 
     def process_gaze_preview(self, eye_data, dt: float) -> None:
-        """Read-only gaze dot — no typing, intent, selection, or text buffer updates."""
+        """Read-only gaze dot — no typing or text buffer updates."""
         del dt
         h = self._host
         now_ms = int(time.time() * 1000)

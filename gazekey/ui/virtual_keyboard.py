@@ -407,18 +407,10 @@ class VirtualKeyboard(QWidget):
             )
         return loop.gaze_preview_active()
 
-    def _gaze_typing_active(self) -> bool:
-        return False
-
     def _process_gaze_preview(self, eye_data, dt: float) -> None:
         loop = getattr(self, "_gaze_loop", None)
         if loop is not None:
             loop.process_gaze_preview(eye_data, dt)
-
-    def _process_gaze_typing(self, eye_data, dt: float) -> None:
-        loop = getattr(self, "_gaze_loop", None)
-        if loop is not None:
-            loop.process_gaze_typing(eye_data, dt)
 
     def _clamp_v2_xy(self, x: float, y: float) -> Tuple[float, float]:
         return self._mapper_runtime.clamp_xy(x, y)

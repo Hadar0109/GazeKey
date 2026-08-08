@@ -60,12 +60,12 @@ paths removed; product still calibrates/maps.
 
 ### Delete / disconnect obsolete typing paths (one task each)
 
-- [ ] T012 [US3] Delete package `gazekey/future/` and update any imports/tests
-- [ ] T013 [US3] Delete package `gazekey/intent/` and update any imports/tests
-- [ ] T014 [US3] Delete package `gazekey/selection/` and update any imports/tests
-- [ ] T015 [US3] Delete dormant `gazekey/typing/dwell_selector.py` and update tests (e.g. `tests/test_gaze_typing.py`)
-- [ ] T016 [US3] Delete dormant `gazekey/typing/gaze_typing_controller.py` and update references
-- [ ] T017 [US3] Remove dead gaze-typing stubs in `gazekey/ui/virtual_keyboard.py` / missing `GazeLoopController.process_gaze_typing` delegates
+- [x] T012 [US3] Delete package `gazekey/future/` and update any imports/tests
+- [x] T013 [US3] Delete package `gazekey/intent/` and update any imports/tests
+- [x] T014 [US3] Delete package `gazekey/selection/` and update any imports/tests
+- [x] T015 [US3] Delete dormant `gazekey/typing/dwell_selector.py` and update tests (e.g. `tests/test_gaze_typing.py`)
+- [x] T016 [US3] Delete dormant `gazekey/typing/gaze_typing_controller.py` and update references
+- [x] T017 [US3] Remove dead gaze-typing stubs in `gazekey/ui/virtual_keyboard.py` / missing `GazeLoopController.process_gaze_typing` delegates
 
 ### Inventories + STOP/review gate (before broad deletions)
 

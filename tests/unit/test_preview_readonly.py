@@ -29,14 +29,17 @@ def test_gaze_preview_controller_updates_dot_only(qapp):
     assert dot._pos is not None
 
 
-def test_mvp_disables_gaze_typing_enables_preview(qapp):
+def test_mvp_preview_active_without_product_gaze_typing(qapp):
+    """Product path supports preview gating; dormant gaze-typing stubs are gone."""
     vk = VirtualKeyboard()
     vk._gaze_mapper = MagicMock()
     vk._preview_mode = True
     vk._is_calibrating = False
     vk.is_expanded = True
 
-    assert vk._gaze_typing_active() is False
+    assert not hasattr(vk, "_gaze_typing_active")
+    assert not hasattr(vk, "_process_gaze_typing")
+    assert not hasattr(vk._gaze_loop, "process_gaze_typing")
     assert vk._gaze_preview_active() is True
 
 
