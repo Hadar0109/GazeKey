@@ -39,9 +39,15 @@ from gazekey.typing.key_semantics import is_os_bound_action, is_pause_resume_act
 from gazekey.typing.typing_session import TypingSession
 from gazekey.input.pynput_adapter import PynputOsInputAdapter
 from gazekey.input.os_input_adapter import OsInjectResult
-from gazekey.typing.key_action import KeyAction
+from gazekey.typing.key_action import KeyAction, KeyActionSource
 from gazekey.ui.dwell_progress_overlay import DwellProgressOverlay
 from gazekey.features.feature_smoother import PcaFeatureSmoother
+from gazekey.prediction.word_provider import WordProvider
+from gazekey.prediction.factory import create_default_word_provider
+from gazekey.prediction.typing_context import TypingContext
+from gazekey.prediction.suggestion_dispatch import dispatch_suggestion_completion
+from gazekey.typing.key_semantics import suggestion_slot_index
+import time
 
 
 class VirtualKeyboard(QWidget):
@@ -74,8 +80,17 @@ class VirtualKeyboard(QWidget):
             self._dwell_engine,
             self._action_dispatcher,
             on_session_ui_sync=self._sync_typing_session_ui,
+            on_suggestion_accept=self._on_suggestion_accept,
         )
         self._action_dispatcher.on_action_delivered(self._on_os_action_delivered)
+        # Composition root: construct default WordProvider once via factory.
+        self._word_provider: WordProvider = create_default_word_provider()
+        if getattr(self._word_provider, "load_error", None) is not None:
+            self._log_verbose(
+                f"[prediction] word list load failed (fail-open): {self._word_provider.load_error}"
+            )
+        self._typing_context = TypingContext()
+        self._suggestion_epoch: int = -1
         self._dwell_overlay: DwellProgressOverlay | None = None
         self._typing_status_clear_timer: QTimer | None = None
         self._devtools = NullDevTools()
@@ -217,6 +232,9 @@ class VirtualKeyboard(QWidget):
                 self.shift_btn.setChecked(armed)
                 self.shift_btn.blockSignals(False)
             self.shift_active = bool(armed)
+        ctx = getattr(self, "_typing_context", None)
+        if ctx is not None:
+            ctx.set_shift_armed(bool(runtime.session.shift_oneshot_armed))
 
     def _key_id_for_action(self, action: str) -> Optional[str]:
         for key in getattr(self, "_layout_keys", None) or []:
@@ -274,10 +292,57 @@ class VirtualKeyboard(QWidget):
         )
 
     def on_suggestion_clicked(self, suggestion):
-        """Handle suggestion slot click (wired to prediction in Phase 4)."""
-        if not getattr(self, "suggestion_buttons", None):
+        """Mouse parity: accept populated suggestion slot via same dispatch path as dwell."""
+        buttons = getattr(self, "suggestion_buttons", None) or []
+        slot: Optional[int] = None
+        if isinstance(suggestion, int):
+            slot = suggestion
+        else:
+            # Legacy string label path — resolve to slot index.
+            for i, btn in enumerate(buttons):
+                if btn.text() == str(suggestion):
+                    slot = i
+                    break
+        if slot is None or slot < 0 or slot >= len(buttons):
             return
-        self._log_verbose(f"Suggestion clicked: {suggestion}")
+        btn = buttons[slot]
+        if not btn.isEnabled() or not btn.text():
+            return
+        if self._is_calibrating or self._benchmark_active():
+            return
+        runtime = getattr(self, "_typing_runtime", None)
+        if runtime is None or not runtime.os_inject_enabled or runtime.session.is_inactive:
+            return
+        key_id = f"suggestion:{slot}"
+        runtime.on_mouse_key(key_id=key_id, action=key_id)
+
+    def _on_suggestion_accept(self, key_id: str, source: KeyActionSource) -> None:
+        """Dwell/mouse suggestion fire → suffix + Space (epoch guard)."""
+        slot = suggestion_slot_index(key_id)
+        buttons = getattr(self, "suggestion_buttons", None) or []
+        if slot is None or slot < 0 or slot >= len(buttons):
+            return
+        btn = buttons[slot]
+        word = (btn.text() or "").strip().lower()
+        if not word or not btn.isEnabled():
+            return
+        ctx = getattr(self, "_typing_context", None)
+        runtime = getattr(self, "_typing_runtime", None)
+        if ctx is None or runtime is None:
+            return
+        accept_epoch = int(getattr(self, "_suggestion_epoch", ctx.get_epoch()))
+        dispatch_suggestion_completion(
+            word=word,
+            prefix=ctx.get_prefix(),
+            accept_epoch=accept_epoch,
+            current_epoch=ctx.get_epoch(),
+            dispatcher=self._action_dispatcher,
+            session=runtime.session,
+            source=source,
+            key_id=key_id,
+            clock=time.time,
+        )
+        self._sync_typing_session_ui()
 
     def on_key_pressed(self, key):
         """Handle key press from mouse (OS-bound → ActionDispatcher when typing active)."""
@@ -521,12 +586,57 @@ class VirtualKeyboard(QWidget):
         self._calibration_finish.reset_debug_csvs()
 
     def _on_os_action_delivered(self, action: KeyAction, result: OsInjectResult) -> None:
-        """Verbose-only status for failed OS delivery (text_display removed — R10)."""
+        """Update TypingContext on success; verbose-only status on delivery failure (R10)."""
+        ctx = getattr(self, "_typing_context", None)
+        if ctx is not None and result.ok:
+            changed = ctx.on_action_delivered(action, ok=True)
+            runtime = getattr(self, "_typing_runtime", None)
+            if runtime is not None:
+                ctx.set_shift_armed(bool(runtime.session.shift_oneshot_armed))
+            if changed:
+                self._refresh_suggestions()
+            return
         if result.ok:
             return
         reason = (result.error or "no usable external typing target").strip()
         self._show_typing_status(f"OS typing unavailable — {reason}", error=True)
         # Do not clear mapper / session / calibration state.
+
+    def _refresh_suggestions(self) -> None:
+        """Label fixed suggestion slots from WordProvider (delivery-path only; FR-012 fail-open)."""
+        buttons = getattr(self, "suggestion_buttons", None) or []
+        if len(buttons) < 3:
+            return
+        ctx = getattr(self, "_typing_context", None)
+        provider = getattr(self, "_word_provider", None)
+        words: list[str] = []
+        epoch = 0
+        if ctx is not None and provider is not None:
+            epoch = ctx.get_epoch()
+            prefix = ctx.get_prefix()
+            try:
+                words = list(provider.suggest(prefix) or [])
+            except Exception as exc:
+                self._log_verbose(f"[prediction] suggest failed (fail-open): {exc}")
+                words = []
+        prev_epoch = getattr(self, "_suggestion_epoch", -1)
+        self._suggestion_epoch = epoch
+        # Cancel in-progress suggestion dwell when prefix epoch changes (research R6).
+        if prev_epoch != -1 and prev_epoch != epoch:
+            runtime = getattr(self, "_typing_runtime", None)
+            if runtime is not None:
+                runtime.cancel_dwell()
+        for i, btn in enumerate(buttons[:3]):
+            if i < len(words) and words[i]:
+                btn.setText(words[i])
+                btn.setEnabled(True)
+                btn.setToolTip(words[i])
+            else:
+                btn.setText("")
+                btn.setEnabled(False)
+                btn.setToolTip("Autocomplete suggestions")
+        # Keep hit-test / dwell in sync with enabled state.
+        self._schedule_layout_export()
 
     def _show_typing_status(self, message: str, *, error: bool = False) -> None:
         prefix = "[typing:error]" if error else "[typing]"

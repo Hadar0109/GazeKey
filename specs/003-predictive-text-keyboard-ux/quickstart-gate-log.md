@@ -25,15 +25,17 @@ Automated tests do **not** claim live webcam/OS typing passed.
    - Suggestion bar with 3 slots, fully visible
    - No Ctrl/Alt; no symbols layout; no empty dead rows
 
+**Result**: **PASS** (2026-08-10) — user confirmed tools preview + visual keyboard check.
+
+## USER GATE T030 — suggestion MVP live
+
+**Ask user to confirm** (quickstart §C):
+
+1. `python main.py`, calibrate, focus Notepad
+2. Type `hel` by gaze → suggestions appear
+3. Dwell a suggestion (e.g. `hello`) → Notepad shows `hello ` (suffix + Space)
+4. Optional: Shift armed + prefix `hel` + accept → still lowercase `hello `; Shift cleared
+
 **Result**: _pending user confirmation_
 
----
-
-## Later gates (not yet reached)
-
-| Task | Gate | Result |
-|------|------|--------|
-| T030 | Suggestion MVP live | pending |
-| T034 | Typing ignoring suggestions | pending |
-| T038 | Consistency sequence | pending |
-| T042 | Remaining quickstart A–G | pending |
+Automated tests MUST NOT claim live webcam or external-app typing passed.

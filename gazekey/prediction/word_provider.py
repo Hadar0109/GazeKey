@@ -7,8 +7,8 @@ from typing import List, Protocol, runtime_checkable
 
 @runtime_checkable
 class WordProvider(Protocol):
-    """Prefix → ranked completion words (≤3). Implemented in Phase 3."""
+    """Prefix → ranked completion words (≤3 by default)."""
 
-    def suggest(self, prefix: str) -> List[str]:
-        """Return up to 3 completions for ``prefix`` (frequency-ranked)."""
+    def suggest(self, prefix: str, *, limit: int = 3) -> List[str]:
+        """Return up to ``limit`` completion words for ``prefix``."""
         ...

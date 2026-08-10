@@ -105,7 +105,7 @@ synchronized (FR-008, FR-008a–c, FR-011).
   `specs/003-predictive-text-keyboard-ux/quickstart-gate-log.md` (create if
   needed); **STOP if fail**. Automated tests do **not** claim live webcam/OS
   typing passed.
-- [ ] T015 [US3] **USER GATE**: Ask the user to run/confirm
+- [X] T015 [US3] **USER GATE**: Ask the user to run/confirm
   `python -m tools.preview` (preview without product Preview button) and visual
   check of the redesigned keyboard (quickstart §A / FR-008b). Record result in
   `specs/003-predictive-text-keyboard-ux/quickstart-gate-log.md`. **STOP and wait
@@ -123,34 +123,34 @@ confirmed** tools preview + visual layout. Prediction not required yet.
 
 **⚠️ CRITICAL**: US1/US2/US4 MUST NOT start until T020–T023 pass.
 
-- [ ] T016 Choose and document a clearly redistributable English word list
+- [X] T016 Choose and document a clearly redistributable English word list
   (public-domain / CC0 / MIT / BSD / Apache-2.0 or equivalent); write provenance
   into `gazekey/prediction/data/README.md` (research R1) — **reject** unclear
   license sources
-- [ ] T017 Add `gazekey/prediction/data/words_en.txt` from the chosen licensed
+- [X] T017 Add `gazekey/prediction/data/words_en.txt` from the chosen licensed
   source (frequency-ordered; ~20k–50k target)
-- [ ] T018 Implement `WordProvider` Protocol in
+- [X] T018 Implement `WordProvider` Protocol in
   `gazekey/prediction/word_provider.py` per
   `specs/003-predictive-text-keyboard-ux/contracts/word-provider.md` (abstraction
   for UI/typing; future personalized providers allowed without implementing them
   here)
-- [ ] T019 Implement `TrieWordProvider` in `gazekey/prediction/trie_provider.py`
+- [X] T019 Implement `TrieWordProvider` in `gazekey/prediction/trie_provider.py`
   with **efficient top-3 frequency retrieval** (research R2: not naive
   full-subtree collect-then-sort); min prefix length ≥2 returns `[]` for shorter;
   load/`suggest` failures MUST raise or return safely so callers can fail open
   (FR-012) — do not crash the product
-- [ ] T020 [P] Add `tests/unit/test_word_provider.py`: API rules (`hel` matches,
+- [X] T020 [P] Add `tests/unit/test_word_provider.py`: API rules (`hel` matches,
   `h`→`[]`, `zzzz`→`[]`, `len<=3`) plus deterministic **quality smoke** for
   common prefixes (e.g. `th`, `he`, `an`, `in`, `wh`); plus fail-open cases
   (missing word file / `suggest` exception handled by caller contract)
-- [ ] T021 Implement `TypingContext` in `gazekey/prediction/typing_context.py`
+- [X] T021 Implement `TypingContext` in `gazekey/prediction/typing_context.py`
   per `contracts/typing-context.md` / data-model: update only on
   `on_action_delivered` with `ok=True`; no post-batch `clear_prefix()` for
   suggestion accept
-- [ ] T022 [P] Add `tests/unit/test_typing_context.py`: letter append, backspace,
+- [X] T022 [P] Add `tests/unit/test_typing_context.py`: letter append, backspace,
   Space clears, ENTER clears, failed inject leaves prefix unchanged, suggestion
   suffix+Space clears via Space delivery only
-- [ ] T023 Wire `TypingContext` and a single composition-root `WordProvider`
+- [X] T023 Wire `TypingContext` and a single composition-root `WordProvider`
   instance (concrete `TrieWordProvider` constructed **once** in setup, typed as
   `WordProvider`) in `gazekey/ui/virtual_keyboard.py` (or thin factory). UI and
   typing MUST import `WordProvider` only — **not** `TrieWordProvider` /
@@ -168,28 +168,28 @@ suffix + Space via existing KeyAction path (FR-001–FR-005).
 
 **Independent Test**: Quickstart §B–C; contract path with fake adapter.
 
-- [ ] T024 [US1] Implement `suggestion_dispatch` in
+- [X] T024 [US1] Implement `suggestion_dispatch` in
   `gazekey/prediction/suggestion_dispatch.py`: compute suffix; dispatch sequential
   CHAR + Space through `ActionDispatcher`; stop on first delivery failure;
   Shift-armed + non-empty lowercase prefix → clear Shift, do **not** apply to
   suffix (research R5)
-- [ ] T025 [P] [US1] Add `tests/unit/test_suggestion_dispatch.py`: `hel`+`hello`
+- [X] T025 [P] [US1] Add `tests/unit/test_suggestion_dispatch.py`: `hel`+`hello`
   → `lo `; epoch stale → no dispatch; Shift-armed + prefix `hel` → lowercase
   `lo ` and Shift cleared (**no** `helLo`); partial failure leaves context
   consistent with delivered chars
-- [ ] T026 [US1] Activate suggestion bar UI: keep **three fixed-geometry** slots;
+- [X] T026 [US1] Activate suggestion bar UI: keep **three fixed-geometry** slots;
   label enabled slots from `WordProvider.suggest` (not `TrieWordProvider`);
   unused slots blank/disabled (not dwellable); **no** resize/reflow by count —
   in `gazekey/ui/keyboard_layout.py` / `gazekey/ui/virtual_keyboard.py` on
   `TypingContext` change (`prefix_epoch`)
-- [ ] T027 [US1] Extend `gazekey/typing/key_semantics.py` and
+- [X] T027 [US1] Extend `gazekey/typing/key_semantics.py` and
   `gazekey/typing/gaze_typing_runtime.py` so `suggestion:0..2` are dwellable
   **only when enabled**; on fire, call suggestion accept with epoch guard
   (`contracts/suggestion-selection.md`). Typing modules MUST NOT import trie
   internals.
-- [ ] T028 [US1] Wire mouse click on suggestion buttons to the same accept path
+- [X] T028 [US1] Wire mouse click on suggestion buttons to the same accept path
   as dwell in `gazekey/ui/virtual_keyboard.py` (parity with keys)
-- [ ] T029 [US1] Add `tests/contract/test_suggestion_typing_path.py`: dwell/mouse
+- [X] T029 [US1] Add `tests/contract/test_suggestion_typing_path.py`: dwell/mouse
   suggestion → fake adapter receives suffix+Space; empty/disabled slot not
   dwellable
 - [ ] T030 [US1] **USER GATE**: Ask the user to run/confirm end-to-end suggestion

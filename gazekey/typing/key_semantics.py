@@ -19,10 +19,12 @@ class KeyRole(str, Enum):
     ENTER = "enter"
     SHIFT_ONESHOT = "shift_oneshot"
     SYSTEM_PAUSE_RESUME = "pause_resume"
+    SUGGESTION = "suggestion"
     NON_OS = "non_os"
 
 
 PAUSE_RESUME_ACTION = "PAUSE_RESUME"
+SUGGESTION_KEY_ID_PREFIX = "suggestion:"
 _PAUSE_RESUME_LABELS = frozenset(
     {
         "Pause",
@@ -35,6 +37,9 @@ _PAUSE_RESUME_LABELS = frozenset(
 
 def action_from_button(button: QPushButton) -> str:
     """Return the action string for a key button (matches mouse click handlers)."""
+    override = button.property("gazeKeyAction")
+    if override:
+        return str(override)
     return action_from_label(button.text())
 
 
@@ -58,10 +63,26 @@ def action_from_label(label: str) -> str:
     return label
 
 
+def is_suggestion_action(action: str) -> bool:
+    return str(action).startswith(SUGGESTION_KEY_ID_PREFIX)
+
+
+def suggestion_slot_index(action_or_key_id: str) -> Optional[int]:
+    text = str(action_or_key_id)
+    if not text.startswith(SUGGESTION_KEY_ID_PREFIX):
+        return None
+    try:
+        return int(text[len(SUGGESTION_KEY_ID_PREFIX) :])
+    except ValueError:
+        return None
+
+
 def role_for_action(action: str) -> KeyRole:
     """Classify a key action for OS-bound vs non-OS handling."""
     if action == PAUSE_RESUME_ACTION:
         return KeyRole.SYSTEM_PAUSE_RESUME
+    if is_suggestion_action(action):
+        return KeyRole.SUGGESTION
     if action == "SHIFT":
         return KeyRole.SHIFT_ONESHOT
     if action in ("CTRL", "ALT"):
