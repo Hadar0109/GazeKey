@@ -26,16 +26,8 @@ class TrackingController:
 
         success = h.tracking_manager.start_tracking(callback=h._tracking_bridge.forward)
         if success:
-            h.camera_status_label.setText("📷 Camera: Connected ✓")
-            h.camera_status_label.setStyleSheet(
-                "QLabel { color: #10B981; padding: 5px; font-weight: bold; }"
-            )
-            h._log_verbose("Eye tracking started")
+            h._log_verbose("Eye tracking started — camera connected")
         else:
-            h.camera_status_label.setText("📷 Camera: ERROR ✗")
-            h.camera_status_label.setStyleSheet(
-                "QLabel { color: #E63946; padding: 5px; font-weight: bold; }"
-            )
             print(
                 "Failed to start eye tracking - check camera permissions "
                 "or if another app is using the camera"

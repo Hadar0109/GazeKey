@@ -54,7 +54,7 @@ class KeyHitTester:
         for btn in buttons:
             if btn.objectName() not in GAZE_HIT_OBJECT_NAMES:
                 continue
-            if not btn.isVisible():
+            if not btn.isVisible() or not btn.isEnabled():
                 continue
             top_left = btn.mapToGlobal(QPoint(0, 0))
             tight = QRect(top_left, btn.size())
@@ -155,9 +155,20 @@ def hit_test_layout_keys(
     if not keys:
         return None
 
+    def _dwellable(k) -> bool:
+        btn = getattr(k, "button", None)
+        if btn is None:
+            return True
+        try:
+            return bool(btn.isEnabled())
+        except Exception:
+            return True
+
     point = QPoint(int(screen_x), int(screen_y))
     containing: List[int] = []
     for i, k in enumerate(keys):
+        if not _dwellable(k):
+            continue
         if k.rect.contains(point):
             containing.append(i)
     if containing:
@@ -172,6 +183,8 @@ def hit_test_layout_keys(
     best_dist = float("inf")
     second_dist = float("inf")
     for i, k in enumerate(keys):
+        if not _dwellable(k):
+            continue
         snap = k.rect.adjusted(-hit_margin_px, -hit_margin_px, hit_margin_px, hit_margin_px)
         dist = KeyHitTester._distance_to_rect(screen_x, screen_y, snap)
         if dist < best_dist:

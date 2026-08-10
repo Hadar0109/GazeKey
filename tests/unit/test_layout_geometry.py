@@ -113,3 +113,44 @@ def test_calibration_targets_use_layout_snapshot(qapp):
         key = by_key_id[t.key_id]
         assert t.screen_x == pytest.approx(key.center[0])
         assert t.screen_y == pytest.approx(key.center[1])
+
+
+def test_product_keyboard_has_three_fixed_suggestion_slots(qapp):
+    """003: suggestion:0..2 always exported; disabled slots not dwellable."""
+    from gazekey.ui.virtual_keyboard import VirtualKeyboard
+
+    vk = VirtualKeyboard()
+    vk._needs_first_calibration = False
+    vk.show()
+    qapp.processEvents()
+    vk._keyboard_layout_builder.export_keyboard_layout()
+    qapp.processEvents()
+
+    assert len(vk.suggestion_buttons) == 3
+    for i, btn in enumerate(vk.suggestion_buttons):
+        assert btn.property("gazeKeyId") == f"suggestion:{i}"
+        assert btn.objectName() == "gazeTarget"
+        assert not btn.isEnabled()
+        assert btn.text() == ""
+
+    keys = inspect_keyboard_layout(vk.main_content_widget)
+    suggestion_ids = [k.key_id for k in keys if str(k.key_id).startswith("suggestion:")]
+    assert suggestion_ids == ["suggestion:0", "suggestion:1", "suggestion:2"]
+
+    # Disabled slots must not be hit-testable / dwellable.
+    for k in keys:
+        if str(k.key_id).startswith("suggestion:"):
+            cx, cy = k.center
+            idx = hit_test_layout_keys(keys, cx, cy)
+            if idx is not None:
+                hit = keys[idx]
+                assert not str(hit.key_id).startswith("suggestion:"), (
+                    f"disabled suggestion hit: {hit.key_id}"
+                )
+
+    # No removed chrome in product layout.
+    actions = {str(k.key_action) for k in keys}
+    labels = {str(k.key_label) for k in keys}
+    assert "PAUSE_RESUME" not in actions
+    assert "Ctrl" not in labels
+    assert "Alt" not in labels

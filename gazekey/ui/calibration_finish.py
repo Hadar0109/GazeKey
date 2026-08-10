@@ -160,14 +160,7 @@ class CalibrationFinishController:
 
         h._reset_calibrate_button_style()
         status_suffix = " (best-effort)" if getattr(ridge_fit, "best_effort", False) else ""
-        h.camera_status_label.setText(f"📷 Calibration saved ✓{status_suffix}")
-        h.camera_status_label.setStyleSheet("""
-            QLabel {
-                color: #10B981;
-                padding: 5px;
-                font-weight: bold;
-            }
-        """)
+        h._log_verbose(f"[calib] Calibration saved ✓{status_suffix}")
         h._log_verbose(
             f"[calib] complete. Mapper ready ({TYPING_CANDIDATE_ID}: {h._active_mapper})."
         )

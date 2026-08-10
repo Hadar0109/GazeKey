@@ -38,24 +38,7 @@ class GazeLoopController:
         if h.tracking_manager and not h._is_calibrating and h._gaze_mapper is not None:
             h._ensure_camera_preview(show=True)
 
-        if h.tracking_manager:
-            stats = h.tracking_manager.get_statistics()
-            detection_rate = stats["detection_rate"]
-            if eye_data.face_detected and eye_data.left_iris_center and eye_data.right_iris_center:
-                status = f"📷 Connected ✓ | 👁 Eyes | {detection_rate}"
-                color = "#10B981"
-            elif eye_data.face_detected:
-                status = f"📷 Connected ✓ | 👤 Face Only | {detection_rate}"
-                color = "#FBBF24"
-            else:
-                status = f"📷 Connected ✓ | No Face | {detection_rate}"
-                color = "#F59E0B"
-            if h._gaze_mapper is not None and not h._is_calibrating:
-                status = f"📷 Gaze active | {detection_rate}"
-            h.camera_status_label.setText(status)
-            h.camera_status_label.setStyleSheet(
-                f"QLabel {{ color: {color}; padding: 5px; font-weight: bold; }}"
-            )
+        # Gaze-status chrome removed from product UI (003 / FR-008); no camera_status_label updates.
 
         # T045: calibration fixation path never reaches typing / OS inject.
         if h._is_calibrating and h._calibration_overlay is not None:

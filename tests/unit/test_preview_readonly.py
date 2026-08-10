@@ -48,10 +48,9 @@ def test_mvp_product_exposes_typing_and_tools_preview_is_readonly(qapp):
     assert vk._gaze_loop.gaze_typing_active() is False
 
 
-def test_process_gaze_preview_does_not_update_text_display(qapp, monkeypatch):
+def test_process_gaze_preview_does_not_activate_keys(qapp, monkeypatch):
     vk = VirtualKeyboard()
     install_devtools(vk, enable_preview=True, enable_benchmark=False, auto_preview_after_calib=False)
-    text_before = vk.text_display.text()
     vk._gaze_mapper = MagicMock()
     vk._preview_mode = True
     vk._is_calibrating = False
@@ -68,7 +67,6 @@ def test_process_gaze_preview_does_not_update_text_display(qapp, monkeypatch):
     vk._process_gaze_preview(MagicMock(), 0.016)
     qapp.processEvents()
 
-    assert vk.text_display.text() == text_before
     assert not activate_calls
     assert vk._gaze_preview is not None
 
@@ -114,7 +112,7 @@ def test_gaze_preview_clear_removes_benchmark_label(qapp):
     assert dot._label == ""
 
 
-def test_delivery_failure_shows_nonblocking_status(qapp):
+def test_delivery_failure_logs_verbose_status(qapp, monkeypatch):
     vk = VirtualKeyboard()
     vk._typing_runtime.session.activate()
     from gazekey.input.os_input_adapter import OsInjectResult
@@ -128,7 +126,9 @@ def test_delivery_failure_shows_nonblocking_status(qapp):
         timestamp=1.0,
     )
     mapper_before = vk._gaze_mapper
+    logs: list[str] = []
+    monkeypatch.setattr(vk, "_log_verbose", lambda msg: logs.append(msg))
     vk._on_os_action_delivered(action, OsInjectResult(ok=False, error="no_target"))
-    assert "OS typing unavailable" in vk.text_display.text()
+    assert any("OS typing unavailable" in m for m in logs)
     assert vk._typing_runtime.session.is_active
     assert vk._gaze_mapper is mapper_before

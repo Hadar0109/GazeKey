@@ -35,7 +35,7 @@ from gazekey.typing.action_dispatcher import ActionDispatcher
 from gazekey.typing.dwell_engine import DwellEngine, DwellPhase
 from gazekey.typing.gaze_smoother import GazeSmoother
 from gazekey.typing.gaze_typing_runtime import GazeTypingFrameResult, GazeTypingRuntime
-from gazekey.typing.key_semantics import PAUSE_RESUME_ACTION, is_os_bound_action, is_pause_resume_action
+from gazekey.typing.key_semantics import is_os_bound_action, is_pause_resume_action
 from gazekey.typing.typing_session import TypingSession
 from gazekey.input.pynput_adapter import PynputOsInputAdapter
 from gazekey.input.os_input_adapter import OsInjectResult
@@ -55,7 +55,7 @@ class VirtualKeyboard(QWidget):
         self.shift_active = False
         self.letter_keys = {}  # Store references to letter buttons for shift toggle
         self.is_expanded = True  # Track zoom state
-        self.current_layout = 'letters'  # Track current layout: 'letters' or 'symbols'
+        self.current_layout = 'letters'  # Product is letters-only (symbols path removed in 003)
         self.tracking_manager = None
         self.camera_preview_window = None
         self._tracking_bridge = TrackingBridge()
@@ -178,10 +178,8 @@ class VirtualKeyboard(QWidget):
         return bool(self._devtools.benchmark_active())
 
     def _set_post_calibration_controls(self, enabled: bool) -> None:
-        if hasattr(self, "preview_btn"):
-            self.preview_btn.setEnabled(enabled and not self._benchmark_active())
-        if hasattr(self, "pause_resume_btn"):
-            self.pause_resume_btn.setEnabled(enabled and not self._benchmark_active())
+        # Product Pause/Preview removed (003); tools preview remains via python -m tools.preview.
+        del enabled
 
     def _ensure_typing_auto_started(self) -> None:
         """Activate typing when a usable mapper exists (not gated on 001 thresholds)."""
@@ -194,6 +192,11 @@ class VirtualKeyboard(QWidget):
             runtime.session.activate()
             runtime.set_os_inject_enabled(True)
             self._sync_typing_session_ui()
+        elif runtime.session.is_paused:
+            # Product pause UI removed — keep session active when mapper available.
+            runtime.session.resume()
+            runtime.set_os_inject_enabled(True)
+            self._sync_typing_session_ui()
 
     def _reset_typing_for_recalibration(self) -> None:
         runtime = getattr(self, "_typing_runtime", None)
@@ -204,7 +207,6 @@ class VirtualKeyboard(QWidget):
         self._sync_typing_session_ui()
 
     def _sync_typing_session_ui(self) -> None:
-        self._update_pause_resume_button()
         runtime = getattr(self, "_typing_runtime", None)
         if runtime is None:
             return
@@ -216,30 +218,6 @@ class VirtualKeyboard(QWidget):
                 self.shift_btn.blockSignals(False)
             self.shift_active = bool(armed)
 
-    def _update_pause_resume_button(self) -> None:
-        if not hasattr(self, "pause_resume_btn"):
-            return
-        runtime = getattr(self, "_typing_runtime", None)
-        if runtime is None or runtime.session.is_inactive:
-            self.pause_resume_btn.setText("Pause")
-            self.pause_resume_btn.setEnabled(False)
-            return
-        self.pause_resume_btn.setEnabled(not self._benchmark_active())
-        if runtime.session.is_paused:
-            self.pause_resume_btn.setText("Resume")
-        else:
-            self.pause_resume_btn.setText("Pause")
-
-    def on_pause_resume_clicked(self) -> None:
-        """Mouse Pause/Resume — system control, no OS KeyAction."""
-        if self._is_calibrating or self._benchmark_active():
-            return
-        runtime = getattr(self, "_typing_runtime", None)
-        if runtime is None or runtime.session.is_inactive:
-            return
-        key_id = self._key_id_for_action(PAUSE_RESUME_ACTION) or "system:pause_resume"
-        runtime.on_mouse_key(key_id=key_id, action=PAUSE_RESUME_ACTION)
-
     def _key_id_for_action(self, action: str) -> Optional[str]:
         for key in getattr(self, "_layout_keys", None) or []:
             if str(getattr(key, "key_action", "")) == action:
@@ -250,21 +228,16 @@ class VirtualKeyboard(QWidget):
         self._devtools.maybe_start_dev_benchmark()
 
     def on_preview_clicked(self) -> None:
+        """Tools-only preview toggle (product Preview button removed — use python -m tools.preview)."""
         if not self._calibration_usable():
             self._log_verbose("[preview] blocked — calibration required before preview (CQ-2)")
             return
         if self._is_calibrating or self._benchmark_active():
             return
-        # Preview is a tools capability; product button only toggles when tools installed a preview.
         if self._devtools.ensure_gaze_preview(self) is None and not self._preview_mode:
             self._log_verbose("[preview] unavailable on product path — use: python -m tools.preview")
             return
         self._preview_mode = not bool(self._preview_mode)
-        if hasattr(self, "preview_btn"):
-            self.preview_btn.setProperty("active", "true" if self._preview_mode else "false")
-            self.preview_btn.style().unpolish(self.preview_btn)
-            self.preview_btn.style().polish(self.preview_btn)
-            self.preview_btn.update()
         if not self._preview_mode:
             self._hide_preview_dot()
             self._clear_v2_focus()
@@ -301,11 +274,10 @@ class VirtualKeyboard(QWidget):
         )
 
     def on_suggestion_clicked(self, suggestion):
-        """Handle suggestion button click (placeholder for future auto-complete)"""
-        # T037: buttons are disabled in MVP; guard in case a signal fires anyway.
+        """Handle suggestion slot click (wired to prediction in Phase 4)."""
         if not getattr(self, "suggestion_buttons", None):
             return
-        self._log_verbose(f"Suggestion clicked: {suggestion} - TODO: Insert word into text")
+        self._log_verbose(f"Suggestion clicked: {suggestion}")
 
     def on_key_pressed(self, key):
         """Handle key press from mouse (OS-bound → ActionDispatcher when typing active)."""
@@ -360,14 +332,7 @@ class VirtualKeyboard(QWidget):
                 background-color: #F04A57;
             }
         """)
-        self.camera_status_label.setText(f"📷 {status_message}")
-        self.camera_status_label.setStyleSheet("""
-            QLabel {
-                color: #E63946;
-                padding: 5px;
-                font-weight: bold;
-            }
-        """)
+        self._log_verbose(f"[calib] recalibrate needed: {status_message}")
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
@@ -414,14 +379,6 @@ class VirtualKeyboard(QWidget):
         # During calibration we want ONLY the calibration overlay visible (no runtime preview dot).
         self._reset_typing_for_recalibration()
         self._preview_mode = False
-        try:
-            if hasattr(self, "preview_btn"):
-                self.preview_btn.setProperty("active", "false")
-                self.preview_btn.style().unpolish(self.preview_btn)
-                self.preview_btn.style().polish(self.preview_btn)
-                self.preview_btn.update()
-        except Exception:
-            pass
         try:
             self._hide_preview_dot()
         except Exception:
@@ -564,7 +521,7 @@ class VirtualKeyboard(QWidget):
         self._calibration_finish.reset_debug_csvs()
 
     def _on_os_action_delivered(self, action: KeyAction, result: OsInjectResult) -> None:
-        """Non-blocking status for failed OS delivery / no usable target (T048)."""
+        """Verbose-only status for failed OS delivery (text_display removed — R10)."""
         if result.ok:
             return
         reason = (result.error or "no usable external typing target").strip()
@@ -572,49 +529,11 @@ class VirtualKeyboard(QWidget):
         # Do not clear mapper / session / calibration state.
 
     def _show_typing_status(self, message: str, *, error: bool = False) -> None:
-        if not hasattr(self, "text_display"):
-            return
-        self.text_display.setText(message)
-        if error:
-            self.text_display.setStyleSheet("""
-                QLineEdit {
-                    background-color: #1A1010;
-                    color: #F87171;
-                    border: 1px solid #7F1D1D;
-                    border-radius: 4px;
-                    padding: 6px 10px;
-                }
-            """)
-        else:
-            self.text_display.setStyleSheet("""
-                QLineEdit {
-                    background-color: #111111;
-                    color: #FFFFFF;
-                    border: 1px solid #333333;
-                    border-radius: 4px;
-                    padding: 6px 10px;
-                }
-            """)
-        if self._typing_status_clear_timer is None:
-            self._typing_status_clear_timer = QTimer(self)
-            self._typing_status_clear_timer.setSingleShot(True)
-            self._typing_status_clear_timer.timeout.connect(self._clear_typing_status)
-        self._typing_status_clear_timer.start(3500)
+        prefix = "[typing:error]" if error else "[typing]"
+        self._log_verbose(f"{prefix} {message}")
 
     def _clear_typing_status(self) -> None:
-        if not hasattr(self, "text_display"):
-            return
-        self.text_display.clear()
-        self.text_display.setPlaceholderText("Types into the focused external app")
-        self.text_display.setStyleSheet("""
-            QLineEdit {
-                background-color: #111111;
-                color: #FFFFFF;
-                border: 1px solid #333333;
-                border-radius: 4px;
-                padding: 6px 10px;
-            }
-        """)
+        return
 
     def _update_dwell_visuals(self, result: GazeTypingFrameResult) -> None:
         """Border highlight + circular progress ring on existing key geometry (T047)."""
@@ -740,14 +659,6 @@ class VirtualKeyboard(QWidget):
                 btn.setText(char.lower())
         self._log_verbose(f"Shift {'ON' if self.shift_active else 'OFF'}")
     
-    def on_language_clicked(self):
-        """Handle language toggle"""
-        if hasattr(self, "lang_btn") and not self.lang_btn.isEnabled():
-            return
-        current = self.lang_btn.text()
-        self.lang_btn.setText("עב" if current == "EN" else "EN")
-        self._log_verbose(f"Language switched to: {self.lang_btn.text()}")
-    
     def on_minimize_clicked(self):
         """Handle minimize button click - shrink to keyboard icon"""
         # Hide main content, show minimized icon
@@ -769,12 +680,3 @@ class VirtualKeyboard(QWidget):
         if self.camera_preview_window and self._gaze_mapper is not None:
             self.camera_preview_window.show_post_calibration()
         self._log_verbose("Keyboard restored to full view")
-    
-    def on_symbols_clicked(self):
-        """Handle symbols toggle"""
-        if hasattr(self, "symbols_btn") and not self.symbols_btn.isEnabled():
-            return
-        if self.current_layout == 'letters':
-            self._keyboard_layout_builder.switch_layout('symbols')
-        else:
-            self._keyboard_layout_builder.switch_layout('letters')

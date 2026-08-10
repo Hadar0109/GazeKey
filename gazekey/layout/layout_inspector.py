@@ -86,6 +86,7 @@ def inspect_keyboard_layout(
             continue
         if not btn.isVisible():
             continue
+        # Export disabled suggestion slots (fixed geometry); hit-test skips them.
         candidates.append(btn)
 
     rects = [_button_global_rect(b) for b in candidates]
@@ -115,17 +116,28 @@ def inspect_keyboard_layout(
         center = (float(rect.center().x()), float(rect.center().y()))
 
         label = btn.text()
-        action = action_from_label(label)
+        # Optional stable overrides (suggestion:N, system:calibrate).
+        override_id = btn.property("gazeKeyId")
+        override_action = btn.property("gazeKeyAction")
+        if override_action:
+            action = str(override_action)
+        else:
+            action = action_from_label(label)
         is_special = (
             action in {"BACKSPACE", "ENTER", "SHIFT", "CTRL", "ALT", " ", "PAUSE_RESUME"}
+            or str(action).startswith("suggestion:")
+            or str(action).startswith("system:")
             or len(action) != 1
         )
         weight = float(special_key_weight if is_special else normal_key_weight)
 
         hitbox = _enlarged_hitbox(rect, margin_px=int(hitbox_margin_px))
 
-        # Stable within a layout snapshot: derived from semantic action + row/col ordering.
-        key_id = f"r{row_i:02d}c{col_i:02d}:{action}"
+        # Stable within a layout snapshot: override or semantic action + row/col.
+        if override_id:
+            key_id = str(override_id)
+        else:
+            key_id = f"r{row_i:02d}c{col_i:02d}:{action}"
 
         rows.append(
             KeyGeometryRow(

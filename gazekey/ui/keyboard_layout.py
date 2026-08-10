@@ -1,4 +1,4 @@
-"""Keyboard window chrome, key grid, and responsive geometry (T046)."""
+"""Keyboard window chrome, key grid, and responsive geometry (003 simplified)."""
 
 from __future__ import annotations
 
@@ -9,8 +9,6 @@ from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
-    QLabel,
-    QLineEdit,
     QPushButton,
     QSizePolicy,
     QVBoxLayout,
@@ -22,6 +20,10 @@ from gazekey.typing.gaze_ui_mapper import typing_region_rect
 
 if TYPE_CHECKING:
     from gazekey.ui.virtual_keyboard import VirtualKeyboard
+
+# Stable layout key_ids for suggestion slots (contracts/keyboard-layout-003.md).
+SUGGESTION_SLOT_COUNT = 3
+SUGGESTION_KEY_ID_PREFIX = "suggestion:"
 
 
 class KeyboardLayoutBuilder:
@@ -67,16 +69,11 @@ class KeyboardLayoutBuilder:
         h._control_bar_widget = QWidget()
         h._control_bar_widget.setLayout(h._control_bar_layout)
 
-        h._text_display_layout = self.create_text_display()
-        h._text_display_widget = QWidget()
-        h._text_display_widget.setLayout(h._text_display_layout)
-
         h._suggestion_bar_layout = self.create_suggestion_bar()
         h._suggestion_bar_widget = QWidget()
         h._suggestion_bar_widget.setLayout(h._suggestion_bar_layout)
 
         h._container_layout.addWidget(h._control_bar_widget, 0)
-        h._container_layout.addWidget(h._text_display_widget, 0)
         h._container_layout.addWidget(h._suggestion_bar_widget, 0)
 
         h.keyboard_widget = QWidget()
@@ -108,15 +105,8 @@ class KeyboardLayoutBuilder:
             "keyboard_widget",
             "minimized_content_widget",
             "_control_bar_widget",
-            "_text_display_widget",
             "_suggestion_bar_widget",
-            "text_display",
-            "camera_status_label",
             "calibrate_btn",
-            "pause_resume_btn",
-            "preview_btn",
-            "lang_btn",
-            "symbols_btn",
             "minimize_btn",
             "close_btn",
             "restore_btn",
@@ -129,27 +119,12 @@ class KeyboardLayoutBuilder:
             btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         for btn in getattr(h, "letter_keys", {}).values():
             btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        # All keyboardKey / gazeTarget buttons under the host.
         for btn in h.findChildren(QPushButton):
             btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
     def apply_mvp_future_ui_placeholders(self) -> None:
-        """T037 / FR-018: disable future UI without shrinking layout."""
+        """Keep suggestion slots fixed but blank/disabled until prediction wires labels."""
         h = self._h
-        disabled_chrome_style = """
-            QPushButton:disabled {
-                background-color: rgba(255, 255, 255, 0.05);
-                color: rgba(255, 255, 255, 0.35);
-                border: 1px solid rgba(255, 255, 255, 0.12);
-            }
-        """
-        for attr in ("lang_btn", "symbols_btn"):
-            if hasattr(h, attr):
-                btn = getattr(h, attr)
-                btn.setEnabled(False)
-                btn.setToolTip("Reserved for a future release — not active in the calibration/mapping MVP")
-                btn.setStyleSheet(btn.styleSheet() + disabled_chrome_style)
-
         suggestion_disabled_style = """
             QPushButton:disabled {
                 background-color: #0a0a0a;
@@ -159,7 +134,8 @@ class KeyboardLayoutBuilder:
         """
         for btn in getattr(h, "suggestion_buttons", []):
             btn.setEnabled(False)
-            btn.setToolTip("Autocomplete suggestions — reserved for a future release")
+            btn.setText("")
+            btn.setToolTip("Autocomplete suggestions")
             btn.setStyleSheet(btn.styleSheet() + suggestion_disabled_style)
 
     def create_control_bar(self) -> QHBoxLayout:
@@ -170,6 +146,7 @@ class KeyboardLayoutBuilder:
 
         h.calibrate_btn = QPushButton("👁 CALIBRATE")
         h.calibrate_btn.setObjectName("gazeTarget")
+        h.calibrate_btn.setProperty("gazeKeyId", "system:calibrate")
         h.calibrate_btn.setMinimumSize(220, 56)
         h.calibrate_btn.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
         h.calibrate_btn.setStyleSheet("""
@@ -196,81 +173,8 @@ class KeyboardLayoutBuilder:
         h.calibrate_btn.clicked.connect(h.on_calibrate_clicked)
         h._calibrate_btn_style_default = h.calibrate_btn.styleSheet()
 
-        h.camera_status_label = QLabel("📷 Camera: Off")
-        h.camera_status_label.setFont(QFont("Segoe UI", 9))
-        h.camera_status_label.setStyleSheet("""
-            QLabel {
-                color: #999999;
-                padding: 5px;
-            }
-        """)
-
         layout.addWidget(h.calibrate_btn)
-        layout.addWidget(h.camera_status_label)
-
-        h.pause_resume_btn = QPushButton("Pause")
-        h.pause_resume_btn.setObjectName("gazeTarget")
-        h.pause_resume_btn.setMinimumSize(90, 45)
-        h.pause_resume_btn.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        h.pause_resume_btn.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(251, 191, 36, 0.14);
-                color: #FBBF24;
-                border: 1px solid rgba(251, 191, 36, 0.35);
-                border-radius: 8px;
-            }
-            QPushButton:hover {
-                background-color: rgba(251, 191, 36, 0.22);
-            }
-            QPushButton#gazeTarget[gazeFocused="true"] {
-                border: 2px solid #FBBF24;
-            }
-            QPushButton#gazeTarget[gazeDwelling="true"] {
-                border: 2px solid #10B981;
-            }
-        """)
-        h.pause_resume_btn.clicked.connect(h.on_pause_resume_clicked)
-        h.pause_resume_btn.setEnabled(False)
-        layout.addWidget(h.pause_resume_btn)
-
-        h.preview_btn = QPushButton("PREVIEW")
-        h.preview_btn.setMinimumSize(90, 45)
-        h.preview_btn.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        h.preview_btn.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(16, 185, 129, 0.12);
-                color: #10B981;
-                border: 1px solid rgba(16, 185, 129, 0.35);
-                border-radius: 8px;
-            }
-            QPushButton:hover {
-                background-color: rgba(16, 185, 129, 0.18);
-            }
-            QPushButton[active="true"] {
-                background-color: rgba(16, 185, 129, 0.25);
-                border: 1px solid rgba(16, 185, 129, 0.6);
-            }
-        """)
-        h.preview_btn.clicked.connect(h.on_preview_clicked)
-        h.preview_btn.setEnabled(False)
-        layout.addWidget(h.preview_btn)
         layout.addStretch()
-
-        h.lang_btn = QPushButton("EN")
-        h.lang_btn.setMinimumSize(60, 45)
-        h.lang_btn.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        h.lang_btn.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(255, 255, 255, 0.1);
-                color: white;
-                border: 1px solid rgba(255, 255, 255, 0.2);
-                border-radius: 8px;
-            }
-            QPushButton:hover {
-                background-color: rgba(255, 255, 255, 0.15);
-            }
-        """)
-        h.lang_btn.clicked.connect(h.on_language_clicked)
 
         h.minimize_btn = QPushButton("−")
         h.minimize_btn.setMinimumSize(50, 45)
@@ -305,49 +209,9 @@ class KeyboardLayoutBuilder:
         """)
         h.close_btn.clicked.connect(h.on_close_clicked)
 
-        h.symbols_btn = QPushButton("?123")
-        h.symbols_btn.setMinimumSize(60, 45)
-        h.symbols_btn.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        h.symbols_btn.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(255, 255, 255, 0.1);
-                color: white;
-                border: 1px solid rgba(255, 255, 255, 0.2);
-                border-radius: 8px;
-            }
-            QPushButton:hover {
-                background-color: rgba(255, 255, 255, 0.15);
-            }
-        """)
-        h.symbols_btn.clicked.connect(h.on_symbols_clicked)
-
-        layout.addWidget(h.lang_btn)
-        layout.addWidget(h.symbols_btn)
         layout.addWidget(h.minimize_btn)
         layout.addWidget(h.close_btn)
 
-        return layout
-
-    def create_text_display(self) -> QHBoxLayout:
-        h = self._h
-        layout = QHBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        h.text_display = QLineEdit()
-        h.text_display.setPlaceholderText("Types into the focused external app")
-        h.text_display.setReadOnly(True)
-        h.text_display.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        h.text_display.setMinimumHeight(34)
-        h.text_display.setFont(QFont("Segoe UI", 14))
-        h.text_display.setStyleSheet("""
-            QLineEdit {
-                background-color: #111111;
-                color: #FFFFFF;
-                border: 1px solid #333333;
-                border-radius: 4px;
-                padding: 6px 10px;
-            }
-        """)
-        layout.addWidget(h.text_display)
         return layout
 
     def create_suggestion_bar(self) -> QHBoxLayout:
@@ -356,31 +220,47 @@ class KeyboardLayoutBuilder:
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
         h.suggestion_buttons = []
-        placeholder_suggestions = ["word1", "word2", "word3"]
-        for suggestion in placeholder_suggestions:
-            btn = QPushButton(suggestion)
-            btn.setMinimumHeight(30)
+        base_style = """
+            QPushButton#gazeTarget {
+                background-color: #000000;
+                color: #CCCCCC;
+                border: 1px solid #333333;
+                border-radius: 0;
+                text-align: center;
+                padding: 0px 10px;
+            }
+            QPushButton#gazeTarget:hover {
+                background-color: #1A1A1A;
+                border: 1px solid #555555;
+            }
+            QPushButton#gazeTarget:pressed {
+                background-color: #2A2A2A;
+                color: white;
+            }
+            QPushButton#gazeTarget[gazeFocused="true"] {
+                border: 2px solid #FBBF24;
+            }
+            QPushButton#gazeTarget[gazeDwelling="true"] {
+                border: 2px solid #10B981;
+            }
+            QPushButton#gazeTarget:disabled {
+                background-color: #0a0a0a;
+                color: rgba(204, 204, 204, 0.35);
+                border: 1px solid #222222;
+            }
+        """
+        for slot in range(SUGGESTION_SLOT_COUNT):
+            key_id = f"{SUGGESTION_KEY_ID_PREFIX}{slot}"
+            btn = QPushButton("")
+            btn.setObjectName("gazeTarget")
+            btn.setProperty("gazeKeyId", key_id)
+            btn.setProperty("gazeKeyAction", key_id)
+            btn.setMinimumHeight(40)
             btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
             btn.setFont(QFont("Segoe UI", 14, QFont.Weight.Medium))
-            btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #000000;
-                    color: #CCCCCC;
-                    border: 1px solid #333333;
-                    border-radius: 0;
-                    text-align: center;
-                    padding: 0px 10px;
-                }
-                QPushButton:hover {
-                    background-color: #1A1A1A;
-                    border: 1px solid #555555;
-                }
-                QPushButton:pressed {
-                    background-color: #2A2A2A;
-                    color: white;
-                }
-            """)
-            btn.clicked.connect(lambda checked, s=suggestion: h.on_suggestion_clicked(s))
+            btn.setStyleSheet(base_style)
+            btn.setEnabled(False)
+            btn.clicked.connect(lambda checked=False, s=slot: h.on_suggestion_clicked(s))
             h.suggestion_buttons.append(btn)
             layout.addWidget(btn, 1)
         return layout
@@ -472,6 +352,7 @@ class KeyboardLayoutBuilder:
         parent_layout.addLayout(row, 1)
 
     def create_letters_layout(self) -> QVBoxLayout:
+        """R7 acceptance layout: letters + Shift/Backspace + Space/Enter (no Ctrl/Alt)."""
         h = self._h
         h.letter_keys.clear()
         layout = QVBoxLayout()
@@ -508,55 +389,33 @@ class KeyboardLayoutBuilder:
         row3_keys.append((backspace_btn, 2))
         self._add_key_row(layout, row3_keys)
 
-        ctrl_btn = self.create_key("Ctrl")
-        ctrl_btn.clicked.connect(lambda: h.on_key_pressed("CTRL"))
-        alt_btn = self.create_key("Alt")
-        alt_btn.clicked.connect(lambda: h.on_key_pressed("ALT"))
         space_btn = self.create_key("Space")
         space_btn.clicked.connect(lambda: h.on_key_pressed(" "))
         enter_btn = self.create_key("↵")
         enter_btn.clicked.connect(lambda: h.on_key_pressed("ENTER"))
         self._add_key_row(layout, [
-            (ctrl_btn, 1),
-            (alt_btn, 1),
             (space_btn, 5),
             (enter_btn, 2),
         ])
         return layout
 
-    def create_symbols_layout(self) -> QVBoxLayout:
+    def switch_layout(self, layout_type: str) -> None:
+        """Letters-only product surface (003). Symbols path removed; keep API for tools."""
         h = self._h
-        layout = QVBoxLayout()
-        layout.setSpacing(int(getattr(h, "_key_gap_px", 3)))
-        layout.setContentsMargins(0, 0, 0, 0)
-
-        self._add_key_row(layout, [(self.create_key(n), 1) for n in "1234567890"])
-        self._add_key_row(layout, [
-            (self.create_key(sym), 1)
-            for sym in ["!", "@", "#", "$", "%", "^", "&&", "*", "(", ")"]
-        ])
-
-        row3_keys = [(self.create_key(sym), 1) for sym in ["-", "/", ":", ";", "'", '"', ",", "."]]
-        backspace_btn = self.create_key("⌫")
-        backspace_btn.clicked.connect(lambda: h.on_key_pressed("BACKSPACE"))
-        row3_keys.append((backspace_btn, 2))
-        self._add_key_row(layout, row3_keys)
-
-        ctrl_btn = self.create_key("Ctrl")
-        ctrl_btn.clicked.connect(lambda: h.on_key_pressed("CTRL"))
-        alt_btn = self.create_key("Alt")
-        alt_btn.clicked.connect(lambda: h.on_key_pressed("ALT"))
-        space_btn = self.create_key("Space")
-        space_btn.clicked.connect(lambda: h.on_key_pressed(" "))
-        enter_btn = self.create_key("↵")
-        enter_btn.clicked.connect(lambda: h.on_key_pressed("ENTER"))
-        self._add_key_row(layout, [
-            (ctrl_btn, 1),
-            (alt_btn, 1),
-            (space_btn, 5),
-            (enter_btn, 2),
-        ])
-        return layout
+        if layout_type != "letters":
+            h._log_verbose(f"switch_layout({layout_type!r}) ignored — letters-only product keyboard")
+            return
+        keyboard_layout = h.keyboard_widget.layout()
+        while keyboard_layout.count():
+            item = keyboard_layout.takeAt(0)
+            if item.layout():
+                self.clear_layout(item.layout())
+            elif item.widget():
+                item.widget().deleteLater()
+        keyboard_layout.addLayout(self.create_letters_layout())
+        h.current_layout = "letters"
+        self.apply_no_focus_policies()
+        h._schedule_layout_export()
 
     def create_key(self, text: str) -> QPushButton:
         h = self._h
@@ -577,30 +436,6 @@ class KeyboardLayoutBuilder:
         elif text == "&&":
             btn.clicked.connect(lambda: h.on_key_pressed("&"))
         return btn
-
-    def switch_layout(self, layout_type: str) -> None:
-        h = self._h
-        keyboard_layout = h.keyboard_widget.layout()
-        while keyboard_layout.count():
-            item = keyboard_layout.takeAt(0)
-            if item.layout():
-                self.clear_layout(item.layout())
-            elif item.widget():
-                item.widget().deleteLater()
-
-        if layout_type == "letters":
-            new_layout = self.create_letters_layout()
-            h.symbols_btn.setText("?123")
-            h._log_verbose("Switched to letters layout")
-        else:
-            new_layout = self.create_symbols_layout()
-            h.symbols_btn.setText("ABC")
-            h._log_verbose("Switched to symbols layout")
-
-        keyboard_layout.addLayout(new_layout)
-        h.current_layout = layout_type
-        self.apply_no_focus_policies()
-        h._schedule_layout_export()
 
     @staticmethod
     def clear_layout(layout: Any) -> None:
@@ -682,14 +517,12 @@ class KeyboardLayoutBuilder:
             h._keyboard_layout.setSpacing(gap)
         if hasattr(h, "_control_bar_layout"):
             h._control_bar_layout.setSpacing(gap)
-        if hasattr(h, "_text_display_layout"):
-            h._text_display_layout.setSpacing(gap)
         if hasattr(h, "_suggestion_bar_layout"):
             h._suggestion_bar_layout.setSpacing(gap)
 
-        chrome_h = int(max(34.0, min(58.0, window_h * 0.12)))
-        text_h = int(max(24.0, min(38.0, window_h * 0.08)))
-        sugg_h = int(max(26.0, min(40.0, window_h * 0.08)))
+        # R7: reclaim typed-text row → taller chrome + suggestion bar + keys.
+        chrome_h = int(max(36.0, min(56.0, window_h * 0.10)))
+        sugg_h = int(max(40.0, min(64.0, window_h * 0.11)))
 
         chrome_pt = int(max(11.0, min(18.0, chrome_h * 0.30)))
         if hasattr(h, "calibrate_btn"):
@@ -697,16 +530,10 @@ class KeyboardLayoutBuilder:
             if f.pointSize() != chrome_pt + 4:
                 f.setPointSize(chrome_pt + 4)
                 h.calibrate_btn.setFont(f)
-        if hasattr(h, "camera_status_label"):
-            f = h.camera_status_label.font()
-            if f.pointSize() != max(8, chrome_pt - 2):
-                f.setPointSize(max(8, chrome_pt - 2))
-                h.camera_status_label.setFont(f)
-
-        if hasattr(h, "calibrate_btn"):
             h.calibrate_btn.setMinimumHeight(chrome_h)
             h.calibrate_btn.setMaximumHeight(chrome_h)
-        for attr in ("lang_btn", "symbols_btn", "minimize_btn", "close_btn", "preview_btn", "pause_resume_btn"):
+
+        for attr in ("minimize_btn", "close_btn"):
             if hasattr(h, attr):
                 btn = getattr(h, attr)
                 btn.setMinimumHeight(max(34, chrome_h - 10))
@@ -716,40 +543,33 @@ class KeyboardLayoutBuilder:
                     f.setPointSize(max(9, chrome_pt))
                     btn.setFont(f)
 
-        if hasattr(h, "text_display"):
-            h.text_display.setMinimumHeight(text_h)
-            h.text_display.setMaximumHeight(text_h)
-            f = h.text_display.font()
-            if f.pointSize() != int(max(11.0, min(18.0, text_h * 0.45))):
-                f.setPointSize(int(max(11.0, min(18.0, text_h * 0.45))))
-                h.text_display.setFont(f)
-
         if hasattr(h, "suggestion_buttons"):
             for btn in h.suggestion_buttons:
                 btn.setMinimumHeight(sugg_h)
                 btn.setMaximumHeight(sugg_h)
                 f = btn.font()
-                target = int(max(10.0, min(18.0, sugg_h * 0.45)))
+                target = int(max(12.0, min(20.0, sugg_h * 0.42)))
                 if f.pointSize() != target:
                     f.setPointSize(target)
                     btn.setFont(f)
 
         margins_total = float(margin * 2)
-        gaps_total = float(gap * 3)
-        desired_kb_h = window_h - (margins_total + gaps_total + chrome_h + text_h + sugg_h)
+        gaps_total = float(gap * 2)  # control + suggestion + keyboard (2 gaps)
+        desired_kb_h = window_h - (margins_total + gaps_total + chrome_h + sugg_h)
 
-        if desired_kb_h < 4 * 24:
-            extra = (4 * 24) - desired_kb_h
-            shrink = min(extra, chrome_h * 0.25)
-            chrome_h = int(max(28.0, chrome_h - shrink))
-            desired_kb_h = window_h - (margins_total + gaps_total + chrome_h + text_h + sugg_h)
+        if desired_kb_h < 4 * 28:
+            extra = (4 * 28) - desired_kb_h
+            shrink_chrome = min(extra * 0.4, chrome_h * 0.2)
+            shrink_sugg = min(extra * 0.6, sugg_h * 0.25)
+            chrome_h = int(max(32.0, chrome_h - shrink_chrome))
+            sugg_h = int(max(36.0, sugg_h - shrink_sugg))
+            desired_kb_h = window_h - (margins_total + gaps_total + chrome_h + sugg_h)
 
         h.keyboard_widget.setMinimumHeight(int(max(0.0, desired_kb_h)))
         h.keyboard_widget.setMaximumHeight(int(max(0.0, desired_kb_h)))
 
         for widget_attr, widget_h in (
             ("_control_bar_widget", chrome_h),
-            ("_text_display_widget", text_h),
             ("_suggestion_bar_widget", sugg_h),
         ):
             if hasattr(h, widget_attr):
@@ -766,8 +586,8 @@ class KeyboardLayoutBuilder:
         usable = max(0.0, kb_h - row_spacing * (rows - 1.0))
         row_h = usable / rows if rows > 0 else usable
 
-        key_h = int(max(24.0, min(72.0, row_h)))
-        font_pt = int(max(11.0, min(22.0, key_h * 0.42)))
+        key_h = int(max(28.0, min(96.0, row_h)))
+        font_pt = int(max(12.0, min(26.0, key_h * 0.42)))
 
         for btn in h.keyboard_widget.findChildren(QPushButton, "keyboardKey"):
             btn.setMinimumHeight(key_h)
@@ -776,17 +596,6 @@ class KeyboardLayoutBuilder:
             if f.pointSize() != font_pt:
                 f.setPointSize(font_pt)
                 btn.setFont(f)
-
-        if hasattr(h, "suggestion_buttons"):
-            sug_h2 = int(max(26.0, min(48.0, key_h * 0.75)))
-            sug_pt = int(max(10.0, min(18.0, sug_h2 * 0.45)))
-            for btn in h.suggestion_buttons:
-                btn.setMinimumHeight(sug_h2)
-                btn.setMaximumHeight(sug_h2)
-                f = btn.font()
-                if f.pointSize() != sug_pt:
-                    f.setPointSize(sug_pt)
-                    btn.setFont(f)
 
     def schedule_layout_export(self) -> None:
         h = self._h

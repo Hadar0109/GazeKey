@@ -12,11 +12,14 @@ build/
 dist/
 *.egg-info/
 
-# IDE
+# IDE / OS
 .vscode/
 .idea/
 *.swp
 *.swo
+.DS_Store
+Thumbs.db
+*.tmp
 
 # Project specific
 calibration_v1.json

@@ -52,10 +52,29 @@ def test_key_and_chrome_widgets_use_no_focus(qapp):
     vk = VirtualKeyboard()
     vk._needs_first_calibration = False
     qapp.processEvents()
-    assert vk.text_display.focusPolicy() == Qt.FocusPolicy.NoFocus
     assert vk.calibrate_btn.focusPolicy() == Qt.FocusPolicy.NoFocus
-    assert vk.pause_resume_btn.focusPolicy() == Qt.FocusPolicy.NoFocus
+    assert vk.minimize_btn.focusPolicy() == Qt.FocusPolicy.NoFocus
+    assert vk.close_btn.focusPolicy() == Qt.FocusPolicy.NoFocus
+    assert len(vk.suggestion_buttons) == 3
+    for btn in vk.suggestion_buttons:
+        assert btn.focusPolicy() == Qt.FocusPolicy.NoFocus
     keys = [b for b in vk.findChildren(QPushButton) if b.objectName() in ("keyboardKey", "gazeTarget")]
     assert keys, "expected keyboard keys"
     for btn in keys:
         assert btn.focusPolicy() == Qt.FocusPolicy.NoFocus, btn.text()
+
+
+def test_removed_product_chrome_absent(qapp):
+    """003 US3: Pause/Preview/lang/symbols/text_display/status chrome removed."""
+    vk = VirtualKeyboard()
+    vk._needs_first_calibration = False
+    qapp.processEvents()
+    assert not hasattr(vk, "text_display")
+    assert not hasattr(vk, "pause_resume_btn")
+    assert not hasattr(vk, "preview_btn")
+    assert not hasattr(vk, "lang_btn")
+    assert not hasattr(vk, "symbols_btn")
+    assert not hasattr(vk, "camera_status_label")
+    labels = {b.text() for b in vk.findChildren(QPushButton) if b.objectName() == "keyboardKey"}
+    assert "Ctrl" not in labels
+    assert "Alt" not in labels

@@ -26,13 +26,13 @@ P2 priority (plan Phase A).
 
 **Purpose**: Scaffold prediction package without changing product behavior yet.
 
-- [ ] T001 Confirm branch `003-predictive-text-keyboard-ux` and feature dir
+- [X] T001 Confirm branch `003-predictive-text-keyboard-ux` and feature dir
   `specs/003-predictive-text-keyboard-ux/`
-- [ ] T002 Create `gazekey/prediction/` package layout with `__init__.py`,
+- [X] T002 Create `gazekey/prediction/` package layout with `__init__.py`,
   `word_provider.py` (Protocol stub), `trie_provider.py` (stub),
   `typing_context.py` (stub), `suggestion_dispatch.py` (stub), and
   `gazekey/prediction/data/` per `specs/003-predictive-text-keyboard-ux/plan.md`
-- [ ] T003 [P] Add `gazekey/prediction/data/README.md` placeholder documenting
+- [X] T003 [P] Add `gazekey/prediction/data/README.md` placeholder documenting
   that `words_en.txt` MUST name source URL/name, license, and attribution
   before bundling (research R1) — do not ship an unlicensed list
 
@@ -51,55 +51,55 @@ synchronized (FR-008, FR-008a–c, FR-011).
 
 ### Product UI removals (one logical group; clean wiring)
 
-- [ ] T004 [US3] Remove Pause button and product pause UI wiring from
+- [X] T004 [US3] Remove Pause button and product pause UI wiring from
   `gazekey/ui/keyboard_layout.py` and `gazekey/ui/virtual_keyboard.py`; leave
   product typing session active when mapper available; remove or gate product
   dwell path to `PAUSE_RESUME` (research R9); update tests that assume
   `pause_resume_btn`
-- [ ] T005 [US3] Remove product Preview button and product-only wiring from
+- [X] T005 [US3] Remove product Preview button and product-only wiring from
   `gazekey/ui/keyboard_layout.py` / `gazekey/ui/virtual_keyboard.py`; **preserve**
   `python -m tools.preview`, `GazeLoopController.process_gaze_preview`, and
   shared preview runtime (FR-008b / research R8)
-- [ ] T006 [US3] Remove language toggle (`lang_btn`) and product wiring from
+- [X] T006 [US3] Remove language toggle (`lang_btn`) and product wiring from
   `gazekey/ui/keyboard_layout.py` / `gazekey/ui/virtual_keyboard.py`
-- [ ] T007 [US3] Remove symbols toggle, symbols layout path
+- [X] T007 [US3] Remove symbols toggle, symbols layout path
   (`create_symbols_layout` / `switch_layout`), and Ctrl/Alt keys from product
   letters layout in `gazekey/ui/keyboard_layout.py`; clean
   `gazekey/ui/virtual_keyboard.py` handlers
-- [ ] T008 [US3] Remove typed-text display bar (`text_display` /
+- [X] T008 [US3] Remove typed-text display bar (`text_display` /
   `create_text_display`) from `gazekey/ui/keyboard_layout.py` and replace any
   delivery-error UX that depended on it with `mvp_log` verbose (research R10)
   in `gazekey/ui/virtual_keyboard.py`
-- [ ] T009 [US3] Remove gaze-status chrome text (`camera_status_label` /
+- [X] T009 [US3] Remove gaze-status chrome text (`camera_status_label` /
   `Gaze active | …%`) from product control bar in `gazekey/ui/keyboard_layout.py`
   and stop updating it from `gazekey/runtime/gaze_loop.py`
 
 ### Layout redistribution + suggestion bar geometry
 
-- [ ] T010 [US3] Redistribute keyboard layout in `gazekey/ui/keyboard_layout.py`
+- [X] T010 [US3] Redistribute keyboard layout in `gazekey/ui/keyboard_layout.py`
   to the research **R7 acceptance layout** / `contracts/keyboard-layout-003.md`:
   no empty dead gaps; suggestion bar fully visible (not clipped); reclaimed
   space redistributed appropriately to active letter/editing keys; keep Calibrate
   + window chrome. Key enlargement is a layout/usability goal, **not** a
   mapping-accuracy requirement.
-- [ ] T011 [US3] Create **exactly three** suggestion slots with
+- [X] T011 [US3] Create **exactly three** suggestion slots with
   `objectName="gazeTarget"` and stable `key_id`s `suggestion:0`…`suggestion:2`
   in `gazekey/ui/keyboard_layout.py` so they export via
   `gazekey/layout/layout_inspector.py`. Slots MUST have **fixed positions and
   fixed geometry**; when unlabeled they stay blank/disabled (not dwellable). Do
   **not** resize/reflow the bar by suggestion count (placeholders OK until US1
   wires prediction labels).
-- [ ] T012 [US3] Update **only** layout export / semantic-row / hit-test geometry
+- [X] T012 [US3] Update **only** layout export / semantic-row / hit-test geometry
   alignment in `gazekey/ui/virtual_keyboard.py` (and related layout helpers) so
   the simplified surface stays synchronized with `inspect_keyboard_layout` /
   `hit_test_layout_keys`. **MUST NOT** change calibration strategy, calibration
   targets, PCA4 fit/predict, `gazekey/mapping/config.py`, or mapping parameters
   to compensate for UI redesign.
-- [ ] T013 [US3] Extend `tests/unit/test_layout_geometry.py` for fixed
+- [X] T013 [US3] Extend `tests/unit/test_layout_geometry.py` for fixed
   suggestion-slot hit-test coverage (three slots always present; disabled slots
   not dwellable) and absence of removed controls; fix
   `tests/unit/test_focus_and_layout_us2.py` / other UI tests broken by removals
-- [ ] T014 [US3] Run automated geometry gate:
+- [X] T014 [US3] Run automated geometry gate:
   `pytest tests/unit/test_layout_geometry.py tests/test_keyboard_geometry_targets.py -q`
   and record pass/fail in
   `specs/003-predictive-text-keyboard-ux/quickstart-gate-log.md` (create if
