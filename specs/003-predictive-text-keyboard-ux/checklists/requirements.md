@@ -31,9 +31,11 @@
 
 ## Notes
 
-- Open technical choices (prediction method, ranking, state design, libraries,
-  module boundaries, completion semantics) are explicitly deferred to
-  research/planning in **Open Research / Planning Decisions** rather than left
-  as unresolved clarifications blocking this draft.
-- Spec quality validation passed on 2026-08-08; ready for `/speckit-clarify` or
-  `/speckit-plan`.
+- Clarification session 2026-08-10 resolved 5 questions (prefix source, completion
+  semantics, product UI removals, symbols/Ctrl/Alt removal, max 3 suggestions,
+  layout redistribution). Completion semantics and max suggestion count are no
+  longer open.
+- Remaining open items deferred to `/speckit-plan`: prediction method, ranking,
+  typing-state structure, module boundaries, libraries, short-prefix behavior,
+  layout redistribution plan, stale-suggestion rules, failure handling.
+- Ready for `/speckit-plan`.
