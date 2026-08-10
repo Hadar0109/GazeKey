@@ -139,45 +139,15 @@ class KeyboardLayoutBuilder:
             btn.setStyleSheet(btn.styleSheet() + suggestion_disabled_style)
 
     def create_control_bar(self) -> QHBoxLayout:
+        """Slim window chrome only (FR-008d: Calibrate moved to bottom row)."""
         h = self._h
         layout = QHBoxLayout()
         layout.setSpacing(8)
         layout.setContentsMargins(0, 0, 0, 0)
-
-        h.calibrate_btn = QPushButton("👁 CALIBRATE")
-        h.calibrate_btn.setObjectName("gazeTarget")
-        h.calibrate_btn.setProperty("gazeKeyId", "system:calibrate")
-        h.calibrate_btn.setMinimumSize(220, 56)
-        h.calibrate_btn.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
-        h.calibrate_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #FF6B35;
-                color: white;
-                border: none;
-                border-radius: 8px;
-                padding: 8px;
-            }
-            QPushButton:hover {
-                background-color: #FF8555;
-            }
-            QPushButton:pressed {
-                background-color: #E55A25;
-            }
-            QPushButton#gazeTarget[gazeFocused="true"] {
-                border: 2px solid #FBBF24;
-            }
-            QPushButton#gazeTarget[gazeDwelling="true"] {
-                border: 2px solid #10B981;
-            }
-        """)
-        h.calibrate_btn.clicked.connect(h.on_calibrate_clicked)
-        h._calibrate_btn_style_default = h.calibrate_btn.styleSheet()
-
-        layout.addWidget(h.calibrate_btn)
         layout.addStretch()
 
         h.minimize_btn = QPushButton("−")
-        h.minimize_btn.setMinimumSize(50, 45)
+        h.minimize_btn.setMinimumSize(50, 36)
         h.minimize_btn.setFont(QFont("Segoe UI", 20, QFont.Weight.Bold))
         h.minimize_btn.setStyleSheet("""
             QPushButton {
@@ -193,7 +163,7 @@ class KeyboardLayoutBuilder:
         h.minimize_btn.clicked.connect(h.on_minimize_clicked)
 
         h.close_btn = QPushButton("✕")
-        h.close_btn.setMinimumSize(50, 45)
+        h.close_btn.setMinimumSize(50, 36)
         h.close_btn.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
         h.close_btn.setStyleSheet("""
             QPushButton {
@@ -213,6 +183,42 @@ class KeyboardLayoutBuilder:
         layout.addWidget(h.close_btn)
 
         return layout
+
+    def _create_calibrate_button(self) -> QPushButton:
+        """Large orange Calibrate/Recalibrate gaze recovery target (FR-008d)."""
+        h = self._h
+        btn = QPushButton("👁 CALIBRATE")
+        btn.setObjectName("gazeTarget")
+        btn.setProperty("gazeKeyId", "system:calibrate")
+        btn.setProperty("gazeKeyAction", "system:calibrate")
+        btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        btn.setMinimumSize(160, 40)
+        btn.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
+        btn.setStyleSheet("""
+            QPushButton#gazeTarget {
+                background-color: #FF6B35;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 6px;
+            }
+            QPushButton#gazeTarget:hover {
+                background-color: #FF8555;
+            }
+            QPushButton#gazeTarget:pressed {
+                background-color: #E55A25;
+            }
+            QPushButton#gazeTarget[gazeFocused="true"] {
+                border: 2px solid #FBBF24;
+            }
+            QPushButton#gazeTarget[gazeDwelling="true"] {
+                border: 2px solid #10B981;
+            }
+        """)
+        btn.clicked.connect(h.on_calibrate_clicked)
+        h.calibrate_btn = btn
+        h._calibrate_btn_style_default = btn.styleSheet()
+        return btn
 
     def create_suggestion_bar(self) -> QHBoxLayout:
         h = self._h
@@ -352,7 +358,7 @@ class KeyboardLayoutBuilder:
         parent_layout.addLayout(row, 1)
 
     def create_letters_layout(self) -> QVBoxLayout:
-        """R7 acceptance layout: letters + Shift/Backspace + Space/Enter (no Ctrl/Alt)."""
+        """R7 + FR-008d: QWERTY + bottom row Calibrate | Space | Enter."""
         h = self._h
         h.letter_keys.clear()
         layout = QVBoxLayout()
@@ -389,13 +395,17 @@ class KeyboardLayoutBuilder:
         row3_keys.append((backspace_btn, 2))
         self._add_key_row(layout, row3_keys)
 
-        space_btn = self.create_key("Space")
-        space_btn.clicked.connect(lambda: h.on_key_pressed(" "))
-        enter_btn = self.create_key("↵")
-        enter_btn.clicked.connect(lambda: h.on_key_pressed("ENTER"))
+        # Bottom row: large Calibrate | reduced Space | slightly smaller Enter.
+        calibrate_btn = self._create_calibrate_button()
+        h.space_btn = self.create_key("Space")
+        h.space_btn.clicked.connect(lambda: h.on_key_pressed(" "))
+        h.enter_btn = self.create_key("↵")
+        h.enter_btn.clicked.connect(lambda: h.on_key_pressed("ENTER"))
+        # Stretch weights: Calibrate largest, Space medium/centered, Enter smaller.
         self._add_key_row(layout, [
-            (space_btn, 5),
-            (enter_btn, 2),
+            (calibrate_btn, 4),
+            (h.space_btn, 3),
+            (h.enter_btn, 2),
         ])
         return layout
 
@@ -520,24 +530,17 @@ class KeyboardLayoutBuilder:
         if hasattr(h, "_suggestion_bar_layout"):
             h._suggestion_bar_layout.setSpacing(gap)
 
-        # R7: reclaim typed-text row → taller chrome + suggestion bar + keys.
-        chrome_h = int(max(36.0, min(56.0, window_h * 0.10)))
+        # FR-008d: slim top chrome (no Calibrate) → reclaim height into letter rows.
+        chrome_h = int(max(28.0, min(42.0, window_h * 0.07)))
         sugg_h = int(max(40.0, min(64.0, window_h * 0.11)))
 
-        chrome_pt = int(max(11.0, min(18.0, chrome_h * 0.30)))
-        if hasattr(h, "calibrate_btn"):
-            f = h.calibrate_btn.font()
-            if f.pointSize() != chrome_pt + 4:
-                f.setPointSize(chrome_pt + 4)
-                h.calibrate_btn.setFont(f)
-            h.calibrate_btn.setMinimumHeight(chrome_h)
-            h.calibrate_btn.setMaximumHeight(chrome_h)
+        chrome_pt = int(max(10.0, min(16.0, chrome_h * 0.32)))
 
         for attr in ("minimize_btn", "close_btn"):
             if hasattr(h, attr):
                 btn = getattr(h, attr)
-                btn.setMinimumHeight(max(34, chrome_h - 10))
-                btn.setMaximumHeight(max(34, chrome_h - 10))
+                btn.setMinimumHeight(max(28, chrome_h - 4))
+                btn.setMaximumHeight(max(28, chrome_h - 4))
                 f = btn.font()
                 if f.pointSize() != max(9, chrome_pt):
                     f.setPointSize(max(9, chrome_pt))
@@ -559,9 +562,9 @@ class KeyboardLayoutBuilder:
 
         if desired_kb_h < 4 * 28:
             extra = (4 * 28) - desired_kb_h
-            shrink_chrome = min(extra * 0.4, chrome_h * 0.2)
-            shrink_sugg = min(extra * 0.6, sugg_h * 0.25)
-            chrome_h = int(max(32.0, chrome_h - shrink_chrome))
+            shrink_chrome = min(extra * 0.35, chrome_h * 0.15)
+            shrink_sugg = min(extra * 0.65, sugg_h * 0.25)
+            chrome_h = int(max(26.0, chrome_h - shrink_chrome))
             sugg_h = int(max(36.0, sugg_h - shrink_sugg))
             desired_kb_h = window_h - (margins_total + gaps_total + chrome_h + sugg_h)
 
@@ -584,18 +587,36 @@ class KeyboardLayoutBuilder:
         row_spacing = float(gap)
         rows = 4.0
         usable = max(0.0, kb_h - row_spacing * (rows - 1.0))
-        row_h = usable / rows if rows > 0 else usable
-
-        key_h = int(max(28.0, min(96.0, row_h)))
+        # Give bottom row a bit more height for the large Calibrate target.
+        letter_share = 0.72
+        bottom_share = 0.28
+        letter_usable = usable * letter_share
+        bottom_usable = usable * bottom_share
+        key_h = int(max(28.0, min(96.0, letter_usable / 3.0)))
+        bottom_h = int(max(key_h + 8, min(110.0, bottom_usable)))
         font_pt = int(max(12.0, min(26.0, key_h * 0.42)))
+        calib_pt = int(max(13.0, min(22.0, bottom_h * 0.28)))
 
         for btn in h.keyboard_widget.findChildren(QPushButton, "keyboardKey"):
-            btn.setMinimumHeight(key_h)
-            btn.setMaximumHeight(key_h)
+            # Space/Enter sit on the taller bottom row with Calibrate.
+            if btn is getattr(h, "space_btn", None) or btn is getattr(h, "enter_btn", None):
+                btn.setMinimumHeight(bottom_h)
+                btn.setMaximumHeight(bottom_h)
+            else:
+                btn.setMinimumHeight(key_h)
+                btn.setMaximumHeight(key_h)
             f = btn.font()
             if f.pointSize() != font_pt:
                 f.setPointSize(font_pt)
                 btn.setFont(f)
+
+        if hasattr(h, "calibrate_btn") and h.calibrate_btn is not None:
+            h.calibrate_btn.setMinimumHeight(bottom_h)
+            h.calibrate_btn.setMaximumHeight(bottom_h)
+            f = h.calibrate_btn.font()
+            if f.pointSize() != calib_pt:
+                f.setPointSize(calib_pt)
+                h.calibrate_btn.setFont(f)
 
     def schedule_layout_export(self) -> None:
         h = self._h
@@ -611,8 +632,15 @@ class KeyboardLayoutBuilder:
         window_rect = QRect(tl, h.size())
 
         try:
-            region_rect = typing_region_rect(h.keyboard_widget, h.calibrate_btn)
             keys = inspect_keyboard_layout(h.main_content_widget)
+            # Full interactive surface: suggestions + keys + bottom Recalibrate
+            # (union of exported gaze targets — includes disabled suggestion slots).
+            region_rect = typing_region_rect(
+                h.keyboard_widget,
+                h.calibrate_btn,
+                suggestion_bar_widget=getattr(h, "_suggestion_bar_widget", None),
+                layout_keys=keys,
+            )
             exporter = h._devtools.layout_exporter() if hasattr(h, "_devtools") else getattr(h, "_layout_exporter", None)
             if exporter is not None:
                 h._layout_version = exporter.export(

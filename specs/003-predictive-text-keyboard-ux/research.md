@@ -226,6 +226,32 @@ Ctrl/Alt → redistribute appropriately to key heights and suggestion bar height
 **Suggestion slots**: Always three fixed positions; unused slots blank/disabled
 (not dwellable); no bar reflow by suggestion count.
 
+### R7 follow-up — large bottom-row recalibration target (2026-08-10)
+
+**Decision**: Move the orange Calibrate/Recalibrate control from the top chrome
+row to the **bottom keyboard row**, immediately **left of Space**, as a
+**noticeably larger** gaze recovery target than a normal letter key.
+
+Updated acceptance sketch:
+
+```text
+[ minimize | close ]                     ← slim window chrome only (no Calibrate)
+[ suggestion_0 | suggestion_1 | suggestion_2 ]
+[ qwertyuiop ]
+[ asdfghjkl ]
+[ Shift | zxcvbnm | Backspace ]
+[ Calibrate (large) | Space (reduced, centered) | Enter (slightly smaller) ]
+```
+
+Rules:
+
+- Recalibrate remains `objectName="gazeTarget"` with stable `system:calibrate`
+- Larger target improves **recovery tolerance** when mapping feels inaccurate —
+  **not** mapper accuracy and MUST NOT justify mapping retune
+- Slim the top chrome after Calibrate leaves; reclaim vertical space into letter
+  rows when available; keep QWERTY balanced
+- Functional geometry only: export / hit-test / dwell stay synchronized (FR-011)
+
 **Geometry rules** (FR-011):
 
 - `inspect_keyboard_layout` / `KeyHitTester` / `hit_test_layout_keys` remain

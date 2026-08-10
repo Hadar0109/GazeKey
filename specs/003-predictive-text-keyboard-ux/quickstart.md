@@ -17,9 +17,11 @@ floors. Does **not** retune calibration/mapping.
 
 1. Launch `python main.py`; complete fullscreen calibration
 2. Confirm product keyboard shows:
-   - Calibrate + window chrome only (no Pause, Preview, lang, status text,
-     typed-text bar)
+   - Slim top chrome: minimize/close only (no Calibrate, Pause, Preview, lang,
+     status text, typed-text bar)
    - Suggestion bar with up to 3 slots, **fully visible** (not clipped)
+   - Bottom row: **large Calibrate/Recalibrate** left of reduced/centered Space,
+     then Enter; Calibrate noticeably larger than a letter key
    - No Ctrl/Alt; no symbols layout
    - No empty dead rows
 3. Run automated geometry tests:
@@ -76,6 +78,20 @@ Preview button.
 
 - Do **not** change `gazekey/mapping/config.py` for this feature
 - Optional sanity: `python -m tools.evaluation` still runs independently
+
+## H. Recalibration target follow-up (bottom-row large Calibrate)
+
+After the FR-008d layout revision:
+
+1. Confirm Calibrate/Recalibrate is on the **bottom row left of Space**, not in
+   the top chrome
+2. Confirm it is **noticeably larger** than a normal letter key and easy to
+   dwell when mapping feels inaccurate (recovery tolerance — not mapper accuracy)
+3. Confirm Space is reduced/centered, Enter balanced, QWERTY intact
+4. Confirm no clipping/misalignment; gaze hit-test still matches visible bounds
+5. Optional: dwell Calibrate → fullscreen recalibration still starts
+
+**Pass**: visual + gaze checks match `contracts/keyboard-layout-003.md` v1.1.0.
 
 ## Automated test sweep (before merge)
 

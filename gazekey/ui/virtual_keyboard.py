@@ -30,7 +30,6 @@ from gazekey.mapping.config import (
     FEATURE_SMOOTHER_ALPHA,
     GAZE_SMOOTHER_ALPHA,
 )
-from gazekey.typing import action_from_button
 from gazekey.typing.action_dispatcher import ActionDispatcher
 from gazekey.typing.dwell_engine import DwellEngine, DwellPhase
 from gazekey.typing.gaze_smoother import GazeSmoother
@@ -81,6 +80,7 @@ class VirtualKeyboard(QWidget):
             self._action_dispatcher,
             on_session_ui_sync=self._sync_typing_session_ui,
             on_suggestion_accept=self._on_suggestion_accept,
+            on_calibrate=self.on_calibrate_clicked,
         )
         self._action_dispatcher.on_action_delivered(self._on_os_action_delivered)
         # Composition root: construct default WordProvider once via factory.
@@ -685,17 +685,6 @@ class VirtualKeyboard(QWidget):
         dwelling = progress >= 0.7
         focused = progress > 0.0
         self._set_key_gaze_style(button, focused, progress, dwelling=dwelling)
-
-    def _on_gaze_activate_key(self, button) -> None:
-        if button is self.calibrate_btn:
-            self.on_calibrate_clicked()
-            return
-        action = action_from_button(button)
-        if action == "SHIFT":
-            self.shift_btn.setChecked(not self.shift_btn.isChecked())
-            self.on_shift_clicked(self.shift_btn.isChecked())
-            return
-        self.on_key_pressed(action)
 
     def _set_key_gaze_style(
         self,

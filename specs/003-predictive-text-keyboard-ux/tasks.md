@@ -192,7 +192,7 @@ suffix + Space via existing KeyAction path (FR-001–FR-005).
 - [X] T029 [US1] Add `tests/contract/test_suggestion_typing_path.py`: dwell/mouse
   suggestion → fake adapter receives suffix+Space; empty/disabled slot not
   dwellable
-- [ ] T030 [US1] **USER GATE**: Ask the user to run/confirm end-to-end suggestion
+- [X] T030 [US1] **USER GATE**: Ask the user to run/confirm end-to-end suggestion
   MVP (quickstart §C): type `hel`, dwell a suggestion, confirm external app
   shows completed word + Space. Automated tests MUST NOT claim live webcam or
   external-app typing passed. **STOP and wait for user confirmation before
@@ -210,14 +210,14 @@ suffix + Space via existing KeyAction path (FR-001–FR-005).
 
 **Independent Test**: Quickstart §D; existing typing contract tests still pass.
 
-- [ ] T031 [US2] Ensure blank/disabled suggestion slots are not dwellable and do
+- [X] T031 [US2] Ensure blank/disabled suggestion slots are not dwellable and do
   not block key hit-testing in `gazekey/typing/gaze_typing_runtime.py` /
   layout export; on provider/load/`suggest` failure, clear labels and disable
   all three slots (fail open; FR-012) without raising into the gaze loop
-- [ ] T032 [US2] Verify ignore-suggestions path: typing letters/Space/Backspace/
+- [X] T032 [US2] Verify ignore-suggestions path: typing letters/Space/Backspace/
   Enter still uses unchanged KeyAction → dispatcher → adapter path in
   `gazekey/ui/virtual_keyboard.py` / `gazekey/typing/gaze_typing_runtime.py`
-- [ ] T033 [P] [US2] Extend or add regression coverage in
+- [X] T033 [P] [US2] Extend or add regression coverage in
   `tests/contract/test_typing_dispatch_path.py` (and/or
   `tests/unit/test_gaze_typing_runtime.py` / `tests/unit/test_word_provider.py`)
   proving OS-bound keys still deliver when suggestions empty/ignored **and**
@@ -237,12 +237,12 @@ and accept (FR-006, FR-006a, SC-003).
 
 **Independent Test**: Quickstart §B + §E; unit epoch/context tests.
 
-- [ ] T035 [US4] On every successful delivery that changes `TypingContext`,
+- [X] T035 [US4] On every successful delivery that changes `TypingContext`,
   refresh suggestion set synchronously on UI thread in
   `gazekey/ui/virtual_keyboard.py` (no gaze-frame refresh; research R6)
-- [ ] T036 [US4] Cancel in-progress suggestion dwell when `prefix_epoch` changes
+- [X] T036 [US4] Cancel in-progress suggestion dwell when `prefix_epoch` changes
   mid-dwell in `gazekey/typing/gaze_typing_runtime.py` (research R6)
-- [ ] T037 [P] [US4] Add/extend unit tests for: type→suggest update, backspace→
+- [X] T037 [P] [US4] Add/extend unit tests for: type→suggest update, backspace→
   shorten, Space→clear suggestions, accept→empty prefix via Space delivery,
   stale epoch accept rejected (`tests/unit/test_typing_context.py` and/or
   `tests/unit/test_suggestion_dispatch.py`)
@@ -260,11 +260,11 @@ and accept (FR-006, FR-006a, SC-003).
 **Purpose**: Integration validation; docs; modularity; full regression; no
 mapping changes.
 
-- [ ] T039 [P] Update `README.md` and/or `docs/PROJECT_STRUCTURE.md` briefly for
+- [X] T039 [P] Update `README.md` and/or `docs/PROJECT_STRUCTURE.md` briefly for
   prediction package + simplified product keyboard (no mapping retune)
-- [ ] T040 [P] Update `docs/TYPING_CANDIDATE.md` note that 003 adds prediction
+- [X] T040 [P] Update `docs/TYPING_CANDIDATE.md` note that 003 adds prediction
   downstream of mapped gaze without changing PCA4 constants
-- [ ] T041 Run Feature 003 automated sweep from quickstart:
+- [X] T041 Run Feature 003 automated sweep from quickstart:
   `pytest tests/unit/test_typing_context.py tests/unit/test_word_provider.py
   tests/unit/test_suggestion_dispatch.py tests/unit/test_layout_geometry.py
   tests/contract/test_typing_dispatch_path.py
@@ -273,17 +273,92 @@ mapping changes.
   sections A–G as needed; append results to
   `specs/003-predictive-text-keyboard-ux/quickstart-gate-log.md`. Automated
   suites MUST NOT be used to claim webcam gaze or external-app typing passed.
-- [ ] T043 Confirm `gazekey/mapping/config.py` and mapping benchmarks were not
+- [X] T043 Confirm `gazekey/mapping/config.py` and mapping benchmarks were not
   modified for this feature (SC-007)
-- [ ] T044 [P] Architectural modularity check: ensure `gazekey/ui/` and
+- [X] T044 [P] Architectural modularity check: ensure `gazekey/ui/` and
   `gazekey/typing/` do **not** import `TrieWordProvider` or
   `gazekey.prediction.trie_provider` internals (depend on `WordProvider` only);
   add a small unit/static test under `tests/unit/test_prediction_modularity.py`
   (or equivalent grep/assert in suite)
-- [ ] T045 Full-project regression: run `pytest -q` at repo root; feature is
+- [X] T045 Full-project regression: run `pytest -q` at repo root; feature is
   **not complete** until the existing project suite still passes
 
-**Checkpoint**: Feature complete only after T042 USER GATE + T045 green.
+**Checkpoint**: Feature complete only after T042 USER GATE + T045 green +
+Phase 8 USER GATE T050 (recalibration layout) when that phase is in scope.
+
+---
+
+## Phase 8: Recalibration target follow-up (FR-008d)
+
+**Purpose**: Move Calibrate/Recalibrate to a large bottom-row gaze recovery
+target left of Space; slim top chrome; keep QWERTY balanced. **No** mapping/
+PCA4/calibration retune. Larger target = recovery tolerance only.
+
+**Independent Test**: quickstart §H; extended `test_layout_geometry.py`;
+`pytest -q`.
+
+- [X] T046 Move orange Calibrate/Recalibrate from the top control bar to the
+  bottom keyboard row **left of Space** in `gazekey/ui/keyboard_layout.py`; keep
+  `objectName="gazeTarget"` and stable `gazeKeyId`/`key_id` `system:calibrate`;
+  slim top chrome to minimize/close only
+- [X] T047 Make the recalibration button **noticeably larger** than a normal
+  letter key (prefer wider stretch; increase height when vertical space allows);
+  reduce/center Space and slightly shrink Enter as needed for a balanced bottom
+  row in `gazekey/ui/keyboard_layout.py` `update_responsive_sizes` /
+  `create_letters_layout`; reclaim vertical space from the slimmed top chrome
+  into letter-key rows; preserve QWERTY
+- [X] T048 Synchronize layout export / hit-test / semantic-row geometry only
+  (FR-011) so visible Calibrate bounds remain dwellable via
+  `inspect_keyboard_layout` / `hit_test_layout_keys`; **MUST NOT** change
+  calibration strategy, targets, PCA4, `gazekey/mapping/config.py`, or
+  benchmarks
+- [X] T049 [P] Extend `tests/unit/test_layout_geometry.py` (and related UI tests
+  if needed): Calibrate absent from top chrome; present on bottom row left of
+  Space; `system:calibrate` exported and hit-testable; Calibrate rect area
+  strictly larger than a typical letter key; removed-chrome assertions still hold
+- [X] T050 Run `pytest tests/unit/test_layout_geometry.py
+  tests/test_keyboard_geometry_targets.py -q` then full `pytest -q`; record
+  results in `specs/003-predictive-text-keyboard-ux/quickstart-gate-log.md`
+- [ ] T051 **USER GATE**: Ask the user to confirm quickstart §H — (1) recalibrate
+  clearly larger/easier to target, (2) bottom row layout correct, (3) gaze
+  typing still works, (4) no important UI clipped/misaligned. **STOP and wait**
+  for confirmation. Automated tests MUST NOT claim live webcam verification.
+- [X] T052 Confirm again `gazekey/mapping/config.py` was not modified for this
+  follow-up
+
+**Checkpoint**: Bottom-row large Calibrate live; geometry green; **user
+confirmed** §H. Feature 003 still not closed until remaining USER GATEs
+(T034/T038/T042/T051) are confirmed.
+
+---
+
+## Phase 9: Typing-region geometry consistency (suggestion bar included)
+
+**Purpose**: Make layout-export `typing_region_rect` mean the full interactive
+gaze-typing surface (suggestions + keys + Recalibrate). Prefer union of
+exported gaze-target rects. **No** mapping stretch/compensation; **no** PCA4/
+calib-target/config changes. Geometry consistency first — live reachability is
+a USER GATE, not claimed by this task alone.
+
+- [X] T053 Derive product `typing_region_rect` from exported layout gaze targets
+  (or equivalent union of suggestion bar + keyboard widget) in
+  `gazekey/typing/gaze_ui_mapper.py` / `gazekey/ui/keyboard_layout.py` so the
+  region includes fixed `suggestion:0..2` (even when disabled), letter/editing
+  keys, and bottom Recalibrate/Space/Enter; keep calibration on
+  `letter_keys_region_rect` / existing targets unchanged
+- [X] T054 [P] Extend `tests/unit/test_layout_geometry.py` proving
+  `typing_region_rect` contains suggestion-row centers and intended product
+  gaze targets; region does not shrink when slots are blank/disabled
+- [X] T055 Run geometry tests + full `pytest -q`; confirm
+  `gazekey/mapping/config.py` untouched; record in
+  `specs/003-predictive-text-keyboard-ux/quickstart-gate-log.md`
+- [ ] T056 **USER GATE**: Ask the user to test live whether gaze can reach the
+  suggestion row in the product. Automated tests MUST NOT claim this fixed live
+  mapping. **STOP and wait** for confirmation. Do not claim this change fixes
+  live mapping unless the user verifies it.
+
+**Checkpoint**: Region metadata consistent; **user** reports live suggestion
+reachability.
 
 ---
 
@@ -302,6 +377,8 @@ mapping changes.
 - **Phase 6 (US4)**: After US1 (needs accept + context); builds on US2 refresh
   rules
 - **Phase 7 (Polish)**: After desired stories complete
+- **Phase 8 (Recalibrate layout follow-up)**: After Phase 7 automated work;
+  **USER GATE T051** before closing Feature 003
 
 ### User Story Dependencies
 
@@ -339,6 +416,8 @@ mapping changes.
 | T034 | Typing with suggestions ignored / empty |
 | T038 | Consistency sequence vs `TypingContext` |
 | T042 | Remaining live quickstart A–G |
+| T051 | Bottom-row large Calibrate recovery target (quickstart §H) |
+| T056 | Live gaze reachability of suggestion row after typing_region_rect update |
 
 Implementer MUST stop and ask the user to run/confirm these before continuing
 past the gate. Automated tests do not satisfy USER GATE criteria.

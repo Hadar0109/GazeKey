@@ -202,6 +202,13 @@ existing typing/UI packages rather than new top-level app.
 - Feature 003 sweep + full-project `pytest -q`
 - No mapping config changes
 
+### Phase E — Recalibration target follow-up (FR-008d)
+
+- Move Calibrate/Recalibrate to bottom row left of Space; enlarge vs letter keys
+- Slim top chrome; reclaim vertical space into letter rows
+- Geometry/hit-test sync only — **no** mapping/PCA4 retune
+- Automated geometry coverage + **USER GATE** (visual/gaze recovery check)
+
 ## Complexity Tracking
 
 No constitution violations requiring justification.

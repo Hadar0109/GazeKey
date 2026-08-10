@@ -154,3 +154,96 @@ def test_product_keyboard_has_three_fixed_suggestion_slots(qapp):
     assert "PAUSE_RESUME" not in actions
     assert "Ctrl" not in labels
     assert "Alt" not in labels
+
+
+def test_calibrate_is_large_bottom_row_recovery_target(qapp):
+    """003 FR-008d: Calibrate left of Space, larger than a letter key, dwellable."""
+    from gazekey.ui.virtual_keyboard import VirtualKeyboard
+
+    vk = VirtualKeyboard()
+    vk._needs_first_calibration = False
+    vk.show()
+    qapp.processEvents()
+    vk._keyboard_layout_builder.update_responsive_sizes()
+    vk._keyboard_layout_builder.export_keyboard_layout()
+    qapp.processEvents()
+
+    assert vk.calibrate_btn.objectName() == "gazeTarget"
+    assert vk.calibrate_btn.property("gazeKeyId") == "system:calibrate"
+    assert vk.calibrate_btn.isEnabled()
+    assert vk.calibrate_btn.parent() is not None
+    # Not in the slim top chrome row.
+    assert vk.calibrate_btn.parentWidget() is not vk._control_bar_widget
+
+    keys = inspect_keyboard_layout(vk.main_content_widget)
+    by_id = {k.key_id: k for k in keys}
+    assert "system:calibrate" in by_id
+    calib = by_id["system:calibrate"]
+
+    # Find a typical letter key for size comparison.
+    letter = next(
+        (k for k in keys if len(str(k.key_action)) == 1 and str(k.key_action).isalpha()),
+        None,
+    )
+    assert letter is not None
+    calib_area = calib.rect.width() * calib.rect.height()
+    letter_area = letter.rect.width() * letter.rect.height()
+    assert calib_area > letter_area, (
+        f"calibrate area {calib_area} should exceed letter area {letter_area}"
+    )
+
+    space = next((k for k in keys if k.key_action == " "), None)
+    assert space is not None
+    # Calibrate left of Space on the same bottom band.
+    assert calib.center[0] < space.center[0]
+    assert abs(calib.center[1] - space.center[1]) < max(24.0, calib.rect.height() * 0.6)
+
+    # Hit-test center selects calibrate (enabled gazeTarget).
+    idx = hit_test_layout_keys(keys, calib.center[0], calib.center[1])
+    assert idx is not None
+    assert keys[idx].key_id == "system:calibrate"
+
+
+def test_typing_region_rect_includes_suggestion_row_and_gaze_targets(qapp):
+    """003 geometry: typing_region_rect covers suggestions + keys + Recalibrate."""
+    from gazekey.typing.gaze_ui_mapper import typing_region_from_layout_keys, typing_region_rect
+    from gazekey.ui.virtual_keyboard import VirtualKeyboard
+
+    vk = VirtualKeyboard()
+    vk._needs_first_calibration = False
+    vk.show()
+    qapp.processEvents()
+    vk._keyboard_layout_builder.update_responsive_sizes()
+    vk._keyboard_layout_builder.export_keyboard_layout()
+    qapp.processEvents()
+
+    keys = inspect_keyboard_layout(vk.main_content_widget)
+    region = typing_region_from_layout_keys(keys)
+    assert not region.isEmpty()
+
+    # Suggestion slots (including disabled) are inside the region.
+    suggestion_keys = [k for k in keys if str(k.key_id).startswith("suggestion:")]
+    assert len(suggestion_keys) == 3
+    for k in suggestion_keys:
+        assert region.contains(k.rect.center()), f"{k.key_id} center outside typing region"
+
+    # Letter key, Space, and Recalibrate also inside.
+    letter = next(k for k in keys if len(str(k.key_action)) == 1 and str(k.key_action).isalpha())
+    space = next(k for k in keys if k.key_action == " ")
+    calib = next(k for k in keys if k.key_id == "system:calibrate")
+    for k in (letter, space, calib):
+        assert region.contains(k.rect.center()), f"{k.key_id} outside typing region"
+
+    # Export helper with layout_keys matches union helper.
+    via_api = typing_region_rect(
+        vk.keyboard_widget,
+        vk.calibrate_btn,
+        suggestion_bar_widget=vk._suggestion_bar_widget,
+        layout_keys=keys,
+    )
+    assert via_api == region
+
+    # Region is taller than keyboard widget alone (suggestion row above keys).
+    kb = letter_keys_region_rect(vk.keyboard_widget)
+    assert region.top() <= kb.top()
+    assert region.height() >= kb.height()

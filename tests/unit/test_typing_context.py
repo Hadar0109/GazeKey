@@ -87,3 +87,19 @@ def test_suggestion_suffix_and_space_clear_via_delivery_only():
     assert ctx.get_prefix() == "hello"
     ctx.on_action_delivered(_char(" "), ok=True)
     assert ctx.get_prefix() == ""
+
+
+def test_type_suggest_backspace_space_epoch_consistency():
+    """US4: prefix/epoch stay coherent across type, delete, boundary."""
+    ctx = TypingContext()
+    assert ctx.get_epoch() == 0
+    ctx.on_action_delivered(_char("t"), ok=True)
+    ctx.on_action_delivered(_char("h"), ok=True)
+    e1 = ctx.get_epoch()
+    assert ctx.get_prefix() == "th"
+    ctx.on_action_delivered(_backspace(), ok=True)
+    assert ctx.get_prefix() == "t"
+    assert ctx.get_epoch() == e1 + 1
+    ctx.on_action_delivered(_char(" "), ok=True)
+    assert ctx.get_prefix() == ""
+    assert ctx.get_epoch() == e1 + 2

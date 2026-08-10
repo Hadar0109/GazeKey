@@ -154,6 +154,11 @@ typing and hit-testing still work after layout changes.
    **Then** their product-only wiring is removed and no inactive product
    interfaces remain unnecessarily; shared code still used by tools/debug flows
    is preserved.
+7. **Given** the product keyboard is shown after the recalibration-target
+   follow-up, **When** the user inspects the bottom row, **Then** Calibrate/
+   Recalibrate appears left of Space as a noticeably larger gaze target than a
+   normal letter key, Space is reduced/centered, Enter remains balanced, and
+   Calibrate is absent from the slim top chrome.
 
 ---
 
@@ -263,6 +268,16 @@ lists always match the current in-progress word context.
   bar fully visible; reclaimed space redistributed appropriately to active
   letter/editing keys. Key enlargement is a gaze-usability layout goal, **not**
   a mapping-accuracy requirement, and MUST NOT justify mapping retune.
+- **FR-008d**: The Calibrate/Recalibrate control MUST be placed on the **bottom
+  keyboard row immediately left of Space**, as a gaze-selectable recovery target
+  that is **noticeably larger** than a normal letter key (and taller when
+  vertical space allows). Top chrome MUST NOT host Calibrate; slim that row and
+  reclaim vertical space into letter-key rows when appropriate. Space MUST be
+  reduced/centered and Enter may shrink slightly so the bottom row stays
+  balanced while preserving QWERTY. The larger recalibration target improves
+  **recovery tolerance** when mapping feels inaccurate; it MUST NOT be treated
+  as improving mapper accuracy and MUST NOT justify mapping/calibration retune
+  (FR-010, FR-011).
 - **FR-009**: Prediction behavior MUST remain modular: UI, gaze-selection, and
   typing code MUST depend on the **`WordProvider`** abstraction, not on a
   concrete trie implementation. Suggestion generation MUST NOT be tightly coupled

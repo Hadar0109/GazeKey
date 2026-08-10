@@ -19,11 +19,14 @@ class KeyRole(str, Enum):
     ENTER = "enter"
     SHIFT_ONESHOT = "shift_oneshot"
     SYSTEM_PAUSE_RESUME = "pause_resume"
+    SYSTEM_CALIBRATE = "calibrate"
     SUGGESTION = "suggestion"
     NON_OS = "non_os"
 
 
 PAUSE_RESUME_ACTION = "PAUSE_RESUME"
+CALIBRATE_ACTION = "CALIBRATE"
+CALIBRATE_KEY_ID = "system:calibrate"
 SUGGESTION_KEY_ID_PREFIX = "suggestion:"
 _PAUSE_RESUME_LABELS = frozenset(
     {
@@ -67,6 +70,12 @@ def is_suggestion_action(action: str) -> bool:
     return str(action).startswith(SUGGESTION_KEY_ID_PREFIX)
 
 
+def is_calibrate_action(action_or_key_id: str) -> bool:
+    """True for Calibrate/Recalibrate system control (stable id or action)."""
+    text = str(action_or_key_id)
+    return text in {CALIBRATE_ACTION, CALIBRATE_KEY_ID}
+
+
 def suggestion_slot_index(action_or_key_id: str) -> Optional[int]:
     text = str(action_or_key_id)
     if not text.startswith(SUGGESTION_KEY_ID_PREFIX):
@@ -81,6 +90,8 @@ def role_for_action(action: str) -> KeyRole:
     """Classify a key action for OS-bound vs non-OS handling."""
     if action == PAUSE_RESUME_ACTION:
         return KeyRole.SYSTEM_PAUSE_RESUME
+    if is_calibrate_action(action):
+        return KeyRole.SYSTEM_CALIBRATE
     if is_suggestion_action(action):
         return KeyRole.SUGGESTION
     if action == "SHIFT":

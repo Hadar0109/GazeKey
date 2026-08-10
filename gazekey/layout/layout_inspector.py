@@ -124,7 +124,7 @@ def inspect_keyboard_layout(
         else:
             action = action_from_label(label)
         is_special = (
-            action in {"BACKSPACE", "ENTER", "SHIFT", "CTRL", "ALT", " ", "PAUSE_RESUME"}
+            action in {"BACKSPACE", "ENTER", "SHIFT", "CTRL", "ALT", " ", "PAUSE_RESUME", "CALIBRATE"}
             or str(action).startswith("suggestion:")
             or str(action).startswith("system:")
             or len(action) != 1
