@@ -10,6 +10,10 @@ gaze typing** when a usable mapper is available. Keys activate by **gaze dwell**
 (~0.9 s, with progress ring) or optional **mouse click**; both inject into the
 **focused external application** via OS input (`pynput` behind an adapter).
 
+**Predictive text (003):** a bundled English word list drives up to **3 fixed
+suggestion slots**. Accepting a suggestion injects the remaining letters + Space
+through the same KeyAction path. Mapping/calibration constants are **unchanged**.
+
 **Product** launch does **not** start gaze preview or the accuracy benchmark. Those
 are **developer tools**.
 
@@ -44,7 +48,8 @@ python main.py
 2. Fixate each on-screen dot until the session completes.
 3. On success, the keyboard returns to its **top-half** geometry and typing auto-starts.
 4. Focus an external editor in the lower half; dwell or click keys to type there.
-5. Use **Pause/Resume** and **RECALIBRATE** as needed.
+5. After 2+ letters of a word, dwell a **suggestion** to complete it + Space, or ignore suggestions and keep typing key-by-key.
+6. Use **RECALIBRATE** (Calibrate button) as needed.
 
 ### Developer tools (optional)
 
@@ -80,6 +85,7 @@ Virtual Keyboard/
 │   ├── tracking/                # Webcam + MediaPipe thread
 │   ├── layout/                  # Key geometry inspection
 │   ├── typing/                  # Dwell, session, KeyAction, dispatcher
+│   ├── prediction/              # WordProvider, TypingContext, suggestion dispatch
 │   └── input/                   # OsInputAdapter + pynput adapter
 ├── tools/                       # Developer preview / evaluation / debug
 ├── archive/                     # Legacy v1 calibration and experiment code
@@ -149,5 +155,6 @@ python -m pytest tests/unit -k "dwell or key_action or os_input or typing_sessio
 - **Features**: PCA eye-local `uL/vL/uR/vR` + ratio `avg_h/avg_v`
 - **Mapping**: Frozen `pca4_baseline` + optional row-Y bias (see `docs/TYPING_CANDIDATE.md`)
 - **Typing**: Dwell 0.9 s / cooldown 0.20 s / 5-frame re-arm / 0.25 s key-switch confirm
+- **Prediction**: Prefix trie + frequency list (`gazekey/prediction/`); UI uses `WordProvider` only
 - **OS input**: `pynput` only inside `gazekey/input/pynput_adapter.py`
-- **Layout**: Fullscreen calib; top-half keyboard (`0.62`); no redesign for focus
+- **Layout**: Fullscreen calib; top-half keyboard (`0.62`); simplified letters-only product chrome (003)

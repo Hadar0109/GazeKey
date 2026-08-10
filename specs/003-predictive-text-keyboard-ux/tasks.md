@@ -222,11 +222,11 @@ suffix + Space via existing KeyAction path (FR-001–FR-005).
   `tests/unit/test_gaze_typing_runtime.py` / `tests/unit/test_word_provider.py`)
   proving OS-bound keys still deliver when suggestions empty/ignored **and**
   when provider load/`suggest` fails (fail open)
-- [ ] T034 [US2] **USER GATE**: Ask the user to confirm quickstart §D (type
+- [X] T034 [US2] **USER GATE**: Ask the user to confirm quickstart §D (type
   key-by-key ignoring suggestions; non-dictionary prefix → blank slots; typing
   still works). Automated tests MUST NOT substitute for this confirmation.
 
-**Checkpoint**: Prediction never blocks normal typing.
+**Checkpoint**: Prediction never blocks normal typing — **user-confirmed** (§D).
 
 ---
 
@@ -246,12 +246,13 @@ and accept (FR-006, FR-006a, SC-003).
   shorten, Space→clear suggestions, accept→empty prefix via Space delivery,
   stale epoch accept rejected (`tests/unit/test_typing_context.py` and/or
   `tests/unit/test_suggestion_dispatch.py`)
-- [ ] T038 [US4] **USER GATE**: Ask the user to run/confirm the scripted
+- [X] T038 [US4] **USER GATE**: Ask the user to run/confirm the scripted
   consistency sequence (quickstart §B/§E): prefix, backspace, accept/ignore,
   Space — suggestions always match internal `TypingContext`. Automated tests
   MUST NOT claim live webcam behavior passed.
 
-**Checkpoint**: No stale suggestion accepts; context matches delivered text.
+**Checkpoint**: No stale suggestion accepts; context matches delivered text —
+  **user-confirmed** (§B/§E).
 
 ---
 
@@ -269,7 +270,7 @@ mapping changes.
   tests/unit/test_suggestion_dispatch.py tests/unit/test_layout_geometry.py
   tests/contract/test_typing_dispatch_path.py
   tests/contract/test_suggestion_typing_path.py -q`
-- [ ] T042 **USER GATE**: Ask the user to execute remaining live quickstart.md
+- [X] T042 **USER GATE**: Ask the user to execute remaining live quickstart.md
   sections A–G as needed; append results to
   `specs/003-predictive-text-keyboard-ux/quickstart-gate-log.md`. Automated
   suites MUST NOT be used to claim webcam gaze or external-app typing passed.
@@ -283,8 +284,8 @@ mapping changes.
 - [X] T045 Full-project regression: run `pytest -q` at repo root; feature is
   **not complete** until the existing project suite still passes
 
-**Checkpoint**: Feature complete only after T042 USER GATE + T045 green +
-Phase 8 USER GATE T050 (recalibration layout) when that phase is in scope.
+**Checkpoint**: T042 USER GATE + T045 green + Phase 8/9 USER GATEs confirmed —
+  Feature 003 complete.
 
 ---
 
@@ -319,7 +320,7 @@ PCA4/calibration retune. Larger target = recovery tolerance only.
 - [X] T050 Run `pytest tests/unit/test_layout_geometry.py
   tests/test_keyboard_geometry_targets.py -q` then full `pytest -q`; record
   results in `specs/003-predictive-text-keyboard-ux/quickstart-gate-log.md`
-- [ ] T051 **USER GATE**: Ask the user to confirm quickstart §H — (1) recalibrate
+- [X] T051 **USER GATE**: Ask the user to confirm quickstart §H — (1) recalibrate
   clearly larger/easier to target, (2) bottom row layout correct, (3) gaze
   typing still works, (4) no important UI clipped/misaligned. **STOP and wait**
   for confirmation. Automated tests MUST NOT claim live webcam verification.
@@ -327,8 +328,7 @@ PCA4/calibration retune. Larger target = recovery tolerance only.
   follow-up
 
 **Checkpoint**: Bottom-row large Calibrate live; geometry green; **user
-confirmed** §H. Feature 003 still not closed until remaining USER GATEs
-(T034/T038/T042/T051) are confirmed.
+confirmed** §H.
 
 ---
 
@@ -352,13 +352,13 @@ a USER GATE, not claimed by this task alone.
 - [X] T055 Run geometry tests + full `pytest -q`; confirm
   `gazekey/mapping/config.py` untouched; record in
   `specs/003-predictive-text-keyboard-ux/quickstart-gate-log.md`
-- [ ] T056 **USER GATE**: Ask the user to test live whether gaze can reach the
+- [X] T056 **USER GATE**: Ask the user to test live whether gaze can reach the
   suggestion row in the product. Automated tests MUST NOT claim this fixed live
   mapping. **STOP and wait** for confirmation. Do not claim this change fixes
   live mapping unless the user verifies it.
 
-**Checkpoint**: Region metadata consistent; **user** reports live suggestion
-reachability.
+**Checkpoint**: Region metadata consistent; **user-confirmed** live suggestion
+reachability (T056).
 
 ---
 

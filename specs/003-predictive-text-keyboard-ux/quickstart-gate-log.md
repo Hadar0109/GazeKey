@@ -1,7 +1,8 @@
 # Quickstart gate log — 003-predictive-text-keyboard-ux
 
 **Feature**: Predictive Text & Keyboard UX  
-**Started**: 2026-08-10
+**Started**: 2026-08-10  
+**Status**: **COMPLETE** (2026-08-10) — all tasks and USER GATEs confirmed
 
 ## Automated geometry gate (T014)
 
@@ -48,15 +49,17 @@ python -m pytest -q
 **Result**: **PASS** (2026-08-10) — Feature 003 sweep green; full suite **174 passed**.  
 `gazekey/mapping/config.py` unmodified for this feature (T043).
 
-## Remaining USER GATES (live)
+## USER GATE summary (live)
 
 | Task | Gate | Result |
 |------|------|--------|
-| T034 | Typing ignoring suggestions / empty slots (quickstart §D) | pending |
-| T038 | Consistency sequence vs TypingContext (quickstart §B/§E) | pending |
-| T042 | Remaining live quickstart A–G as needed | pending |
-| T051 | Bottom-row large Calibrate recovery target (quickstart §H) | pending — dwell→recalib wiring fixed 2026-08-10; await manual confirm |
-| T056 | Live gaze reachability of suggestion row after typing_region_rect update | pending |
+| T015 | Tools preview + visual keyboard (§A) | **PASS** (2026-08-10) |
+| T030 | Suggestion MVP (§C) | **PASS** (2026-08-10) |
+| T034 | Typing ignoring suggestions / empty slots (§D) | **PASS** (2026-08-10) |
+| T038 | Consistency sequence vs TypingContext (§B/§E) | **PASS** (2026-08-10) |
+| T042 | Remaining live quickstart A–G as needed | **PASS** (2026-08-10) |
+| T051 | Bottom-row large Calibrate recovery target (§H) | **PASS** (2026-08-10) |
+| T056 | Live gaze reachability of suggestion row | **PASS** (2026-08-10) |
 
 ## Calibrate dwell wiring fix (pre-T051)
 
@@ -73,14 +76,14 @@ legacy `_on_gaze_activate_key` was never called from the gaze loop.
 **Automated**: `pytest tests/unit/test_layout_geometry.py tests/test_keyboard_geometry_targets.py -q` then `pytest -q` → **PASS** (2026-08-10); full suite **175 passed**.  
 `gazekey/mapping/config.py` unmodified (T052).
 
-**USER GATE T051** — ask user to confirm quickstart §H:
+**USER GATE T051** (quickstart §H):
 
 1. Recalibrate clearly larger and easier to target  
 2. Bottom row layout correct (Calibrate | Space | Enter)  
 3. Keyboard still works with gaze  
 4. No important UI clipped or misaligned  
 
-Automated suites MUST NOT claim webcam gaze for these gates.
+**Result**: **PASS** (2026-08-10) — user confirmed §H.
 
 ## Phase 9 — Typing-region geometry consistency (T053–T055)
 
@@ -89,8 +92,11 @@ gaze-target rects (fixed `suggestion:0..2` even when blank/disabled + letter/edi
 keys + Recalibrate/Space/Enter). Calibration continues to use `letter_keys_region_rect`
 (keyboard widget only). No stretch/compensation; no PCA4/calib-target/config changes.
 
-**Audit**: `map_gaze_to_typing_ui` has **no product callers** (dead for live typing;
-product uses PCA4 screen xy → `hit_test_layout_keys`). Kept with NOTE; not removed.
+**Audit / cleanup**: `map_gaze_to_typing_ui` and `_BOTTOM_EXTRAPOLATION` had **no
+callers** in product, tools, tests, or calibration/evaluation — removed.
+Active path unchanged: PCA4 screen xy → `hit_test_layout_keys`. Shared region
+helpers (`typing_region_rect`, `typing_region_from_layout_keys`,
+`letter_keys_region_rect`) retained.
 
 **Automated**:
 ```bash
@@ -100,10 +106,19 @@ python -m pytest -q
 **Result**: **PASS** (2026-08-10) — geometry **9 passed**; full suite **180 passed**.  
 `gazekey/mapping/config.py` unmodified (T055).
 
-**USER GATE T056** — ask user to confirm live:
+**USER GATE T056**:
 
 1. `python main.py`, calibrate, type a prefix so suggestions appear  
 2. Can gaze physically reach / dwell the suggestion row?  
 3. Does accept still insert the word correctly if reachable?
 
-Automated suites MUST NOT claim this fixed live mapping.
+**Result**: **PASS** (2026-08-10) — user confirmed live suggestion-row reachability and accept.
+
+## Feature closeout
+
+**USER GATEs T034 / T038 / T042** (quickstart §D, §B/§E, remaining A–G as needed):
+**PASS** (2026-08-10) — user confirmed all remaining manual validations succeeded.
+
+**Feature 003 status**: **COMPLETE** — all defined tasks marked done; automated
+gates green (latest full suite **180 passed**); all USER GATEs confirmed live;
+mapping/config isolation held (SC-007).

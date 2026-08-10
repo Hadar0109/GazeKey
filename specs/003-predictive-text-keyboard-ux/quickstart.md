@@ -109,3 +109,7 @@ python -m pytest -q
 
 **Note**: Automated tests do **not** claim live webcam gaze or external-app
 typing passed. Those require USER GATE confirmation (quickstart live sections).
+
+**Feature 003 closeout**: All automated sweeps and live USER GATEs (including
+§A–H and suggestion-row reachability) are recorded as **PASS** in
+`quickstart-gate-log.md`. Feature 003 is complete.

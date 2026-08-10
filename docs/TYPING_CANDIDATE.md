@@ -2,8 +2,9 @@
 
 Frozen configuration for the **active calibration + mapped-gaze path**. This stack
 is tuned for a reliable calibration → usable mapper loop. Product gaze typing /
-OS injection (`002-gaze-typing-os`) **consumes** mapped gaze downstream and must
-**not** retune these constants for typing accuracy.
+OS injection (`002-gaze-typing-os`) and predictive text (`003-predictive-text-keyboard-ux`)
+**consume** mapped gaze downstream and must **not** retune these constants for
+typing or suggestion UX.
 
 ## What is active
 

@@ -113,7 +113,7 @@ Layout CSV export: **`tools/debug/layout_csv.py`**.
 |------|------|
 | `key_hit_tester.py` | Gaze-point hit testing (tools benchmark + future typing). |
 | `key_semantics.py` | Button label → action. |
-| `gaze_ui_mapper.py` | Screen bounds → keyboard region rects. |
+| `gaze_ui_mapper.py` | Layout-export / calibration region rects (`typing_region_rect`, `letter_keys_region_rect`). Live gaze uses PCA4 screen xy → `hit_test_layout_keys` (no stretch mapper). |
 | `text_buffer.py` | Text field updates (mouse typing; re-eval T046). |
 | `gaze_smoother.py` | Screen-coordinate EMA (`GAZE_SMOOTHER_ALPHA`). |
 

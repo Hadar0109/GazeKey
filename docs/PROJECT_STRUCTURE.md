@@ -21,11 +21,14 @@ Downstream product typing consumes that mapped gaze:
 
 ```text
 tracking → features → calibration → mapping → mapped gaze
-  → key hit-test → dwell/click → KeyAction → OsInputAdapter → external app
+  → key hit-test (keys + suggestion slots) → dwell/click → KeyAction
+  → OsInputAdapter → external app
 ```
 
-Developer preview and the 15-key benchmark are **tools entries**, not product
-modes. Layout stays **fullscreen calib** then **top-half keyboard** (no redesign).
+Feature **003** adds prefix prediction (`gazekey/prediction/`) **downstream of
+mapped gaze only** — no PCA4 / calibration retune. Product keyboard is
+letters-only with a fixed 3-slot suggestion bar; developer preview remains
+`python -m tools.preview`.
 
 ---
 
@@ -44,6 +47,7 @@ Virtual Keyboard/
 │   ├── layout/
 │   ├── ui/
 │   ├── typing/                      # Dwell, session, KeyAction, dispatcher
+│   ├── prediction/                  # WordProvider, TypingContext, suggestions
 │   └── input/                       # OsInputAdapter + pynput only
 ├── tools/                           # Developer preview / evaluation / debug
 │   ├── preview/
