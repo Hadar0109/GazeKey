@@ -60,13 +60,13 @@ synchronized (FR-008, FR-008a–c, FR-011).
   `gazekey/ui/keyboard_layout.py` / `gazekey/ui/virtual_keyboard.py`; **preserve**
   `python -m tools.preview`, `GazeLoopController.process_gaze_preview`, and
   shared preview runtime (FR-008b / research R8)
-- [ ] T006 [P] [US3] Remove language toggle (`lang_btn`) and product wiring from
+- [ ] T006 [US3] Remove language toggle (`lang_btn`) and product wiring from
   `gazekey/ui/keyboard_layout.py` / `gazekey/ui/virtual_keyboard.py`
-- [ ] T007 [P] [US3] Remove symbols toggle, symbols layout path
+- [ ] T007 [US3] Remove symbols toggle, symbols layout path
   (`create_symbols_layout` / `switch_layout`), and Ctrl/Alt keys from product
   letters layout in `gazekey/ui/keyboard_layout.py`; clean
   `gazekey/ui/virtual_keyboard.py` handlers
-- [ ] T008 [P] [US3] Remove typed-text display bar (`text_display` /
+- [ ] T008 [US3] Remove typed-text display bar (`text_display` /
   `create_text_display`) from `gazekey/ui/keyboard_layout.py` and replace any
   delivery-error UX that depended on it with `mvp_log` verbose (research R10)
   in `gazekey/ui/virtual_keyboard.py`
@@ -77,29 +77,42 @@ synchronized (FR-008, FR-008a–c, FR-011).
 ### Layout redistribution + suggestion bar geometry
 
 - [ ] T010 [US3] Redistribute keyboard layout in `gazekey/ui/keyboard_layout.py`
-  per research R7 / `contracts/keyboard-layout-003.md`: no empty gaps; enlarge
-  letter/editing key targets where appropriate; ensure suggestion bar is fully
-  visible (not clipped); keep Calibrate + window chrome
-- [ ] T011 [US3] Make suggestion slots use `objectName="gazeTarget"` and stable
-  `key_id`s `suggestion:0`…`suggestion:2` in `gazekey/ui/keyboard_layout.py` so
-  they export via `gazekey/layout/layout_inspector.py` (may still show
-  placeholders until US1 wires prediction)
-- [ ] T012 [US3] Update semantic-row / layout-export assumptions in
-  `gazekey/ui/virtual_keyboard.py` (and any calibration-row helpers) for the
-  simplified surface; **do not** change `gazekey/mapping/config.py`
-- [ ] T013 [US3] Extend `tests/unit/test_layout_geometry.py` for suggestion-slot
-  hit-test coverage and absence of removed controls; fix
+  to the research **R7 acceptance layout** / `contracts/keyboard-layout-003.md`:
+  no empty dead gaps; suggestion bar fully visible (not clipped); reclaimed
+  space redistributed appropriately to active letter/editing keys; keep Calibrate
+  + window chrome. Key enlargement is a layout/usability goal, **not** a
+  mapping-accuracy requirement.
+- [ ] T011 [US3] Create **exactly three** suggestion slots with
+  `objectName="gazeTarget"` and stable `key_id`s `suggestion:0`…`suggestion:2`
+  in `gazekey/ui/keyboard_layout.py` so they export via
+  `gazekey/layout/layout_inspector.py`. Slots MUST have **fixed positions and
+  fixed geometry**; when unlabeled they stay blank/disabled (not dwellable). Do
+  **not** resize/reflow the bar by suggestion count (placeholders OK until US1
+  wires prediction labels).
+- [ ] T012 [US3] Update **only** layout export / semantic-row / hit-test geometry
+  alignment in `gazekey/ui/virtual_keyboard.py` (and related layout helpers) so
+  the simplified surface stays synchronized with `inspect_keyboard_layout` /
+  `hit_test_layout_keys`. **MUST NOT** change calibration strategy, calibration
+  targets, PCA4 fit/predict, `gazekey/mapping/config.py`, or mapping parameters
+  to compensate for UI redesign.
+- [ ] T013 [US3] Extend `tests/unit/test_layout_geometry.py` for fixed
+  suggestion-slot hit-test coverage (three slots always present; disabled slots
+  not dwellable) and absence of removed controls; fix
   `tests/unit/test_focus_and_layout_us2.py` / other UI tests broken by removals
-- [ ] T014 [US3] Run geometry gate: `pytest tests/unit/test_layout_geometry.py
-  tests/test_keyboard_geometry_targets.py -q` and record pass/fail in
+- [ ] T014 [US3] Run automated geometry gate:
+  `pytest tests/unit/test_layout_geometry.py tests/test_keyboard_geometry_targets.py -q`
+  and record pass/fail in
   `specs/003-predictive-text-keyboard-ux/quickstart-gate-log.md` (create if
-  needed); **STOP if fail**
-- [ ] T015 [US3] Verify `python -m tools.preview` still launches and preview works
-  without product Preview button; note result in
-  `specs/003-predictive-text-keyboard-ux/quickstart-gate-log.md`
+  needed); **STOP if fail**. Automated tests do **not** claim live webcam/OS
+  typing passed.
+- [ ] T015 [US3] **USER GATE**: Ask the user to run/confirm
+  `python -m tools.preview` (preview without product Preview button) and visual
+  check of the redesigned keyboard (quickstart §A / FR-008b). Record result in
+  `specs/003-predictive-text-keyboard-ux/quickstart-gate-log.md`. **STOP and wait
+  for user confirmation before Phase 3.**
 
-**Checkpoint**: Simplified product keyboard; geometry tests green; tools preview
-preserved. Prediction not required yet.
+**Checkpoint**: Simplified product keyboard; geometry tests green; **user
+confirmed** tools preview + visual layout. Prediction not required yet.
 
 ---
 
@@ -118,14 +131,18 @@ preserved. Prediction not required yet.
   source (frequency-ordered; ~20k–50k target)
 - [ ] T018 Implement `WordProvider` Protocol in
   `gazekey/prediction/word_provider.py` per
-  `specs/003-predictive-text-keyboard-ux/contracts/word-provider.md`
+  `specs/003-predictive-text-keyboard-ux/contracts/word-provider.md` (abstraction
+  for UI/typing; future personalized providers allowed without implementing them
+  here)
 - [ ] T019 Implement `TrieWordProvider` in `gazekey/prediction/trie_provider.py`
   with **efficient top-3 frequency retrieval** (research R2: not naive
-  full-subtree collect-then-sort); min prefix length ≥2 returns `[]` for shorter
+  full-subtree collect-then-sort); min prefix length ≥2 returns `[]` for shorter;
+  load/`suggest` failures MUST raise or return safely so callers can fail open
+  (FR-012) — do not crash the product
 - [ ] T020 [P] Add `tests/unit/test_word_provider.py`: API rules (`hel` matches,
   `h`→`[]`, `zzzz`→`[]`, `len<=3`) plus deterministic **quality smoke** for
-  common prefixes (e.g. `th`, `he`, `an`, `in`, `wh`) asserting sensible
-  completions against the bundled list
+  common prefixes (e.g. `th`, `he`, `an`, `in`, `wh`); plus fail-open cases
+  (missing word file / `suggest` exception handled by caller contract)
 - [ ] T021 Implement `TypingContext` in `gazekey/prediction/typing_context.py`
   per `contracts/typing-context.md` / data-model: update only on
   `on_action_delivered` with `ok=True`; no post-batch `clear_prefix()` for
@@ -133,11 +150,14 @@ preserved. Prediction not required yet.
 - [ ] T022 [P] Add `tests/unit/test_typing_context.py`: letter append, backspace,
   Space clears, ENTER clears, failed inject leaves prefix unchanged, suggestion
   suffix+Space clears via Space delivery only
-- [ ] T023 Wire `TypingContext` subscription to `ActionDispatcher` in
-  `gazekey/ui/virtual_keyboard.py` (or thin helper) without refreshing
-  suggestions on the gaze frame path
+- [ ] T023 Wire `TypingContext` and a single composition-root `WordProvider`
+  instance (concrete `TrieWordProvider` constructed **once** in setup, typed as
+  `WordProvider`) in `gazekey/ui/virtual_keyboard.py` (or thin factory). UI and
+  typing MUST import `WordProvider` only — **not** `TrieWordProvider` /
+  trie internals. Refresh suggestions from delivery path only (not gaze frames).
 
 **Checkpoint**: Provider + context unit tests pass; ready for suggestion UI.
+  **Do not start US1 until T015 USER GATE confirmed.**
 
 ---
 
@@ -157,22 +177,29 @@ suffix + Space via existing KeyAction path (FR-001–FR-005).
   → `lo `; epoch stale → no dispatch; Shift-armed + prefix `hel` → lowercase
   `lo ` and Shift cleared (**no** `helLo`); partial failure leaves context
   consistent with delivered chars
-- [ ] T026 [US1] Activate suggestion bar UI: enable slots, hide/disable empty
-  slots (no placeholders), set labels from `WordProvider.suggest` in
-  `gazekey/ui/keyboard_layout.py` / `gazekey/ui/virtual_keyboard.py` on
+- [ ] T026 [US1] Activate suggestion bar UI: keep **three fixed-geometry** slots;
+  label enabled slots from `WordProvider.suggest` (not `TrieWordProvider`);
+  unused slots blank/disabled (not dwellable); **no** resize/reflow by count —
+  in `gazekey/ui/keyboard_layout.py` / `gazekey/ui/virtual_keyboard.py` on
   `TypingContext` change (`prefix_epoch`)
 - [ ] T027 [US1] Extend `gazekey/typing/key_semantics.py` and
   `gazekey/typing/gaze_typing_runtime.py` so `suggestion:0..2` are dwellable
-  when enabled; on fire, call suggestion accept with epoch guard
-  (`contracts/suggestion-selection.md`)
+  **only when enabled**; on fire, call suggestion accept with epoch guard
+  (`contracts/suggestion-selection.md`). Typing modules MUST NOT import trie
+  internals.
 - [ ] T028 [US1] Wire mouse click on suggestion buttons to the same accept path
   as dwell in `gazekey/ui/virtual_keyboard.py` (parity with keys)
 - [ ] T029 [US1] Add `tests/contract/test_suggestion_typing_path.py`: dwell/mouse
-  suggestion → fake adapter receives suffix+Space; empty slot not dwellable
-- [ ] T030 [US1] Manual smoke: type `hel`, dwell a suggestion, confirm external
-  app shows completed word + Space (quickstart §C)
+  suggestion → fake adapter receives suffix+Space; empty/disabled slot not
+  dwellable
+- [ ] T030 [US1] **USER GATE**: Ask the user to run/confirm end-to-end suggestion
+  MVP (quickstart §C): type `hel`, dwell a suggestion, confirm external app
+  shows completed word + Space. Automated tests MUST NOT claim live webcam or
+  external-app typing passed. **STOP and wait for user confirmation before
+  Phase 5.**
 
-**Checkpoint**: US1 MVP — suggestions appear and complete words via OS path.
+**Checkpoint**: US1 MVP — suggestions appear and complete words via OS path
+  (**user-confirmed** live path).
 
 ---
 
@@ -183,18 +210,21 @@ suffix + Space via existing KeyAction path (FR-001–FR-005).
 
 **Independent Test**: Quickstart §D; existing typing contract tests still pass.
 
-- [ ] T031 [US2] Ensure empty suggestion slots are not dwellable and do not
-  block key hit-testing in `gazekey/typing/gaze_typing_runtime.py` /
-  layout export
+- [ ] T031 [US2] Ensure blank/disabled suggestion slots are not dwellable and do
+  not block key hit-testing in `gazekey/typing/gaze_typing_runtime.py` /
+  layout export; on provider/load/`suggest` failure, clear labels and disable
+  all three slots (fail open; FR-012) without raising into the gaze loop
 - [ ] T032 [US2] Verify ignore-suggestions path: typing letters/Space/Backspace/
   Enter still uses unchanged KeyAction → dispatcher → adapter path in
   `gazekey/ui/virtual_keyboard.py` / `gazekey/typing/gaze_typing_runtime.py`
 - [ ] T033 [P] [US2] Extend or add regression coverage in
   `tests/contract/test_typing_dispatch_path.py` (and/or
-  `tests/unit/test_gaze_typing_runtime.py`) proving OS-bound keys still deliver
-  with suggestions empty or ignored
-- [ ] T034 [US2] Manual smoke: type a short word key-by-key ignoring suggestions;
-  type a non-dictionary prefix → empty slots; typing still works (quickstart §D)
+  `tests/unit/test_gaze_typing_runtime.py` / `tests/unit/test_word_provider.py`)
+  proving OS-bound keys still deliver when suggestions empty/ignored **and**
+  when provider load/`suggest` fails (fail open)
+- [ ] T034 [US2] **USER GATE**: Ask the user to confirm quickstart §D (type
+  key-by-key ignoring suggestions; non-dictionary prefix → blank slots; typing
+  still works). Automated tests MUST NOT substitute for this confirmation.
 
 **Checkpoint**: Prediction never blocks normal typing.
 
@@ -216,8 +246,10 @@ and accept (FR-006, FR-006a, SC-003).
   shorten, Space→clear suggestions, accept→empty prefix via Space delivery,
   stale epoch accept rejected (`tests/unit/test_typing_context.py` and/or
   `tests/unit/test_suggestion_dispatch.py`)
-- [ ] T038 [US4] Manual scripted sequence (quickstart §B/§E): prefix, backspace,
-  accept/ignore, Space — suggestions always match internal prefix
+- [ ] T038 [US4] **USER GATE**: Ask the user to run/confirm the scripted
+  consistency sequence (quickstart §B/§E): prefix, backspace, accept/ignore,
+  Space — suggestions always match internal `TypingContext`. Automated tests
+  MUST NOT claim live webcam behavior passed.
 
 **Checkpoint**: No stale suggestion accepts; context matches delivered text.
 
@@ -225,23 +257,33 @@ and accept (FR-006, FR-006a, SC-003).
 
 ## Phase 7: Polish & cross-cutting
 
-**Purpose**: Integration validation; docs; no mapping changes.
+**Purpose**: Integration validation; docs; modularity; full regression; no
+mapping changes.
 
 - [ ] T039 [P] Update `README.md` and/or `docs/PROJECT_STRUCTURE.md` briefly for
   prediction package + simplified product keyboard (no mapping retune)
 - [ ] T040 [P] Update `docs/TYPING_CANDIDATE.md` note that 003 adds prediction
   downstream of mapped gaze without changing PCA4 constants
-- [ ] T041 Run automated sweep from quickstart:
+- [ ] T041 Run Feature 003 automated sweep from quickstart:
   `pytest tests/unit/test_typing_context.py tests/unit/test_word_provider.py
   tests/unit/test_suggestion_dispatch.py tests/unit/test_layout_geometry.py
   tests/contract/test_typing_dispatch_path.py
   tests/contract/test_suggestion_typing_path.py -q`
-- [ ] T042 Execute remaining quickstart.md sections A–G; append results to
-  `specs/003-predictive-text-keyboard-ux/quickstart-gate-log.md`
+- [ ] T042 **USER GATE**: Ask the user to execute remaining live quickstart.md
+  sections A–G as needed; append results to
+  `specs/003-predictive-text-keyboard-ux/quickstart-gate-log.md`. Automated
+  suites MUST NOT be used to claim webcam gaze or external-app typing passed.
 - [ ] T043 Confirm `gazekey/mapping/config.py` and mapping benchmarks were not
   modified for this feature (SC-007)
+- [ ] T044 [P] Architectural modularity check: ensure `gazekey/ui/` and
+  `gazekey/typing/` do **not** import `TrieWordProvider` or
+  `gazekey.prediction.trie_provider` internals (depend on `WordProvider` only);
+  add a small unit/static test under `tests/unit/test_prediction_modularity.py`
+  (or equivalent grep/assert in suite)
+- [ ] T045 Full-project regression: run `pytest -q` at repo root; feature is
+  **not complete** until the existing project suite still passes
 
-**Checkpoint**: Feature ready for `/speckit-implement` completion review.
+**Checkpoint**: Feature complete only after T042 USER GATE + T045 green.
 
 ---
 
@@ -272,19 +314,34 @@ and accept (FR-006, FR-006a, SC-003).
 
 ### Parallel Opportunities
 
-- T006, T007, T008 after T004/T005 inventory of shared layout edits (coordinate
-  if same file — prefer sequential on `keyboard_layout.py`)
+- T006–T008 are **sequential** (same UI files; no `[P]`)
 - T020 ∥ T022 after provider/context implemented
 - T025 ∥ T029 after dispatch exists
 - T033 ∥ T037 in polish-adjacent testing
 - T039 ∥ T040 documentation
+- T044 ∥ T041 after implementation stable
 
 ### Within stories
 
-- Geometry gate (T014) before prediction core
+- Geometry gate (T014) + **USER GATE T015** before prediction core / US1
 - Word list license (T016) before shipping `words_en.txt` (T017)
 - Provider before UI refresh; TypingContext before accept path
 - Shift casing regression (T025) before declaring US1 done
+- **USER GATE T030** before Phase 5
+- Full regression **T045** required for completion
+
+### USER GATES (manual / live)
+
+| Task | Gate |
+|------|------|
+| T015 | Tools preview + visual keyboard after geometry redesign |
+| T030 | First end-to-end suggestion MVP (webcam + external app) |
+| T034 | Typing with suggestions ignored / empty |
+| T038 | Consistency sequence vs `TypingContext` |
+| T042 | Remaining live quickstart A–G |
+
+Implementer MUST stop and ask the user to run/confirm these before continuing
+past the gate. Automated tests do not satisfy USER GATE criteria.
 
 ---
 
@@ -327,7 +384,8 @@ Task: "tests/contract/test_suggestion_typing_path.py"
 
 ### Suggested MVP scope
 
-**US3 geometry gate + Phase 3 + US1** (through T030). US2/US4 before merge.
+**US3 geometry gate (through T015 USER GATE) + Phase 3 + US1 (through T030 USER
+GATE)**. US2/US4 + T044/T045 before merge.
 
 ---
 
@@ -336,5 +394,8 @@ Task: "tests/contract/test_suggestion_typing_path.py"
 - Do **not** retune calibration/mapping for UI or prediction issues
 - `<1 ms` suggest / `<200 ms` trie build = design targets, not SC gates
 - No post-batch `clear_prefix()` after suggestion accept
+- Three suggestion slots: fixed geometry; blank/disabled when unused
+- UI/typing → `WordProvider` only; compose `TrieWordProvider` once at setup
 - Commit after each task or logical group
 - Avoid vague tasks; keep file paths exact
+- **USER GATE** tasks require explicit user confirmation before continuing

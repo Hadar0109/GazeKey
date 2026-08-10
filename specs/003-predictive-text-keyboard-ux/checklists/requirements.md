@@ -31,11 +31,9 @@
 
 ## Notes
 
-- Clarification session 2026-08-10 resolved 5 questions (prefix source, completion
-  semantics, product UI removals, symbols/Ctrl/Alt removal, max 3 suggestions,
-  layout redistribution). Completion semantics and max suggestion count are no
-  longer open.
-- Remaining open items deferred to `/speckit-plan`: prediction method, ranking,
-  typing-state structure, module boundaries, libraries, short-prefix behavior,
-  layout redistribution plan, stale-suggestion rules, failure handling.
-- Ready for `/speckit-plan`.
+- Clarification session 2026-08-10 resolved product decisions; plan/research
+  resolved remaining open research items (see spec **Resolved Planning
+  Decisions**). Binding additions: min prefix ≥2 (FR-013), Shift casing
+  (FR-014), fixed three suggestion slots, fail-open provider failures,
+  `WordProvider` abstraction, R7 acceptance layout, USER GATEs for live checks.
+- Ready for `/speckit-implement` after consistency revision.

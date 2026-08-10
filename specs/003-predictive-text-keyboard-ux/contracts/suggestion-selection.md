@@ -16,7 +16,8 @@ Gaze/mouse selection of a word suggestion through the existing dwell path.
 | `suggestion:2` | Third slot |
 
 - `objectName`: `gazeTarget` (exported in layout geometry)
-- Empty slot: not dwellable (disabled or hidden)
+- Exactly three slots with **fixed positions and fixed geometry**
+- Empty/unused slot: blank, disabled, not dwellable — **no** resize/reflow
 
 ## Selection flow
 

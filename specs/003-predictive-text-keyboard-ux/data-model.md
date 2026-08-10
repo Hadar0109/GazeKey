@@ -58,7 +58,8 @@ Not persisted; derived per refresh from provider + current prefix.
 | items | list[WordSuggestion] | 0..3 entries |
 | slot_key_ids | list[str] | e.g. `suggestion:0` |
 
-Empty slots: button hidden or disabled; no placeholder labels.
+Empty slots: button remains in fixed geometry, blank/disabled, not dwellable;
+no bar resize/reflow by count.
 
 ### SuggestionTarget (layout / hit-test)
 

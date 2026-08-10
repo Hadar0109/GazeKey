@@ -12,7 +12,7 @@ Functional geometry for simplified product keyboard (FR-008, FR-011).
 | Region | key_id prefix | Notes |
 |--------|---------------|-------|
 | Control | `system:calibrate`, window chrome | No gaze-status text |
-| Suggestions | `suggestion:0..2` | Max 3; fully visible |
+| Suggestions | `suggestion:0..2` | Exactly 3 fixed-geometry slots; fully visible; unused blank/disabled |
 | Letters | `r{row}c{col}:{char}` | Enlarged vs 002 |
 | Editing | Shift, Backspace, Space, Enter | OS-bound per 002 |
 
@@ -31,6 +31,9 @@ Functional geometry for simplified product keyboard (FR-008, FR-011).
    `suggestions`, `letters1-3`, `actions` aligned with export
 4. Top-half window placement unchanged (002 geometry policy)
 5. No empty layout rows after removals
+6. Research **R7** is the acceptance layout: redistribute reclaimed space to
+   active keys; key enlargement is not a mapping-accuracy requirement
+7. Layout/export/semantic updates only — no calibration/PCA4/mapping retune
 
 ## Regression tests (required after implement)
 

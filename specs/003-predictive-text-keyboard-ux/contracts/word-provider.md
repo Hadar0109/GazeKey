@@ -38,6 +38,13 @@ Top-3 frequency retrieval MUST follow research R2 (prefix-node walk alone is
 insufficient; use top-k cache or equivalent). Word-list source/license MUST be
 documented before bundling (research R1).
 
+**Composition**: Callers (UI / typing) MUST depend on `WordProvider` only.
+Concrete `TrieWordProvider` is constructed in one composition/setup site.
+Compatible with a future personalized provider without implementing it here.
+
+**Failure**: Load/`suggest` failures MUST be fail-open at the product boundary
+(empty suggestions; typing continues; no crash) — FR-012.
+
 ## Test contract
 
 - `suggest("hel")` contains `"hello"` or `"help"` (given list content)

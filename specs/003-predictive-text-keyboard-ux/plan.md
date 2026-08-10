@@ -33,9 +33,10 @@ preserved.
    wiring.
 2. **`gazekey/prediction/` package** — `WordProvider` protocol, trie
    implementation, bundled `words_en.txt`, `TypingContext`,
-   `suggestion_dispatch`.
+   `suggestion_dispatch`. Compose `TrieWordProvider` once as `WordProvider`.
 3. **Wire context to dispatcher** — subscribe `on_action_delivered(ok)`; refresh
-   suggestions on prefix change (not per gaze frame).
+   suggestions on prefix change (not per gaze frame); fail open on provider
+   failure.
 4. **Activate suggestion targets** — `objectName="gazeTarget"`, stable
    `suggestion:0..2` ids; extend `GazeTypingRuntime` + hit-test export.
 5. **Suggestion accept** — epoch guard; sequential CHAR + Space through
@@ -58,10 +59,11 @@ preserved.
 `gazekey/prediction/data/` (documented open license only — research R1);
 runtime `TypingContext` in-process only
 
-**Testing**: pytest — word provider (incl. top-3 ranking + quality smoke),
-typing context (delivery-only updates), suggestion dispatch (epoch + Shift
-casing regression), layout geometry regression, contract typing path with fake
-adapter
+**Testing**: pytest — word provider (incl. top-3 ranking + quality smoke +
+fail-open), typing context (delivery-only updates), suggestion dispatch (epoch +
+Shift casing regression), layout geometry regression, modularity
+(UI/typing must not import trie internals), contract typing path with fake
+adapter; final full-project `pytest -q`
 
 **Target Platform**: Windows desktop (primary)
 
@@ -75,12 +77,15 @@ are necessary); suggestion refresh on delivery only; tracking ~30 FPS unchanged
 
 - Spec 003 clarifications + [research.md](./research.md)
 - Internal prefix tracking only (no external readback)
-- Max 3 suggestions; min prefix length 2
+- Max 3 suggestions in **three fixed slots**; min prefix length 2
 - Accept → suffix + Space via KeyAction path; context via delivery events only
 - Trie top-3 retrieval must not assume prefix-node walk alone is enough (R2)
 - Bundled vocabulary must have clear redistributable license (R1)
+- R7 is acceptance layout; key enlargement ≠ mapping accuracy
+- UI/typing depend on `WordProvider` abstraction only
 - No mapping/calibration retune for UI redesign
 - Visible bounds = hitboxes (FR-011)
+- Manual USER GATEs required for live webcam / external-app checks
 
 **Scale/Scope**: English word completion; letters-only product keyboard; single
 monitor; existing dwell parameters (0.9 s, etc.)
@@ -167,31 +172,34 @@ existing typing/UI packages rather than new top-level app.
 ### Phase A — UI cleanup & geometry gate
 
 - Remove product controls per FR-008
-- Redistribute layout (research R7)
-- Fix suggestion bar clipping
+- Redistribute to research **R7 acceptance layout**
+- Three fixed suggestion slots (blank/disabled when unused)
 - Remove symbols layout product path
 - Preserve `tools.preview`
-- **Gate**: geometry tests pass
+- Automated geometry tests + **USER GATE** (visual / tools preview)
+- **Gate**: geometry tests pass; user confirms layout/preview
 
 ### Phase B — Prediction core
 
 - Choose/document licensed word list; ship `words_en.txt` + provenance note
 - `WordProvider` + trie with efficient top-3 frequency retrieval (R2)
+- Compose concrete provider once as `WordProvider`
 - `TypingContext` + dispatcher subscription (delivery-only; no post-batch clear)
-- Unit tests: provider API, quality smoke prefixes, context updates, Shift
-  casing regression for suggestion accept
+- Fail-open on load/`suggest` failure
+- Unit tests: provider API, quality smoke, fail-open, context, Shift casing
 
 ### Phase C — Suggestion UI + gaze selection
 
-- Enable suggestion buttons as gaze targets
-- Refresh bar from context
+- Label fixed slots from `WordProvider`; blank/disable unused
 - `GazeTypingRuntime` suggestion branch + epoch guard
 - Suffix + Space dispatch; context via deliveries only
+- **USER GATE** for first live MVP
 
 ### Phase D — Integration & quickstart
 
-- End-to-end product path
-- Quickstart sections A–G
+- End-to-end product path + remaining USER GATEs
+- Modularity check (no UI/typing → trie imports)
+- Feature 003 sweep + full-project `pytest -q`
 - No mapping config changes
 
 ## Complexity Tracking

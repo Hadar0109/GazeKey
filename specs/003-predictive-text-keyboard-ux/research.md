@@ -193,7 +193,8 @@ casing).
   accepts only if `epoch` still matches active prefix.
 - While dwell is in progress on a suggestion, prefix change **cancels** pending
   suggestion dwell (same family as key-switch rules).
-- UI hides or disables empty suggestion slots (no placeholder padding).
+- UI hides labels on empty slots but **keeps three fixed-geometry slots**
+  blank/disabled (no resize/reflow by count; FR-003).
 
 **Rationale**: SC-003 one-cycle refresh; prevents selecting a candidate for an
 obsolete prefix.
@@ -202,11 +203,12 @@ obsolete prefix.
 
 ## R7 — Product keyboard layout redistribution
 
-**Decision**: **Letters-only product layout** with simplified chrome:
+**Decision**: **Letters-only product layout** with simplified chrome — this is
+the **acceptance layout** for implementation (FR-008c):
 
 ```text
 [ Calibrate ] [ minimize | close ]          ← slim control bar (no status text)
-[ suggestion_0 | suggestion_1 | suggestion_2 ]  ← fully visible, gazeTarget
+[ suggestion_0 | suggestion_1 | suggestion_2 ]  ← fixed geometry, fully visible
 [ qwertyuiop row — taller keys ]
 [ asdfghjkl row ]
 [ Shift | zxcvbnm | Backspace ]
@@ -217,8 +219,12 @@ obsolete prefix.
 layout, Ctrl, Alt, gaze-status label, typed-text bar.
 
 **Space reclaimed**: remove text-display row + pruned control bar + bottom-row
-Ctrl/Alt → increase key heights and suggestion bar height; **no empty spacer
-rows**.
+Ctrl/Alt → redistribute appropriately to key heights and suggestion bar height;
+**no empty spacer/dead rows**. Key enlargement is a gaze-usability layout goal,
+**not** a mapping-accuracy requirement.
+
+**Suggestion slots**: Always three fixed positions; unused slots blank/disabled
+(not dwellable); no bar reflow by suggestion count.
 
 **Geometry rules** (FR-011):
 
@@ -226,13 +232,16 @@ rows**.
   single source of truth after export
 - Re-run `tests/unit/test_layout_geometry.py` and
   `tests/test_keyboard_geometry_targets.py` after layout change
-- **Do not** change calibration targets or mapping config for typing UX
+- Layout/export/semantic alignment updates only as required by the new surface
+- **Do not** change calibration strategy, targets, PCA4, or mapping config for
+  typing UX
 
 **Rationale**: Matches clarify session removals + FR-008c; maximizes gaze target
-size within existing top-half window.
+size within existing top-half window without mapping compensation.
 
 **Alternatives considered**: Keep symbols layout hidden (still dead code);
-shrink-only without key enlargement (wastes clarify intent).
+shrink-only without redistributing space (wastes clarify intent); dynamic
+slot count / reflow (rejected — unstable gaze targets).
 
 ---
 
@@ -282,12 +291,20 @@ with existing delivery observer pattern.
 | Module | Responsibility |
 |--------|----------------|
 | `gazekey/prediction/word_provider.py` | `Protocol`: `suggest(prefix) → list[str]` (≤3) |
-| `gazekey/prediction/trie_provider.py` | Default trie implementation |
+| `gazekey/prediction/trie_provider.py` | Default `TrieWordProvider` implementation |
 | `gazekey/prediction/typing_context.py` | Prefix tracking from deliveries |
 | `gazekey/prediction/suggestion_dispatch.py` | suffix+Space → KeyAction sequence |
 | `gazekey/typing/gaze_typing_runtime.py` | Hit-test + dwell for `suggestion:*` ids |
 | `gazekey/ui/keyboard_layout.py` | Layout + suggestion bar labels |
-| `gazekey/ui/virtual_keyboard.py` | Wire context → provider → bar; epoch guard |
+| `gazekey/ui/virtual_keyboard.py` | Composition root: construct `TrieWordProvider` once as `WordProvider`; wire context → provider → bar; epoch guard |
+
+**Rules**:
+
+- UI / typing MUST depend on **`WordProvider` only** (not `TrieWordProvider` /
+  trie internals) — FR-009; preserves a future personalized provider / user
+  frequency store (e.g. SQLite) without implementing it in 003.
+- Word-list load or `suggest()` failure → fail open (empty/disabled slots;
+  typing continues; no crash) — FR-012.
 
 **Rationale**: FR-009 modularity; UI and OS inject never import trie internals.
 

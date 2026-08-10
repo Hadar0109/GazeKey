@@ -80,7 +80,16 @@ Preview button.
 ## Automated test sweep (before merge)
 
 ```bash
-python -m pytest tests/unit/test_typing_context.py tests/unit/test_word_provider.py tests/unit/test_suggestion_dispatch.py tests/unit/test_layout_geometry.py tests/contract/test_typing_dispatch_path.py -q
+python -m pytest tests/unit/test_typing_context.py tests/unit/test_word_provider.py tests/unit/test_suggestion_dispatch.py tests/unit/test_layout_geometry.py tests/unit/test_prediction_modularity.py tests/contract/test_typing_dispatch_path.py tests/contract/test_suggestion_typing_path.py -q
+```
+
+Then full-project regression:
+
+```bash
+python -m pytest -q
 ```
 
 (Exact new test module names per `tasks.md`.)
+
+**Note**: Automated tests do **not** claim live webcam gaze or external-app
+typing passed. Those require USER GATE confirmation (quickstart live sections).

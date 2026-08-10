@@ -136,9 +136,10 @@ typing and hit-testing still work after layout changes.
    the chrome, **Then** Pause, Preview, language toggle, symbols layout toggle,
    Ctrl, Alt, gaze-status text, and the local typed-text bar are not present.
 2. **Given** word suggestions are available, **When** the user looks at the
-   suggestion area, **Then** at most three suggestions are fully visible (not
-   clipped), clearly readable, and individually selectable with gaze-sized
-   targets.
+   suggestion area, **Then** at most three suggestions are labeled in the fixed
+   three-slot bar (fully visible, not clipped), clearly readable, and
+   individually selectable with gaze-sized targets; unused slots stay
+   blank/disabled and not dwellable without reflow.
 3. **Given** inactive controls were removed, **When** the user views the
    keyboard, **Then** no unused empty gaps remain and active controls form a
    clean, efficient layout.
@@ -159,8 +160,8 @@ typing and hit-testing still work after layout changes.
 ### User Story 4 - Consistent Suggestion Behavior Across Typing Actions (Priority: P2)
 
 As the user types characters, deletes characters, completes a word (for example
-with Space), or accepts a suggestion, the system keeps enough typing-context
-information that suggestions remain coherent with what was actually sent to the
+with Space), or accepts a suggestion, the system keeps a **`TypingContext`** so
+that suggestions remain coherent with what was actually sent to the
 external application.
 
 **Why this priority**: Inconsistent context (stale suggestions after delete or
@@ -187,29 +188,27 @@ lists always match the current in-progress word context.
 
 ### Edge Cases
 
-- No dictionary/model match for the current prefix → show no suggestions (or an
-  empty suggestion area); typing continues normally.
-- Very short prefixes (empty or single character) → system may show no
-  suggestions or broader suggestions; behavior must remain predictable and not
-  block typing.
-- Rapid successive key selections → suggestions must not lag in a way that
-  causes selection of a stale candidate after the prefix has already changed
-  (exact freshness rules deferred to planning).
-- Suggestion selected when the external app rejects or fails delivery → user
-  can observe failure consistently with existing typing delivery feedback
-  patterns; typing context and suggestions must not silently diverge from what
-  was actually delivered (details deferred to planning).
+- No dictionary/model match for the current prefix → blank/disabled suggestion
+  slots (fixed geometry); typing continues normally (FR-012).
+- Very short prefixes (empty or single character) → **no suggestions** (min
+  prefix length **2**; research R3 / FR-013); typing unaffected.
+- Rapid successive key selections → stale accepts blocked by `prefix_epoch`
+  (research R6); mid-dwell prefix change cancels pending suggestion dwell.
+- Suggestion selected when external delivery fails → stop batch; `TypingContext`
+  matches characters actually delivered only (research R5); no post-batch clear.
+- Word list load failure or `WordProvider.suggest()` exception → fail open:
+  suggestion area empty/unavailable; normal gaze typing continues; product MUST
+  NOT crash (FR-012).
 - Keyboard geometry change with active mapping/typing session → hit-testing and
   dwell targets remain aligned with on-screen keys; no requirement to change
-  calibration or mapping models.
-- Suggestion bar clipped or partially off-screen → layout MUST be corrected so
-  all suggestion targets (up to three) are fully visible within the product
-  keyboard area.
-- Fewer than three candidates available → show only the available suggestions;
-  do not pad with empty placeholder slots.
+  calibration or mapping models (FR-011; research R7).
+- Suggestion bar clipped or partially off-screen → layout MUST follow research
+  R7 acceptance layout so all three fixed suggestion slots are fully visible.
+- Fewer than three candidates → unused slots remain in fixed positions,
+  blank/disabled, not dwellable; **do not** resize or reflow the suggestion bar.
 - User edits text directly in the external app (keyboard/mouse outside GazeKey)
   → internal prefix may diverge from external content; GazeKey does not reconcile
-  via readback; suggestions reflect internal tracking until the next GazeKey
+  via readback; suggestions reflect `TypingContext` until the next GazeKey
   typing action resets or updates context.
 
 ## Requirements *(mandatory)*
@@ -223,7 +222,10 @@ lists always match the current in-progress word context.
   normal typing and deletion.
 - **FR-003**: System MUST display suggestions as part of the virtual keyboard
   interface in a dedicated, gaze-usable suggestion area. The product keyboard
-  MUST show **at most 3** word suggestions at once.
+  MUST keep **exactly 3** suggestion slots in **fixed positions and fixed
+  geometry**. At most 3 words may be labeled at once; unused slots MUST remain
+  blank/disabled and not dwellable. The suggestion bar MUST NOT resize or reflow
+  based on how many suggestions are available.
 - **FR-004**: Users MUST be able to select a displayed suggestion through the
   existing gaze-based interaction system (same interaction family as key
   selection).
@@ -232,14 +234,14 @@ lists always match the current in-progress word context.
   (not a separate parallel input mechanism). Delivery MUST dispatch only the
   **remaining suffix** not yet typed, followed by **Space** (e.g. prefix `hel` +
   suggestion `hello` → `lo ` via dispatched KeyActions).
-- **FR-006**: System MUST maintain sufficient typing-flow context so that
-  character entry, deletion, word completion, and suggestion acceptance produce
-  consistent suggestion behavior.
+- **FR-006**: System MUST maintain a **`TypingContext`** so that character entry,
+  deletion, word completion, and suggestion acceptance produce consistent
+  suggestion behavior.
 - **FR-006a**: The in-progress word prefix MUST be derived from **internal
-  tracking only** — GazeKey's record of successfully dispatched keystrokes and
-  suggestion accepts (characters, Backspace, Space, suggestion completion).
-  The system MUST NOT read or sync prefix state from the external application's
-  text field.
+  tracking only** via `TypingContext` — GazeKey's record of successfully
+  dispatched keystrokes and suggestion accepts (characters, Backspace, Space,
+  suggestion completion). The system MUST NOT read or sync prefix state from the
+  external application's text field.
 - **FR-007**: Normal character-by-character typing MUST continue to work when no
   suggestions are available and when the user chooses not to use suggestions.
 - **FR-008**: The product keyboard UI MUST be simplified by **removing** Pause,
@@ -251,17 +253,22 @@ lists always match the current in-progress word context.
   tools/debug flows.
 - **FR-008a**: The existing suggestion bar MUST be kept, repositioned, and laid
   out so it is **fully visible** (not clipped) and activated for gaze-based word
-  completion in this feature.
+  completion in this feature (three fixed slots; see FR-003).
 - **FR-008b**: Removing the product Preview button MUST NOT break developer
   preview when it is still reachable via non-product entry points (e.g.
   `python -m tools.preview`); verify usage before deleting underlying preview
   code.
-- **FR-008c**: After removing inactive product controls, the keyboard MUST NOT
-  leave unused empty gaps. Active controls MUST be reorganized into a clean,
-  efficient layout; freed space SHOULD be used where appropriate to increase
-  letter/editing key target size for gaze usability.
-- **FR-009**: Prediction behavior MUST remain modular: suggestion generation MUST
-  NOT be tightly coupled to keyboard rendering or OS-level input delivery.
+- **FR-008c**: After removing inactive product controls, the keyboard MUST follow
+  the research **R7 acceptance layout**: no unused empty/dead gaps; suggestion
+  bar fully visible; reclaimed space redistributed appropriately to active
+  letter/editing keys. Key enlargement is a gaze-usability layout goal, **not**
+  a mapping-accuracy requirement, and MUST NOT justify mapping retune.
+- **FR-009**: Prediction behavior MUST remain modular: UI, gaze-selection, and
+  typing code MUST depend on the **`WordProvider`** abstraction, not on a
+  concrete trie implementation. Suggestion generation MUST NOT be tightly coupled
+  to keyboard rendering or OS-level input delivery. Instantiation of the concrete
+  provider MUST occur in one composition/setup location (compatible with a future
+  personalized provider without implementing personalization in this feature).
 - **FR-010**: This feature MUST NOT unnecessarily modify gaze tracking,
   calibration, gaze-to-screen mapping, the existing external typing mechanism, or
   unrelated benchmark/evaluation tooling.
@@ -269,22 +276,33 @@ lists always match the current in-progress word context.
   not visual-only. Visible key/suggestion bounds and gaze hitboxes MUST remain
   synchronized. Gaze selection and external typing MUST still select the
   intended keys/suggestions. Calibration/mapping logic MUST NOT be retuned simply
-  to compensate for the UI redesign. Planning MUST determine the safest layout
-  redistribution and verify it with geometry/gaze regression tests.
-- **FR-012**: When suggestions cannot be produced, the system MUST fail open to
-  normal typing (no hard dependency on prediction availability).
+  to compensate for the UI redesign. Layout/export/semantic geometry alignment
+  updates are allowed only as required by the new keyboard surface.
+- **FR-012**: When suggestions cannot be produced — including empty match sets,
+  word-list load failure, or `WordProvider.suggest()` failure — the system MUST
+  **fail open** to normal typing. The suggestion area MUST become safely
+  empty/unavailable; the product MUST NOT crash. There is no hard dependency on
+  prediction availability.
+- **FR-013**: Suggestions MUST be offered only when the in-progress prefix length
+  is **≥ 2** characters (research R3). Shorter prefixes MUST yield no labeled
+  suggestions.
+- **FR-014**: Suggestion completion casing MUST interact safely with one-shot
+  Shift. If Shift is armed and the current prefix is non-empty (already typed
+  lowercase), Shift MUST be cleared and MUST NOT be applied only to the suffix
+  (must not produce mixed results such as `helLo`). See research R5.
 
 ### Key Entities
 
 - **In-progress word prefix**: The portion of the current word the user has
-  typed so far, used as the basis for suggestions.
+  typed so far, used as the basis for suggestions (held in `TypingContext`).
 - **Word suggestion**: A candidate completion offered for the current prefix,
-  shown in the suggestion area and selectable by gaze.
-- **Typing flow context**: Internal session state derived from GazeKey-dispatched
+  shown in a suggestion slot and selectable by gaze when that slot is enabled.
+- **TypingContext**: Internal session state derived from GazeKey-dispatched
   actions (not external-app readback) that tracks the current in-progress word
-  prefix and word-boundary events; exact structure deferred to planning.
-- **Suggestion set**: The current list of up to **3** suggestions shown for the
-  active prefix (may be fewer; never more than three).
+  prefix, `prefix_epoch`, and word-boundary events (see
+  `data-model.md` / research R4).
+- **Suggestion set**: Up to **3** labeled suggestions bound to **three fixed
+  slots**; unused slots stay blank/disabled (never more than three labels).
 - **Keyboard surface**: The on-screen gaze keyboard including keys, supported
   product controls, and the suggestion area; geometry must stay consistent with
   hit-testing.
@@ -309,9 +327,9 @@ lists always match the current in-progress word context.
   versus the pre-feature typing path for supported keys.
 - **SC-005**: After keyboard UI simplification, the product keyboard no longer
   shows Pause, Preview, language toggle, symbols layout toggle, Ctrl, Alt,
-  gaze-status text, or the local typed-text bar; no unused empty gaps remain;
-  the suggestion area shows at most three fully visible (not clipped) suggestions
-  when available.
+  gaze-status text, or the local typed-text bar; no unused empty/dead gaps
+  remain (R7 acceptance layout); the suggestion area keeps three fixed slots
+  fully visible, with at most three labels when available.
 - **SC-006**: After any keyboard geometry change for this feature, visible
   key/suggestion bounds and gaze hitboxes remain synchronized; gaze hit-testing
   still selects the intended on-screen key/suggestion target; external typing for
@@ -329,12 +347,13 @@ lists always match the current in-progress word context.
 - Display of suggestions on the virtual keyboard in a gaze-usable area
 - Gaze-based selection of a suggestion that completes the word via the existing
   typing delivery path
-- Typing-flow context sufficient for consistent suggestions across type, delete,
+- TypingContext sufficient for consistent suggestions across type, delete,
   word completion, and suggestion accept
-- Keyboard UI simplification and redistribution: remove listed inactive product
-  controls; no empty gaps; reorganize active controls; use freed space to enlarge
-  letter/editing keys where appropriate; reposition/fix suggestion bar (max 3
-  suggestions, fully visible); verify geometry/gaze regression in planning
+- Keyboard UI simplification and redistribution per research **R7 acceptance
+  layout**: remove listed inactive product controls; no empty dead gaps;
+  reorganize active controls; redistribute reclaimed space appropriately to
+  letter/editing keys; three fixed suggestion slots fully visible; geometry/gaze
+  regression via tests (key enlargement is not a mapping-accuracy requirement)
 - Modular separation between suggestion generation, keyboard UI, and OS/external
   typing delivery
 - Preservation of existing gaze tracking, calibration, mapping, external typing,
@@ -373,29 +392,23 @@ completion during planning):
 - Constitution v1.3.0 applies: do not alter calibration/mapping to compensate for
   prediction or UI issues.
 
-## Open Research / Planning Decisions
+## Resolved Planning Decisions
 
-The following are intentionally **not** decided in this specification. They
-MUST be researched and chosen during `/speckit-clarify` and/or `/speckit-plan`:
+The following were open at specify time and are now **resolved** in
+[`research.md`](./research.md) / [`plan.md`](./plan.md). Spec consumers MUST
+treat those documents as normative for these items:
 
-1. **Prediction method** — how candidates are generated (dictionary, n-gram,
-   language model, OS/IME APIs, hybrid, etc.).
-2. **Ranking strategy** — how candidates are ordered within the max-3 visible set.
-3. **Typing-state design** — exact structure and ownership of internal
-   typing-flow context (source of truth: dispatched GazeKey actions only; see
-   FR-006a); how state updates on each action type.
-4. **Module boundaries and interfaces** — concrete separation between prediction,
-   keyboard UI, and OS/input delivery without over-designing upfront.
-5. **Libraries, models, and data sources** — what assets or dependencies are
-   appropriate for GazeKey’s desktop constraints.
-6. **Suggestion UX details** — exact layout redistribution, target sizes, and
-   behavior for very short prefixes (max visible count fixed at 3; see FR-003).
-7. **Layout redistribution plan** — safest way to reorganize keyboard space
-   after removals and enlarge keys without breaking geometry/hit-testing (see
-   FR-008c, FR-011).
-8. **Stale-suggestion / race rules** — precise freshness guarantees under rapid
-   typing.
-9. **Failure handling details** — how suggestion acceptance interacts with
-   delivery failure while keeping context consistent.
+| Topic | Resolution |
+|-------|------------|
+| Prediction method | Bundled licensed English list + in-memory prefix trie (`WordProvider` / `TrieWordProvider`) — research **R1** |
+| Ranking (max 3) | Frequency-ordered top-3 with efficient retrieval (not prefix-node alone) — **R2** |
+| TypingContext design | Delivery-only updates (`on_action_delivered` ok); no post-batch clear — **R4** |
+| Module boundaries | `gazekey/prediction/` + KeyAction path; UI depends on `WordProvider` only — **R11**, FR-009 |
+| Libraries / data | No new pip deps; documented open-license `words_en.txt` — **R1** |
+| Short prefixes | Min length **2** — **R3**, FR-013 |
+| Layout redistribution | Research **R7** is the acceptance layout — FR-008c |
+| Stale / race rules | `prefix_epoch` + cancel mid-dwell — **R6** |
+| Delivery / Shift failure | Suffix batch stop on failure; Shift-armed + non-empty prefix clears Shift (no `helLo`) — **R5**, FR-014 |
+| Provider load / suggest failure | Fail open; empty suggestions; typing continues — FR-012 |
 
-These open items must not block agreement on the user-facing outcomes above.
+These resolved items must not block agreement on the user-facing outcomes above.
