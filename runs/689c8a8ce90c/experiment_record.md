@@ -7,7 +7,7 @@
 - eval_before: 14938da0bdf0 (A), 34fb259ccdfd (B)
 - eval_after: 689c8a8ce90c
 - decision: **keep**
-- keep_git_sha: PENDING — commit required before T020 (FR-026)
+- keep_git_sha: b07e768 (parent 6156659 = T059 isolation revert)
 - notes: >
     Corrected 2026-08-20: this file was auto-created from the Phase A baseline
     template. This session is NOT a current-state baseline; A and B are.

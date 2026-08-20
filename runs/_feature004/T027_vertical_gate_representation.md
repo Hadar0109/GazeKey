@@ -7,7 +7,7 @@
 - eval_before: 14938da0bdf0 (A), 34fb259ccdfd (B)
 - eval_after: 689c8a8ce90c
 - decision: **KEEP** (2026-08-20)
-- keep_git_sha: **PENDING COMMIT** — required by FR-026 before T020 starts
+- keep_git_sha: `b07e768` (`b07e7687a0373c6a946578dc3b770f5f87a9861a`). Parent `6156659` is the T059 isolation revert, so reverting `b07e768` alone restores the exact tree that produced baselines A and B.
 
 ## Scope of the change (what was and was not touched)
 
