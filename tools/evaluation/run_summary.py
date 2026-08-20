@@ -17,6 +17,34 @@ from tools.evaluation.session_paths import (
 
 RunType = Literal["calibration", "benchmark"]
 RunStatus = Literal["passed", "failed"]
+QualityGateKind = Literal["blocking", "warning_only", "clean"]
+
+DEFAULT_FIDELITY_NOTES = (
+    "eval predict helper = MapperRuntime.key_accuracy_predict_screen_xy "
+    "(same as product typing); hit-test = hit_test_layout_keys; "
+    "inside_tight uses tight rect (snap is logged, not success); "
+    "feature EMA is reset per evaluation key (on_key_begin) vs continuous "
+    "typing EMA across keys; GazeSmoother is not on the typing path "
+    "(only map_gaze_screen_xy debug overlay); collect-window median vs live "
+    "stream; unclamped vs clamped columns are diagnostic only and do not "
+    "change product clamp; suggestion/prediction-bar keys are out of "
+    "mapped-key accept."
+)
+
+
+def classify_quality_gate_kind(quality: Any) -> QualityGateKind:
+    """Map ``evaluate_calibration_quality`` output to a diagnostic kind.
+
+    Does not change which reasons block product typing: ``usable`` already
+    reflects ``_keyboard_blocking_reason`` filtering on keyboard layouts.
+    """
+    if quality is None or not bool(getattr(quality, "usable", False)):
+        return "blocking"
+    warnings = list(getattr(quality, "warnings", None) or [])
+    if warnings:
+        return "warning_only"
+    return "clean"
+
 
 
 @dataclass(frozen=True)
@@ -83,6 +111,9 @@ class RunSummaryWriter:
             warn_n = summary.primary_metrics.get("quality_warning_count", 0)
             if warn_n:
                 line = f"{line} quality_warnings={warn_n}"
+            gate = summary.primary_metrics.get("quality_gate_kind")
+            if gate:
+                line = f"{line} quality_gate_kind={gate}"
         else:
             correct = summary.primary_metrics.get("keys_correct", 0)
             total = summary.primary_metrics.get("keys_total", 0)
@@ -90,10 +121,19 @@ class RunSummaryWriter:
             row_ok = summary.primary_metrics.get("rows_correct", 0)
             row_total = summary.primary_metrics.get("keys_total", 0)
             median = summary.primary_metrics.get("median_error_px", 0.0)
+            held = summary.primary_metrics.get("held_out_inside_key_rate")
+            edit = summary.primary_metrics.get("editing_control_inside_key_rate")
             line = (
                 f"[{tag}] {st} session={sid} keys={correct}/{total} ({pct:.0f}%) "
                 f"row={row_ok}/{row_total} median_err={median:.0f}px"
             )
+            if held is not None:
+                line = f"{line} held_out={100.0 * float(held):.0f}%"
+            if edit is not None:
+                line = f"{line} editing={100.0 * float(edit):.0f}%"
+            gate = summary.primary_metrics.get("quality_gate_kind")
+            if gate:
+                line = f"{line} quality_gate_kind={gate}"
         if summary.failure_reason:
             line = f"{line} reason={summary.failure_reason}"
         return line
@@ -127,6 +167,7 @@ class RunSummaryWriter:
         loocv_rms_px: Optional[float] = None,
         ridge_alpha: Optional[float] = None,
         quality_warnings: Optional[list[str]] = None,
+        quality_gate_kind: Optional[QualityGateKind] = None,
     ) -> RunSummary:
         warnings = list(quality_warnings or [])
         metrics: dict[str, Any] = {
@@ -138,6 +179,8 @@ class RunSummaryWriter:
         }
         if ridge_alpha is not None:
             metrics["ridge_alpha"] = float(ridge_alpha)
+        if quality_gate_kind is not None:
+            metrics["quality_gate_kind"] = quality_gate_kind
         summary = RunSummary(
             session_id=session_id,
             run_type="calibration",
@@ -156,21 +199,65 @@ class RunSummaryWriter:
         status: RunStatus,
         failure_reason: Optional[str] = None,
         failure_analysis: Optional[str] = None,
+        location_results_text: Optional[str] = None,
+        quality_gate_kind: Optional[QualityGateKind] = None,
+        fidelity_notes: Optional[str] = None,
     ) -> RunSummary:
+        notes = fidelity_notes if fidelity_notes is not None else DEFAULT_FIDELITY_NOTES
+        primary: dict[str, Any] = {
+            "keys_correct": metrics.keys_correct,
+            "keys_total": metrics.keys_total,
+            "key_hit_pct": display_key_hit_pct(metrics.keys_correct, metrics.keys_total),
+            "rows_correct": metrics.rows_correct,
+            "row_accuracy_pct": 100.0 * metrics.row_accuracy,
+            "median_error_px": metrics.median_pixel_error,
+            "held_out_inside_key_rate": getattr(metrics, "held_out_inside_key_rate", None),
+            "editing_control_inside_key_rate": getattr(
+                metrics, "editing_control_inside_key_rate", None
+            ),
+            "repeatability_inside_key_rate": getattr(
+                metrics, "repeatability_inside_key_rate", None
+            ),
+            "mean_focus_stability_held_out": getattr(
+                metrics, "mean_focus_stability_held_out", None
+            ),
+            "median_dx_over_width": getattr(metrics, "median_dx_over_width", None),
+            "median_dy_over_height": getattr(metrics, "median_dy_over_height", None),
+            "clamp_hit_rate": getattr(metrics, "clamp_hit_rate", None),
+            "unclamped_inside_key_rate": getattr(metrics, "unclamped_inside_key_rate", None),
+            "fidelity_notes": notes,
+        }
+        if quality_gate_kind is not None:
+            primary["quality_gate_kind"] = quality_gate_kind
         summary = RunSummary(
             session_id=session_id,
             run_type="benchmark",
             status=status,
-            primary_metrics={
-                "keys_correct": metrics.keys_correct,
-                "keys_total": metrics.keys_total,
-                "key_hit_pct": display_key_hit_pct(metrics.keys_correct, metrics.keys_total),
-                "rows_correct": metrics.rows_correct,
-                "row_accuracy_pct": 100.0 * metrics.row_accuracy,
-                "median_error_px": metrics.median_pixel_error,
-            },
+            primary_metrics=primary,
             failure_reason=failure_reason,
         )
-        self.write(summary, append_text=failure_analysis)
+        extra_parts: list[str] = []
+        if failure_analysis:
+            extra_parts.append(failure_analysis)
+        extra_parts.append(f"fidelity_notes: {notes}")
+        if quality_gate_kind is not None:
+            extra_parts.append(f"quality_gate_kind: {quality_gate_kind}")
+        extra_parts.append(
+            "slices: "
+            f"repeatability={getattr(metrics, 'repeatability_inside_key_rate', 0.0):.3f} "
+            f"held_out={getattr(metrics, 'held_out_inside_key_rate', 0.0):.3f} "
+            f"editing={getattr(metrics, 'editing_control_inside_key_rate', 0.0):.3f} "
+            f"focus_stab_held_out={getattr(metrics, 'mean_focus_stability_held_out', 0.0):.3f} "
+            f"clamp_hit_rate={getattr(metrics, 'clamp_hit_rate', 0.0):.3f} "
+            f"unclamped_inside={getattr(metrics, 'unclamped_inside_key_rate', None)}"
+        )
+        extra_parts.append(
+            "key_relative: "
+            f"median_|dx|/w={getattr(metrics, 'median_dx_over_width', 0.0):.3f} "
+            f"median_|dy|/h={getattr(metrics, 'median_dy_over_height', 0.0):.3f}"
+        )
+        if location_results_text:
+            extra_parts.append(location_results_text)
+        self.write(summary, append_text="\n".join(extra_parts))
         return summary
 

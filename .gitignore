@@ -35,4 +35,10 @@ runtime_key_confidence.csv
 
 *.log
 
+.env
+.env.*
+coverage/
+.coverage
+htmlcov/
+
 .cursor/

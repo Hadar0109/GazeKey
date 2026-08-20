@@ -11,7 +11,13 @@ from tools.evaluation.benchmark_runner import (
     compute_benchmark_metrics,
     evaluate_benchmark_pass,
 )
-from tools.evaluation.run_summary import RunSummary, RunSummaryWriter, benchmark_thresholds
+from tools.evaluation.run_summary import (
+    DEFAULT_FIDELITY_NOTES,
+    RunSummary,
+    RunSummaryWriter,
+    benchmark_thresholds,
+    classify_quality_gate_kind,
+)
 
 
 def _row(*, correct: bool, err: float, row_ok: bool = True) -> KeyAccuracyResultRow:
@@ -121,3 +127,37 @@ def test_write_benchmark_summary_appends_failure_analysis(tmp_path):
     body = (tmp_path / "bench02" / "benchmark_summary.txt").read_text(encoding="utf-8")
     assert "failure_analysis:" in body
     assert "likely_cause: mapping" in body
+    assert "fidelity_notes:" in body
+    assert "inside_tight" in DEFAULT_FIDELITY_NOTES or "tight rect" in DEFAULT_FIDELITY_NOTES
+
+
+def test_location_inside_tight_and_key_relative_fields_in_summary(tmp_path):
+    from tools.evaluation.session import format_location_results
+
+    rows = [_row(correct=True, err=20.0) for _ in range(3)]
+    text = format_location_results(rows)
+    assert "inside_tight" in text
+    assert "focus_stability" in text
+    writer = RunSummaryWriter(runs_dir=tmp_path)
+    metrics = compute_benchmark_metrics(rows)
+    writer.write_benchmark_summary(
+        session_id="loc01",
+        metrics=metrics,
+        status="passed",
+        location_results_text=text,
+    )
+    body = (tmp_path / "loc01" / "benchmark_summary.txt").read_text(encoding="utf-8")
+    assert "dx/w" in body or "dx_over_width" in body or "dx/w=" in body
+
+
+def test_classify_quality_gate_kind_does_not_invent_policy():
+    class Q:
+        def __init__(self, usable, warnings, reasons):
+            self.usable = usable
+            self.warnings = warnings
+            self.reasons = reasons
+
+    assert classify_quality_gate_kind(None) == "blocking"
+    assert classify_quality_gate_kind(Q(False, [], ["predict returned none"])) == "blocking"
+    assert classify_quality_gate_kind(Q(True, ["loocv high"], [])) == "warning_only"
+    assert classify_quality_gate_kind(Q(True, [], [])) == "clean"

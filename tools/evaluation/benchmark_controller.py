@@ -9,9 +9,18 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QLabel
 
-from tools.evaluation.benchmark_runner import build_benchmark_run, evaluate_benchmark_pass
+from tools.evaluation.benchmark_runner import (
+    build_benchmark_run,
+    calibration_labels_from_targets,
+    evaluate_benchmark_pass,
+    unique_evaluation_labels,
+)
 from tools.evaluation.benchmark_session import BenchmarkEvalSession, resolve_sample_keys
+from tools.evaluation.clamp_diagnostic import clip_bounds_of, make_eval_predict_fns
+from tools.evaluation.experiment_record import ExperimentRecord, write_experiment_record
 from tools.evaluation.failure_analysis import format_failure_analysis, infer_likely_cause
+from tools.evaluation.session import format_location_results
+from tools.evaluation.session_paths import folder_session_id
 from gazekey.features import FeatureExtractor
 from gazekey.mapping.config import CALIBRATION_MODE
 from tools.flags import dev_benchmark_enabled as env_dev_benchmark_enabled
@@ -69,7 +78,7 @@ class BenchmarkController:
         if not self._begin_session():
             return
         self._host._log_verbose(
-            "[benchmark] started — tools evaluation benchmark (15 keys)"
+            "[benchmark] started — tools evaluation (repeatability + held-out letters + editing/control)"
         )
 
     def process_eye_data(self, eye_data) -> None:
@@ -173,7 +182,15 @@ class BenchmarkController:
         if h.current_layout != "letters":
             h._keyboard_layout_builder.switch_layout("letters")
         try:
-            resolved = resolve_sample_keys(h._layout_keys)
+            calib_labels = calibration_labels_from_targets(
+                h._calibration_session.targets if h._calibration_session is not None else None
+            )
+            labels = unique_evaluation_labels(
+                calibration_labels=calib_labels,
+                layout_mode=str(h._calib_mode or CALIBRATION_MODE),
+                keys=h._layout_keys,
+            )
+            resolved = resolve_sample_keys(h._layout_keys, labels)
         except ValueError as e:
             h._log_verbose(f"[benchmark] {e}")
             return False
@@ -189,11 +206,16 @@ class BenchmarkController:
             h._gaze_smoother.reset()
             h._feature_smoother.reset()
 
+        clamped_fn, unclamped_fn = make_eval_predict_fns(h)
+        self._eval_calib_labels = calib_labels
         self._session = BenchmarkEvalSession(
             resolved,
             keys_for_hit_test=h._layout_keys,
-            predict_screen_xy=h._predict_screen_xy,
+            predict_screen_xy=clamped_fn,
             on_key_begin=_reset_benchmark_smoothers,
+            predict_unclamped_screen_xy=unclamped_fn,
+            clip_bounds=clip_bounds_of(h._gaze_mapper),
+            calibration_labels=calib_labels,
         )
         now_ms = int(time.time() * 1000)
         self._session.begin(now_ms)
@@ -222,13 +244,39 @@ class BenchmarkController:
         analysis = format_failure_analysis(rows, likely_cause=likely_cause)
         h._log_verbose(analysis)
         session_id = self._benchmark_session_id()
+        gate = getattr(h, "_last_quality_gate_kind", None)
         h._run_summary_writer.write_benchmark_summary(
             session_id=session_id,
             metrics=run.metrics,
             status=status,
             failure_reason=reason or None,
             failure_analysis=analysis,
+            location_results_text=format_location_results(rows),
+            quality_gate_kind=gate,
         )
+        try:
+            write_experiment_record(
+                session_id,
+                ExperimentRecord(
+                    hypothesis=(
+                        "Current-state baseline after evaluation fidelity (Phase A). "
+                        "No mapping/collection product change."
+                    ),
+                    logical_area="eval",
+                    change="none (current-state baseline)",
+                    eval_before="n/a (this run is a baseline capture)",
+                    eval_after=folder_session_id(session_id),
+                    decision="pending",
+                    notes=(
+                        "Label this session CurrentStateBaseline A or B. "
+                        "USER GATE: type hadar with suggestions unused; fill "
+                        "hadar_wrong_focus.md (wrong focus on H/A/D/R)."
+                    ),
+                ),
+                runs_dir=h._run_summary_writer.runs_dir,
+            )
+        except Exception as e:
+            h._log_verbose(f"[benchmark] experiment_record write failed: {e}")
         try:
             cal_targets = h._calibration_session.targets if h._calibration_session else None
             diagnostics = build_benchmark_diagnostics(

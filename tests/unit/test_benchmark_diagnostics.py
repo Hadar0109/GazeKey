@@ -175,3 +175,94 @@ def test_handles_missing_model_and_targets_gracefully():
     assert diag["mapper"] == {}
     assert diag["calibration_targets"] is None
     assert len(diag["targets"]) == 15
+
+
+def test_unclamped_clamped_diagnostic_fields_exist_without_altering_product_clamp():
+    import inspect
+
+    from gazekey.mapping.ridge import Pca4BaselineMapper, _clip_xy
+    from gazekey.runtime.mapper_runtime import MapperRuntime
+    from tools.evaluation.benchmark_runner import evaluate_key_accuracy_from_frames
+    from tools.evaluation.clamp_diagnostic import unclamped_xy_from_model
+    from unittest.mock import MagicMock
+    from PySide6.QtCore import QRect
+    from gazekey.layout.layout_inspector import KeyGeometryRow
+    from gazekey.features.feature_types import FrameFeatures
+
+    # Product clamp helpers still clip (Phase 2 must not change them).
+    assert inspect.getsource(_clip_xy).count("min(") >= 1
+    assert "clip_bounds" in inspect.getsource(MapperRuntime.clamp_xy)
+
+    target = KeyGeometryRow(
+        key_id="q",
+        key_label="Q",
+        key_action="q",
+        row_index=0,
+        col_index=0,
+        button=MagicMock(),
+        rect=QRect(100, 100, 40, 40),
+        center=(120.0, 120.0),
+        hitbox=QRect(100, 100, 40, 40),
+        is_special_key=False,
+        weight=1.0,
+    )
+    feat = FrameFeatures(
+        timestamp_ms=0,
+        face_detected=True,
+        blink=False,
+        confidence=1.0,
+        Lh=0.5,
+        Lv=0.5,
+        Rh=0.5,
+        Rv=0.5,
+        avg_h=0.5,
+        avg_v=0.5,
+        eye_box_w=1.0,
+        eye_box_h=1.0,
+        face_x=0.0,
+        face_y=0.0,
+        pca_uL=0.0,
+        pca_vL=0.0,
+        pca_uR=0.0,
+        pca_vR=0.0,
+    )
+    bounds = (0.0, 0.0, 200.0, 200.0)
+    row = evaluate_key_accuracy_from_frames(
+        target_label="Q",
+        target=target,
+        frames=[feat, feat],
+        keys=[target],
+        predict_screen_xy=lambda _f: (110.0, 110.0),
+        predict_unclamped_screen_xy=lambda _f: (250.0, 110.0),
+        clip_bounds=bounds,
+    )
+    assert row.unclamped_x == 250.0
+    assert row.unclamped_y == 110.0
+    assert row.unclamped_inside_tight is False
+    assert row.inside_tight is True
+    assert row.clamp_frames >= 1
+    assert row.collect_frames == 2
+
+    # Diagnostic helper does not mutate mapper clip_bounds.
+    model = Pca4BaselineMapper(
+        w_x=__import__("numpy").array([1.0, 0.0]),
+        b_x=0.0,
+        mu_x=__import__("numpy").array([0.0, 0.0]),
+        sigma_x=__import__("numpy").array([1.0, 1.0]),
+        w_y=__import__("numpy").array([1.0, 0.0]),
+        b_y=0.0,
+        mu_y=__import__("numpy").array([0.0, 0.0]),
+        sigma_y=__import__("numpy").array([1.0, 1.0]),
+        alpha=1.0,
+        train_u_l=__import__("numpy").zeros(5),
+        train_u_r=__import__("numpy").zeros(5),
+        train_v_l=__import__("numpy").zeros(5),
+        train_v_r=__import__("numpy").zeros(5),
+        train_Y=__import__("numpy").zeros((5, 2)),
+        clip_bounds=bounds,
+    )
+    before = model.clip_bounds
+    unclamped_xy_from_model(model, feat)
+    assert model.clip_bounds == before
+    clipped = _clip_xy(250.0, 110.0, bounds)
+    assert clipped == (200.0, 110.0)

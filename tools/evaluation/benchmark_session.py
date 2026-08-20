@@ -27,10 +27,20 @@ class BenchmarkEvalSession:
         on_key_begin: Optional[Callable[[], None]] = None,
         settle_ms: int = SETTLE_MS,
         collect_ms: int = COLLECT_MS,
+        predict_unclamped_screen_xy: Optional[
+            Callable[[FrameFeatures], Optional[Tuple[float, float]]]
+        ] = None,
+        clip_bounds: Optional[Tuple[float, float, float, float]] = None,
+        calibration_labels: Optional[Sequence[str]] = None,
+        held_out_letters: Optional[Sequence[str]] = None,
     ) -> None:
         self._samples = list(samples)
         self._keys = list(keys_for_hit_test)
         self._predict_screen_xy = predict_screen_xy
+        self._predict_unclamped_screen_xy = predict_unclamped_screen_xy
+        self._clip_bounds = clip_bounds
+        self._calibration_labels = list(calibration_labels) if calibration_labels is not None else None
+        self._held_out_letters = list(held_out_letters) if held_out_letters is not None else None
         self._on_key_begin = on_key_begin
         self._settle_ms = int(settle_ms)
         self._collect_ms = int(collect_ms)
@@ -107,6 +117,10 @@ class BenchmarkEvalSession:
             frames=frames,
             keys=self._keys,
             predict_screen_xy=self._predict_screen_xy,
+            predict_unclamped_screen_xy=self._predict_unclamped_screen_xy,
+            clip_bounds=self._clip_bounds,
+            calibration_labels=self._calibration_labels,
+            held_out_letters=self._held_out_letters,
         )
         self._results.append(row)
         self._index += 1

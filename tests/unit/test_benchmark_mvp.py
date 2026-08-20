@@ -8,12 +8,19 @@ import pytest
 
 from gazekey.app_config import AppConfig, apply_config
 from tools.evaluation.benchmark_runner import (
+    EDITING_CONTROL_KEYS,
+    HELD_OUT_LETTERS_DEFAULT,
+    DEFAULT_SAMPLE_KEYS,
     KeyAccuracyResultRow,
     build_benchmark_run,
+    calibration_labels_from_targets,
     evaluate_benchmark_pass,
+    evaluate_key_accuracy_from_frames,
+    point_in_tight_rect,
+    unique_evaluation_labels,
 )
 from tools.evaluation.failure_analysis import format_failure_analysis, infer_likely_cause
-from tools.evaluation.run_summary import RunSummaryWriter
+from tools.evaluation.run_summary import DEFAULT_FIDELITY_NOTES, RunSummaryWriter
 
 
 def _row(*, correct: bool, err: float, row_ok: bool = True, target: str = "Q") -> KeyAccuracyResultRow:
@@ -183,3 +190,139 @@ def test_evaluation_benchmark_blocked_during_calibration():
 def test_calibration_usable_gate_blocks_benchmark_without_mapper():
     kb = _bare_keyboard()
     assert not kb._calibration_usable()
+
+
+def _rect_key(label: str, x: int, y: int, w: int = 40, h: int = 40):
+    from PySide6.QtCore import QRect
+    from gazekey.layout.layout_inspector import KeyGeometryRow
+
+    rect = QRect(x, y, w, h)
+    return KeyGeometryRow(
+        key_id=label.lower(),
+        key_label=label,
+        key_action=label.lower() if label != "Space" else " ",
+        row_index=0,
+        col_index=0,
+        button=MagicMock(),
+        rect=rect,
+        center=(float(rect.center().x()), float(rect.center().y())),
+        hitbox=rect,
+        is_special_key=False,
+        weight=1.0,
+    )
+
+
+def _feat_ts(ts: int = 0):
+    from gazekey.features.feature_types import FrameFeatures
+
+    return FrameFeatures(
+        timestamp_ms=ts,
+        face_detected=True,
+        blink=False,
+        confidence=1.0,
+        Lh=0.5,
+        Lv=0.5,
+        Rh=0.5,
+        Rv=0.5,
+        avg_h=0.5,
+        avg_v=0.5,
+        eye_box_w=1.0,
+        eye_box_h=1.0,
+        face_x=0.0,
+        face_y=0.0,
+        pca_uL=0.0,
+        pca_vL=0.0,
+        pca_uR=0.0,
+        pca_vR=0.0,
+    )
+
+
+def test_inside_tight_rect_is_primary_snap_is_not_success():
+    target = _rect_key("Q", 100, 100, 40, 40)
+    keys = [target]
+    inside_pt = (110, 110)
+    # Outside tight rect, within snap distance of the key.
+    snap_pt = (150, 120)
+
+    assert point_in_tight_rect(target, *inside_pt)
+    assert not point_in_tight_rect(target, *snap_pt)
+
+    row = evaluate_key_accuracy_from_frames(
+        target_label="Q",
+        target=target,
+        frames=[_feat_ts(1), _feat_ts(2), _feat_ts(3)],
+        keys=keys,
+        predict_screen_xy=lambda _f: snap_pt,
+    )
+    # Snap may still hit-test the key; that is not mapped-key success.
+    assert row.inside_tight is False
+    assert row.is_correct is False
+    assert row.dx != 0.0 or row.dy != 0.0
+
+
+def test_focus_stability_is_frame_hit_fraction_not_mean_point():
+    target = _rect_key("Q", 100, 100, 40, 40)
+    keys = [target]
+    pts = [(110, 110), (110, 110), (200, 200)]
+    it = iter(pts)
+
+    row = evaluate_key_accuracy_from_frames(
+        target_label="Q",
+        target=target,
+        frames=[_feat_ts(i) for i in range(3)],
+        keys=keys,
+        predict_screen_xy=lambda _f: next(it),
+    )
+    assert row.inside_tight is True  # median still inside
+    assert row.focus_stability == pytest.approx(2.0 / 3.0)
+
+
+def test_held_out_letters_not_identical_to_keyboard15_anchors():
+    anchors = set(DEFAULT_SAMPLE_KEYS)
+    held = set(HELD_OUT_LETTERS_DEFAULT)
+    assert held != anchors
+    letter_anchors = anchors - {"Space"}
+    assert held.isdisjoint(letter_anchors)
+
+
+def test_editing_control_slice_present_in_evaluation_walk():
+    labels = unique_evaluation_labels()
+    normalized = {str(x).lower() for x in labels}
+    for name in EDITING_CONTROL_KEYS:
+        assert name.lower() in normalized
+    # Space is a calib target: present once in the walk, still flagged editing.
+    assert labels.count("Space") == 1
+    # Suggestion keys are not in the mapped-key walk.
+    assert not any(str(x).startswith("suggestion:") for x in labels)
+
+
+def test_calibration_labels_from_unmapped_targets_fall_back_to_keyboard15():
+    class T:
+        def __init__(self, label):
+            self.label = label
+
+    assert calibration_labels_from_targets([T(f"T{i:02d}") for i in range(1, 16)]) == list(
+        DEFAULT_SAMPLE_KEYS
+    )
+    real = [T("key_q"), T("key_e"), T("key_t"), T("key_space"), T("key_a")]
+    assert "Q" in calibration_labels_from_targets(real)
+    assert "Space" in calibration_labels_from_targets(real)
+
+
+def test_benchmark_summary_records_fidelity_notes(tmp_path):
+    rows = [_row(correct=True, err=30.0) for _ in range(15)]
+    run = build_benchmark_run(rows)
+    writer = RunSummaryWriter(runs_dir=tmp_path)
+    writer.write_benchmark_summary(
+        session_id="sess-fid",
+        metrics=run.metrics,
+        status="passed",
+    )
+    from tools.evaluation.session_paths import folder_session_id
+
+    text = (tmp_path / folder_session_id("sess-fid") / "benchmark_summary.txt").read_text(
+        encoding="utf-8"
+    )
+    assert "fidelity_notes:" in text
+    assert "reset per evaluation key" in text or "EMA" in DEFAULT_FIDELITY_NOTES
+

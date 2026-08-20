@@ -25,6 +25,7 @@ from tools.evaluation.session_paths import (
 )
 from gazekey.layout import inspect_keyboard_layout
 from gazekey.mapping.config import CALIBRATION_MODE
+from tools.evaluation.run_summary import classify_quality_gate_kind
 from tools.flags import calib_geom_debug
 
 if TYPE_CHECKING:
@@ -47,6 +48,7 @@ class CalibFinishArtifacts:
         loocv_rms_px: Optional[float] = None,
         ridge_alpha: Optional[float] = None,
         quality_warnings: Optional[list[str]] = None,
+        quality_gate_kind: Optional[str] = None,
     ) -> None:
         h = self._host
         session = h._calibration_session
@@ -65,7 +67,10 @@ class CalibFinishArtifacts:
             loocv_rms_px=loocv_rms_px,
             ridge_alpha=ridge_alpha,
             quality_warnings=quality_warnings,
+            quality_gate_kind=quality_gate_kind,
         )
+        if quality_gate_kind is not None:
+            h._last_quality_gate_kind = quality_gate_kind
 
     def write_mapper_snapshot(self, *, ridge_fit) -> None:
         h = self._host
@@ -355,6 +360,7 @@ class CalibFinishArtifacts:
             loocv_rms_px=quality.loocv_rms_px,
             ridge_alpha=ridge_alpha,
             quality_warnings=quality.warnings,
+            quality_gate_kind=classify_quality_gate_kind(quality),
         )
         try:
             self.print_row_v_stats_and_export_ratio_space()
@@ -376,6 +382,9 @@ class CalibFinishArtifacts:
     def on_failure(self, writer: Any, **kwargs: Any) -> None:
         ridge_fit = kwargs.pop("ridge_fit", None)
         loocv_detail = kwargs.pop("loocv_detail", None)
+        quality = kwargs.pop("quality", None)
+        if "quality_gate_kind" not in kwargs:
+            kwargs["quality_gate_kind"] = classify_quality_gate_kind(quality)
         self.write_run_summary(writer, passed=False, **kwargs)
         if ridge_fit is not None:
             try:

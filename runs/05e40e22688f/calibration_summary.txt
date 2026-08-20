@@ -1,0 +1,1 @@
+[calibration] FAILED session=05e40e22688f layout=keyboard15 targets=15/15 ridge_alpha=1 loocv_rms=115.0px (supplementary) quality_warnings=17 quality_gate_kind=blocking reason=avg_v poorly correlated with screen Y (r=-0.119, catastrophic threshold >=0.15)

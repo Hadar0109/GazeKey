@@ -77,3 +77,34 @@ and held-out inside-key has not improved vs A and B.
 On the kept stack only: three fresh calibration + evaluation sessions.
 Reference floors: every session ≥ 53% mapped-key; best–worst spread ≤ 20 pp.
 This is not the two-session current-state baseline.
+
+## Usage notes — persist `ExperimentRecord` under `runs/<session_id>/`
+
+Write one markdown file per iteration (and per baseline session) as
+`runs/<session_id>/experiment_record.md`. Do not add a separate diagnostics
+platform. Use `tools.evaluation.experiment_record.write_experiment_record`.
+
+Copy this template (fill every field; `keep_git_sha` is required on `keep`):
+
+```markdown
+# ExperimentRecord
+
+- hypothesis:
+- logical_area: eval | collection | sync | geometry | coverage | mapper
+- change:
+- eval_before:  # baseline A+B session ids, or last keep
+- eval_after:
+- decision: keep | revert | inconclusive
+- keep_git_sha:  # required when decision == keep; else omit or "n/a"
+- notes:
+```
+
+**Phase A baseline:** two records with `logical_area: eval`, `change: none
+(current-state baseline)`, `decision` left as the capture label
+`CurrentStateBaseline A` / `CurrentStateBaseline B`. Later product/mapping
+experiments MUST cite both `eval_before` ids (or the last keep). Missing A or
+B blocks accuracy code changes.
+
+**Hadar USER GATE (suggestions unused):** record wrong-focus letters
+(H/A/D/R vs dwell) in `runs/<session_id>/hadar_wrong_focus.md` on both
+baseline sessions (and after every later keep candidate).
