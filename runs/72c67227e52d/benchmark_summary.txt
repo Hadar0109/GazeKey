@@ -1,0 +1,72 @@
+[benchmark] FAILED session=72c67227e52d-bench1787252850 keys=2/31 (6%) row=10/31 median_err=117px held_out=0% editing=0% quality_gate_kind=warning_only reason=key-hit 2/15 (13%) < 10/15 (~67%); median_err 117.3px > 55px; row 10/31 (32%) < 80%
+failure_analysis:
+  likely_cause: mapping
+  keys_failed: 29/31
+  rows_failed: 21/31
+  per_key_misses:
+    E -> D dx=+84.0 dy=+42.8 err=94.3px
+    U -> U dx=-2.8 dy=-38.0 err=38.1px
+    P -> P dx=+27.9 dy=+75.4 err=80.4px
+    A -> S dx=+78.3 dy=-27.6 err=83.0px
+    D -> R dx=+76.2 dy=-41.0 err=86.5px
+    G -> Y dx=+35.8 dy=-114.0 err=119.5px
+    J -> U dx=-19.6 dy=-114.0 err=115.7px
+    L -> O dx=+14.4 dy=-94.1 err=95.2px
+    Z -> E dx=+75.6 dy=-164.7 err=181.2px
+    C -> T dx=+43.5 dy=-184.8 err=189.9px
+    B -> Y dx=+5.5 dy=-190.0 err=190.1px
+    M -> I dx=-30.9 dy=-190.0 err=192.5px
+    Space -> Y dx=-24.5 dy=-272.0 err=273.1px
+    W -> E dx=+63.7 dy=-2.3 err=63.7px
+    R -> R dx=+60.2 dy=-38.0 err=71.2px
+    Y -> Y dx=+11.1 dy=-38.0 err=39.6px
+    I -> I dx=-22.0 dy=-38.0 err=43.9px
+    O -> O dx=-36.3 dy=-38.0 err=52.6px
+    S -> R dx=+101.5 dy=-114.0 err=152.7px
+    F -> T dx=+27.7 dy=-114.0 err=117.3px
+    H -> Y dx=-28.4 dy=-114.0 err=117.5px
+    K -> I dx=-9.0 dy=-114.0 err=114.4px
+    X -> R dx=+65.0 dy=-190.0 err=200.8px
+    V -> Y dx=+15.4 dy=-183.3 err=183.9px
+    N -> U dx=-10.8 dy=-190.0 err=190.3px
+    Shift -> E dx=+160.2 dy=-116.3 err=198.0px
+    Backspace -> P dx=+90.4 dy=-144.9 err=170.8px
+    Enter -> O dx=+14.4 dy=-233.6 err=234.0px
+    Calibrate -> R dx=+103.4 dy=-200.2 err=225.3px
+fidelity_notes: eval predict helper = MapperRuntime.key_accuracy_predict_screen_xy (same as product typing); hit-test = hit_test_layout_keys; inside_tight uses tight rect (snap is logged, not success); feature EMA is reset per evaluation key (on_key_begin) vs continuous typing EMA across keys; GazeSmoother is not on the typing path (only map_gaze_screen_xy debug overlay); collect-window median vs live stream; unclamped vs clamped columns are diagnostic only and do not change product clamp; suggestion/prediction-bar keys are out of mapped-key accept.
+quality_gate_kind: warning_only
+slices: repeatability=0.133 held_out=0.000 editing=0.000 focus_stab_held_out=0.308 clamp_hit_rate=0.487 unclamped_inside=0.06451612903225806
+key_relative: median_|dx|/w=0.251 median_|dy|/h=1.562
+location_results:
+  label inside_tight focus_stability dx dy error_px dx/w dy/h row_correct slice
+  Q inside=1 stab=0.88 dx=+29.6 dy=+33.4 err=44.6 dx/w=0.24 dy/h=0.46 row=1 repeatability
+  E inside=0 stab=0.00 dx=+84.0 dy=+42.8 err=94.3 dx/w=0.68 dy/h=0.59 row=0 repeatability
+  T inside=1 stab=0.72 dx=+32.1 dy=+1.9 err=32.1 dx/w=0.26 dy/h=0.03 row=1 repeatability
+  U inside=0 stab=1.00 dx=-2.8 dy=-38.0 err=38.1 dx/w=0.02 dy/h=0.52 row=1 repeatability
+  P inside=0 stab=0.48 dx=+27.9 dy=+75.4 err=80.4 dx/w=0.22 dy/h=1.03 row=1 repeatability
+  A inside=0 stab=0.00 dx=+78.3 dy=-27.6 err=83.0 dx/w=0.70 dy/h=0.38 row=1 repeatability
+  D inside=0 stab=0.00 dx=+76.2 dy=-41.0 err=86.5 dx/w=0.67 dy/h=0.56 row=0 repeatability
+  G inside=0 stab=0.01 dx=+35.8 dy=-114.0 err=119.5 dx/w=0.32 dy/h=1.56 row=0 repeatability
+  J inside=0 stab=0.01 dx=-19.6 dy=-114.0 err=115.7 dx/w=0.17 dy/h=1.56 row=0 repeatability
+  L inside=0 stab=0.00 dx=+14.4 dy=-94.1 err=95.2 dx/w=0.13 dy/h=1.29 row=0 repeatability
+  Z inside=0 stab=0.00 dx=+75.6 dy=-164.7 err=181.2 dx/w=0.67 dy/h=2.26 row=0 repeatability
+  C inside=0 stab=0.00 dx=+43.5 dy=-184.8 err=189.9 dx/w=0.38 dy/h=2.53 row=0 repeatability
+  B inside=0 stab=0.00 dx=+5.5 dy=-190.0 err=190.1 dx/w=0.05 dy/h=2.60 row=0 repeatability
+  M inside=0 stab=0.00 dx=-30.9 dy=-190.0 err=192.5 dx/w=0.27 dy/h=2.60 row=0 repeatability
+  Space inside=0 stab=0.00 dx=-24.5 dy=-272.0 err=273.1 dx/w=0.06 dy/h=3.20 row=0 repeatability,editing
+  W inside=0 stab=0.45 dx=+63.7 dy=-2.3 err=63.7 dx/w=0.52 dy/h=0.03 row=1 held_out
+  R inside=0 stab=0.38 dx=+60.2 dy=-38.0 err=71.2 dx/w=0.49 dy/h=0.52 row=1 held_out
+  Y inside=0 stab=1.00 dx=+11.1 dy=-38.0 err=39.6 dx/w=0.09 dy/h=0.52 row=1 held_out
+  I inside=0 stab=0.86 dx=-22.0 dy=-38.0 err=43.9 dx/w=0.18 dy/h=0.52 row=1 held_out
+  O inside=0 stab=1.00 dx=-36.3 dy=-38.0 err=52.6 dx/w=0.30 dy/h=0.52 row=1 held_out
+  S inside=0 stab=0.00 dx=+101.5 dy=-114.0 err=152.7 dx/w=0.90 dy/h=1.56 row=0 held_out
+  F inside=0 stab=0.00 dx=+27.7 dy=-114.0 err=117.3 dx/w=0.24 dy/h=1.56 row=0 held_out
+  H inside=0 stab=0.00 dx=-28.4 dy=-114.0 err=117.5 dx/w=0.25 dy/h=1.56 row=0 held_out
+  K inside=0 stab=0.00 dx=-9.0 dy=-114.0 err=114.4 dx/w=0.08 dy/h=1.56 row=0 held_out
+  X inside=0 stab=0.00 dx=+65.0 dy=-190.0 err=200.8 dx/w=0.58 dy/h=2.60 row=0 held_out
+  V inside=0 stab=0.00 dx=+15.4 dy=-183.3 err=183.9 dx/w=0.14 dy/h=2.51 row=0 held_out
+  N inside=0 stab=0.00 dx=-10.8 dy=-190.0 err=190.3 dx/w=0.10 dy/h=2.60 row=0 held_out
+  Shift inside=0 stab=0.00 dx=+160.2 dy=-116.3 err=198.0 dx/w=0.71 dy/h=1.59 row=0 editing
+  Backspace inside=0 stab=0.00 dx=+90.4 dy=-144.9 err=170.8 dx/w=0.40 dy/h=1.98 row=0 editing
+  Enter inside=0 stab=0.00 dx=+14.4 dy=-233.6 err=234.0 dx/w=0.05 dy/h=2.75 row=0 editing
+  Calibrate inside=0 stab=0.00 dx=+103.4 dy=-200.2 err=225.3 dx/w=0.18 dy/h=2.35 row=0 editing

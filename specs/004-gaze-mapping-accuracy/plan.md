@@ -40,6 +40,15 @@ the existing simple mapper.
 Exact point counts, smoother values, alpha, correction layers, and mapper
 replacement are **experiment outcomes**, not this plan’s frozen solution.
 
+**Architecture pivot (2026-08-20):** T020 A/B/C are completed investigations
+(A REVERT; B INCONCLUSIVE / not keepable and reverted; C REVERT). Product
+and tests stay at `861a89c`. The remaining A–F task sequence is **paused,
+not completed**, because repeated evidence shows the current handcrafted
+vertical-feature / PCA4 assumption requires architectural reassessment.
+Historical Feature 004 artifacts are kept as-is. See
+`runs/_feature004/architecture_pivot_closeout.md`. New architecture work
+has not started in this closeout.
+
 ## Technical Context
 
 **Language/Version**: Python 3.8+ (project baseline)

@@ -507,6 +507,48 @@ reproduced on demand. Consequences for R10:
 
 This was input to T026 (finding only). T027 ran as its own iteration.
 
+**R6 item 3 resolved (2026-08-20) by the T020 investigation** — see
+`runs/_feature004/T020_eye_local_basis_investigation.md`. The eye-local vertical
+channel is defective for three compounding reasons, all in `_eye_uv_one_eye`:
+the eyelid-aperture normalizer reads ring positions 1–4 as "upper" when they are
+measurably the *lower* lid (giving 0.824x true aperture on the left but 0.525x
+on the right); `y_hat = perp(x_hat)` inherits the eye's canthal tilt with
+opposite sign per eye (`y_hat_x` −0.0817 / +0.0888), leaking horizontal gaze
+into `v`; and `v` is normalized by lid aperture, which *varies with vertical
+gaze*, so the normalizer cancels part of the signal it scales — whereas `u` is
+normalized by gaze-invariant eye width. Net: `r(u_right, v_right)` = +0.896 in
+18/18 sessions (the right eye's vertical channel is a copy of its horizontal
+one), predicted leak is a median 89% of the left eye's observed vertical range,
+implied vertical iris travel is 1.6% of eye width against 16.9% horizontal, and
+the product ignores 88–96% of the vertical range
+(`d(dy)/d(target_y)` = −0.961 / −0.878). Horizontal is unaffected and healthy.
+Candidate fixes are ranked in the record; a scale-changing fix must rescale
+`FixationGate`'s shared `max_std_pca`/`jump_threshold_pca` in the same commit,
+since dividing `v` by aperture currently makes that gate ~5x stricter
+vertically by accident. **Change A (gaze-invariant `v` scale) was tried and
+REVERTED 2026-08-20** after sessions `5e9c11d2c802` (slope −0.887) and
+`9ca533f8c0f0` (slope −0.943, row 29%): both failed the −0.80 keep threshold.
+Product restored to `861a89c`. **Change B (image-vertical `y_hat`) was tried
+and REVERTED 2026-08-20** after sessions `89b4349e848b` (`r(Y,pca_vL)=0.116`)
+and `5e91836cbca2` (`r=0.006`) blocked before evaluation; B did not remove
+X→v leak (`r(X,vL)` −0.385 / −0.697). Do not lower the 0.15 gate.
+`runs/_feature004/T020_canthal_tilt_proposal.md`,
+`runs/_feature004/T020_B_blocked_gate_investigation.md`. **Change C (correct
+lid indices, keep `perp(x_hat)`) was tried; live verdict REVERT 2026-08-20**
+after sessions `72c67227e52d` (slope −1.137, mapped-key 6%, held-out 0%,
+median 117 px, `hadar` `uerer`) and `29c07b6b989f` (slope −0.940, median
+98 px, `hadar` `udfdt`). Neither beat −0.80; listed T060 slices missed.
+Product code still C pending review. Do not lower the 0.15 gate.
+`runs/_feature004/T020_lid_index_proposal.md`.
+
+**Architecture-pivot closeout (2026-08-20).** T020 A **REVERT**; B
+**INCONCLUSIVE / not keepable and reverted**; C **REVERT**. Product code
+and tests are `861a89c`; Candidate C was not kept. The remaining Feature
+004 A–F sequence is **paused, not completed**: repeated evidence shows
+the handcrafted vertical-feature / PCA4 assumption needs architectural
+reassessment, not another one-change iteration. See
+`runs/_feature004/architecture_pivot_closeout.md`.
+
 **Outcome (2026-08-20): T027 KEEP.** The vertical check now scores
 `r(screen_y, pca_vL)` at the same 0.15 threshold, with `avg_v` retained as a
 reported diagnostic. Session `689c8a8ce90c` (chin/head support) had
