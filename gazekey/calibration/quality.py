@@ -61,6 +61,7 @@ class CalibrationQualityResult:
     loocv_rms_px: Optional[float] = None
     validation_center_error_px: Optional[float] = None
     screen_y_avg_v_corr: Optional[float] = None
+    screen_y_pca_vL_corr: Optional[float] = None
     any_prediction_off_screen: bool = False
 
 
@@ -173,6 +174,36 @@ def _fmt(v: Optional[float]) -> str:
     if v is None:
         return "   n/a"
     return f"{float(v):8.4f}"
+
+
+def _paired_corr_with_screen_y(
+    samples: Sequence[Tuple[FrameFeatures, Tuple[float, float]]],
+    targets: Sequence[CalibrationTarget],
+    attr: str,
+) -> Optional[float]:
+    """Correlate one vertical feature against target screen Y, paired by index.
+
+    Pairing by index matters: a single missing value must drop only its own
+    pair, not silently skip the whole check or shift the two series relative
+    to each other.
+    """
+    ys: List[float] = []
+    vs: List[float] = []
+    for i, (feat, _pos) in enumerate(samples):
+        if i >= len(targets):
+            break
+        v = getattr(feat, attr, None)
+        if v is None:
+            continue
+        ys.append(float(targets[i].screen_y))
+        vs.append(float(v))
+    if len(vs) < 3:
+        return None
+    arr_y = np.array(ys, dtype=np.float64)
+    arr_v = np.array(vs, dtype=np.float64)
+    if np.std(arr_v) <= 1e-9 or np.std(arr_y) <= 1e-9:
+        return 0.0
+    return float(np.corrcoef(arr_y, arr_v)[0, 1])
 
 
 def _keyboard_blocking_reason(reason: str) -> bool:
@@ -589,30 +620,36 @@ def evaluate_calibration_quality(
         if is_fullscreen and span_pca < 0.04:
             reasons.append(f"pca_v span too small ({span_pca:.4f} < 0.04) for fullscreen mapping")
 
-    # Y-axis orientation: screen_y should correlate positively with avg_v.
-    screen_y_avg_v_corr: Optional[float] = None
-    ys = np.array([float(t.screen_y) for t in targets[: len(samples)]], dtype=np.float64)
-    vs = np.array([float(s[0].avg_v) for s in samples if s[0].avg_v is not None], dtype=np.float64)
-    if ys.size == vs.size and ys.size >= 3:
-        corr = float(np.corrcoef(ys, vs)[0, 1]) if np.std(vs) > 1e-9 else 0.0
-        screen_y_avg_v_corr = float(corr)
-        mvp_log(f"[calib] corr(screen_y, avg_v)={corr:.3f} (expect positive)")
+    # Y-axis orientation: screen_y must correlate positively with the vertical
+    # channel the mapper actually fits Y from (pca_vL). `avg_v` is still
+    # computed and reported, but it is a diagnostic only: it is
+    # mean(clamp(0.5+pca_vL), clamp(0.5+pca_vR)), whose right-eye term
+    # saturates at the clamp floor on a target-dependent subset, and whose
+    # pca_vR channel tracks screen X rather than Y. See T026 findings in
+    # runs/_feature004/T026_quality_gate_findings.md.
+    screen_y_avg_v_corr = _paired_corr_with_screen_y(samples, targets, "avg_v")
+    screen_y_pca_vL_corr = _paired_corr_with_screen_y(samples, targets, "pca_vL")
+    if screen_y_avg_v_corr is not None:
+        mvp_log(f"[calib] corr(screen_y, avg_v)={screen_y_avg_v_corr:.3f} (diagnostic)")
+    if screen_y_pca_vL_corr is not None:
+        corr = float(screen_y_pca_vL_corr)
+        mvp_log(f"[calib] corr(screen_y, pca_vL)={corr:.3f} (gated; expect positive)")
         catastrophic = float(min_catastrophic_screen_y_avg_v_corr)
         preferred = float(min_screen_y_avg_v_corr)
         if is_fullscreen:
             if corr < catastrophic:
                 reasons.append(
-                    f"avg_v poorly correlated with screen Y (r={corr:.3f}, need >={catastrophic:.2f})"
+                    f"pca_vL poorly correlated with screen Y (r={corr:.3f}, need >={catastrophic:.2f})"
                 )
         elif is_keyboard:
             if corr < catastrophic:
                 reasons.append(
-                    f"avg_v poorly correlated with screen Y (r={corr:.3f}, "
+                    f"pca_vL poorly correlated with screen Y (r={corr:.3f}, "
                     f"catastrophic threshold >={catastrophic:.2f})"
                 )
             elif corr < preferred:
                 msg = (
-                    f"avg_v correlation below preferred {preferred:.2f} "
+                    f"pca_vL correlation below preferred {preferred:.2f} "
                     f"(r={corr:.3f}) — typing enabled; region gates are primary"
                 )
                 warnings.append(msg)
@@ -620,7 +657,7 @@ def evaluate_calibration_quality(
         else:
             if corr < preferred:
                 reasons.append(
-                    f"avg_v poorly correlated with screen Y (r={corr:.3f}, need >={preferred:.2f})"
+                    f"pca_vL poorly correlated with screen Y (r={corr:.3f}, need >={preferred:.2f})"
                 )
 
     if is_keyboard:
@@ -663,6 +700,7 @@ def evaluate_calibration_quality(
         loocv_rms_px=loocv_rms,
         validation_center_error_px=center_err,
         screen_y_avg_v_corr=screen_y_avg_v_corr,
+        screen_y_pca_vL_corr=screen_y_pca_vL_corr,
         any_prediction_off_screen=off_screen,
     )
 

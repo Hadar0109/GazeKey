@@ -484,18 +484,43 @@ reproduced on demand. Consequences for R10:
 
 - The gate is now the **binding constraint on measurement**, not just a
   policy question: 0 of 5 support sessions reached evaluation.
-- `avg_v` is a poor proxy. It clamps `(0.5 + pca_vL)` and `(0.5 + pca_vR)`
-  into `[0,1]` and averages them, so a clean `vL` Y-signal is diluted by a
-  `vR` channel that tracks screen **X** in all 11 sessions
-  (`r(X, vR)` −0.78…−0.97). Across sessions `avg_v` does not rank-order
-  measured outcomes; `r(Y, pca_vL)` and `r(Y, model-Y)` do.
+- `avg_v` is a poor proxy for a **blocking** check. It clamps
+  `(0.5 + pca_vL)` and `(0.5 + pca_vR)` into `[0,1]` and averages them. The
+  right-eye term saturates at the clamp floor on 0–14 of 15 targets depending
+  on the session, so the effective formula changes from target to target; and
+  where it does not saturate, `pca_vR` tracks screen **X** in 16/16 sessions
+  (`r(X, vR)` −0.78…−0.97). Net effect: `r(Y, avg_v) < r(Y, pca_vL)` in
+  **16/16** sessions. Rank agreement with `r(Y, pca_vL)` is nevertheless high
+  (Spearman +0.924), so `avg_v` is not noise — the defect is that its errors
+  cluster at the 0.15 decision boundary and are one-sided against the product
+  condition. Full analysis: `runs/_feature004/T026_quality_gate_findings.md`.
+- The gate is **inverted relative to the pipeline**: the only vertical check
+  that can block a keyboard session reads `avg_v`, while every check that
+  reads `pca_vL`/`pca_vR` (including `require_any_vertical_monotonic`) is
+  demoted to a warning by `_keyboard_blocking_reason`'s `"catastrophic"`
+  substring match.
 - The T027 change is therefore scoped to **what the vertical check
   measures** (mapper Y representation, unclamped), keeping the blocking
   semantics and threshold intent. It is not a loosening of pass/fail.
 - Necessary ≠ sufficient still holds: A and B passed this gate and were
   untypeable.
 
-This is input to T026 (finding only). T027 remains a separate iteration.
+This was input to T026 (finding only). T027 ran as its own iteration.
+
+**Outcome (2026-08-20): T027 KEEP.** The vertical check now scores
+`r(screen_y, pca_vL)` at the same 0.15 threshold, with `avg_v` retained as a
+reported diagnostic. Session `689c8a8ce90c` (chin/head support) had
+`r(Y, avg_v) = −0.152` — the old gate would have blocked it — and
+`r(Y, pca_vL) = +0.222`, so it passed and became the **first of six** support
+sessions to reach mapping evaluation. No slice regressed against the worse of
+baselines A/B. **A gate cannot improve a mapper**, so the accompanying eval
+gains (mapped-key 23%, median 81 px, held-out 25%, `hadar` 3/5) are session
+variability and must not be attributed to this change. R10 is now closed as an
+investigation: gates block on the mapper's own representation, and the
+remaining vertical problem is a **feature** problem (R6 item 3 / T020), not a
+gating one. Evidence:
+`runs/_feature004/T026_quality_gate_findings.md`,
+`runs/_feature004/T027_vertical_gate_representation.md`.
 
 **Alternatives considered**:
 

@@ -173,6 +173,8 @@ class CalibrationFinishController:
             f"mapper_type={mapper_type} "
             f"LOOCV_RMS={quality.loocv_rms_px}"
         )
+        if quality.screen_y_pca_vL_corr is not None:
+            runtime_line += f" corr(screen_y,pca_vL)={float(quality.screen_y_pca_vL_corr):.3f}"
         if quality.screen_y_avg_v_corr is not None:
             runtime_line += f" corr(screen_y,avg_v)={float(quality.screen_y_avg_v_corr):.3f}"
         if quality.warnings:

@@ -257,7 +257,7 @@ def test_keyboard_avg_v_correlation_catastrophic_fail():
     assert any("catastrophic" in r for r in q.reasons)
 
 
-def test_fullscreen_avg_v_correlation_still_hard_fail():
+def test_fullscreen_vertical_correlation_still_hard_fail():
     """Fullscreen keeps hard fail below 0.15 (not keyboard soft band)."""
     targets = _targets_3x3()
     samples = []
@@ -275,7 +275,154 @@ def test_fullscreen_avg_v_correlation_still_hard_fail():
         min_catastrophic_screen_y_avg_v_corr=0.15,
     )
     assert not q.accepted
-    assert any("avg_v poorly correlated" in r for r in q.reasons)
+    assert any("pca_vL poorly correlated" in r for r in q.reasons)
+
+
+def _keyboard_samples_split_vertical(pca_vLs: list[float], avg_vs: list[float]) -> list:
+    """9 samples where `avg_v` and `pca_vL` are set independently.
+
+    Real `avg_v` is derived from the PCA channels, but it is a clamped
+    binocular mean, so the two can disagree about screen Y. These fixtures
+    make that disagreement explicit to pin which one gates.
+    """
+    targets = _keyboard_targets_3x3()
+    samples = []
+    for i, t in enumerate(targets):
+        col = i % 3
+        vl = pca_vLs[i]
+        samples.append(
+            (
+                _feat(
+                    avg_h=0.3 + 0.1 * col,
+                    avg_v=avg_vs[i],
+                    pca_uL=-0.1 + 0.05 * col,
+                    pca_vL=vl,
+                    pca_uR=-0.09 + 0.05 * col,
+                    pca_vR=None if vl is None else vl + 0.04,
+                    face_x=0.6,
+                    face_y=0.55,
+                ),
+                (t.screen_x, t.screen_y),
+            )
+        )
+    return samples
+
+
+def _by_row_col(base: float, per_row: float, per_col: float) -> list[float]:
+    return [base + per_row * (i // 3) + per_col * (i % 3) for i in range(9)]
+
+
+def test_keyboard_gate_scores_pca_vL_not_avg_v():
+    """T027: a session with good `pca_vL` but catastrophic `avg_v` is accepted.
+
+    This is the `bfb745b0b87e` shape: the mapper's own vertical channel tracks
+    screen Y, while the clamped binocular mean does not. The old gate blocked
+    it; the vertical check must now follow the channel the mapper fits.
+    """
+    pca_vLs = _by_row_col(-0.40, 0.15, 0.02)
+    avg_vs = _by_row_col(0.30, -0.08, 0.01)
+    samples = _keyboard_samples_split_vertical(pca_vLs, avg_vs)
+    targets = _keyboard_targets_3x3()
+
+    ys = np.array([t.screen_y for t in targets], dtype=np.float64)
+    assert float(np.corrcoef(ys, np.array(pca_vLs))[0, 1]) >= 0.55
+    assert float(np.corrcoef(ys, np.array(avg_vs))[0, 1]) < 0.15
+
+    model = _ExactTrainMapper(samples)
+    q = evaluate_calibration_quality(
+        model=model,
+        samples=samples,
+        targets=targets,
+        screen_rect=(0.0, 0.0, 500.0, 500.0),
+        calibration_mode="keyboard15",
+        loocv_detail=model.leave_one_out_detail_px(),
+        require_any_vertical_monotonic=False,
+        min_catastrophic_screen_y_avg_v_corr=0.15,
+    )
+    assert q.usable
+    assert q.accepted
+    assert not any("poorly correlated" in r for r in q.reasons)
+
+
+def test_keyboard_gate_still_blocks_inverted_pca_vL_despite_good_avg_v():
+    """T027 must not make the check toothless: inverted mapper Y still fails.
+
+    `cfdd5f1ea546` had `r(Y, pca_vL)` = -0.054 and must keep failing even
+    though this fixture's `avg_v` looks well behaved.
+    """
+    pca_vLs = _by_row_col(-0.10, -0.15, 0.02)
+    avg_vs = _by_row_col(0.10, 0.08, 0.01)
+    samples = _keyboard_samples_split_vertical(pca_vLs, avg_vs)
+    targets = _keyboard_targets_3x3()
+
+    ys = np.array([t.screen_y for t in targets], dtype=np.float64)
+    assert float(np.corrcoef(ys, np.array(avg_vs))[0, 1]) >= 0.55
+
+    model = _ExactTrainMapper(samples)
+    q = evaluate_calibration_quality(
+        model=model,
+        samples=samples,
+        targets=targets,
+        screen_rect=(0.0, 0.0, 500.0, 500.0),
+        calibration_mode="keyboard15",
+        loocv_detail=model.leave_one_out_detail_px(),
+        require_any_vertical_monotonic=False,
+        min_catastrophic_screen_y_avg_v_corr=0.15,
+    )
+    assert not q.usable
+    assert not q.accepted
+    assert any("pca_vL poorly correlated" in r and "catastrophic" in r for r in q.reasons)
+
+
+def test_avg_v_correlation_still_reported_as_diagnostic():
+    """`avg_v` keeps being measured and surfaced; it just no longer gates."""
+    pca_vLs = _by_row_col(-0.40, 0.15, 0.02)
+    avg_vs = _by_row_col(0.30, -0.08, 0.01)
+    samples = _keyboard_samples_split_vertical(pca_vLs, avg_vs)
+    targets = _keyboard_targets_3x3()
+    model = _ExactTrainMapper(samples)
+    q = evaluate_calibration_quality(
+        model=model,
+        samples=samples,
+        targets=targets,
+        screen_rect=(0.0, 0.0, 500.0, 500.0),
+        calibration_mode="keyboard15",
+        loocv_detail=model.leave_one_out_detail_px(),
+        require_any_vertical_monotonic=False,
+    )
+    ys = np.array([t.screen_y for t in targets], dtype=np.float64)
+    assert q.screen_y_avg_v_corr is not None
+    assert q.screen_y_pca_vL_corr is not None
+    assert abs(q.screen_y_avg_v_corr - float(np.corrcoef(ys, np.array(avg_vs))[0, 1])) < 1e-9
+    assert abs(q.screen_y_pca_vL_corr - float(np.corrcoef(ys, np.array(pca_vLs))[0, 1])) < 1e-9
+
+
+def test_one_missing_vertical_sample_does_not_skip_the_whole_check():
+    """A single missing `pca_vL` drops its own pair only.
+
+    The previous implementation compared a filtered feature list against an
+    unfiltered target list and skipped the entire vertical check when the
+    lengths disagreed, so one dropped frame silently disabled a blocking gate.
+    """
+    pca_vLs: list = _by_row_col(-0.10, -0.15, 0.02)
+    pca_vLs[4] = None
+    avg_vs = _by_row_col(0.10, 0.08, 0.01)
+    samples = _keyboard_samples_split_vertical(pca_vLs, avg_vs)
+    targets = _keyboard_targets_3x3()
+    model = _ExactTrainMapper(samples)
+    q = evaluate_calibration_quality(
+        model=model,
+        samples=samples,
+        targets=targets,
+        screen_rect=(0.0, 0.0, 500.0, 500.0),
+        calibration_mode="keyboard15",
+        loocv_detail=model.leave_one_out_detail_px(),
+        require_any_vertical_monotonic=False,
+        min_catastrophic_screen_y_avg_v_corr=0.15,
+    )
+    assert q.screen_y_pca_vL_corr is not None
+    assert not q.accepted
+    assert any("pca_vL poorly correlated" in r for r in q.reasons)
 
 
 def test_keyboard_high_train_error_is_warning_not_blocker():
