@@ -1,10 +1,24 @@
-"""Tests for per-target head drift rejection and 4-D PCA fixation gating."""
+"""Tests for per-target head drift rejection and PCA fixation gating.
+
+The gate-vs-mapper representation tests below pin **as-built** behavior: the
+fixation gate collapses the four PCA channels into a 2-D mean `u,v`, while the
+mapper fits all four independently. That asymmetry is the T017 hypothesis
+(`runs/_feature004/T017_4d_fixation_gate.md`), which is **inconclusive** and
+whose product change was reverted for isolation under T059. Each test names
+the desired 4-D behavior in its docstring so the intent is not lost, but
+asserts what the code does today — pinning first, per the Feature 004
+one-change-per-experiment contract.
+"""
 
 from __future__ import annotations
 
 import numpy as np
 
-from gazekey.calibration.fixation_gate import FixationGate, FixationGateConfig, _pca4
+from gazekey.calibration.fixation_gate import (
+    FixationGate,
+    FixationGateConfig,
+    _pca_uv_mean,
+)
 from gazekey.features.feature_types import FrameFeatures
 from gazekey.mapping.ridge import _raw_uv, extract_uv_arrays
 
@@ -79,10 +93,17 @@ def test_head_drift_disabled_allows_shift():
     assert accept
 
 
-def test_gate_pca4_matches_mapper_raw_uv():
+def test_as_built_gate_collapses_pca4_to_binocular_mean_unlike_mapper():
+    """As-built: the gate averages the eyes; the mapper does not.
+
+    Desired (T017, unproven): the gate would evaluate the same 4-D vector
+    `_raw_uv` hands the mapper, so per-eye motion cannot hide in the mean.
+    """
     feat = _feat(pca_uL=0.11, pca_vL=-0.04, pca_uR=0.07, pca_vR=0.02)
-    assert _pca4(feat) == _raw_uv(feat)
-    assert _pca4(feat) == (0.11, -0.04, 0.07, 0.02)
+
+    assert _raw_uv(feat) == (0.11, -0.04, 0.07, 0.02)
+    assert _pca_uv_mean(feat) == (0.09, -0.01)
+    assert len(_pca_uv_mean(feat)) == 2 < len(_raw_uv(feat))
 
 
 def test_mapper_fit_consumes_four_independent_pca_channels_not_mean_uv():
@@ -101,7 +122,7 @@ def test_mapper_fit_consumes_four_independent_pca_channels_not_mean_uv():
     assert not np.allclose(u_l, 0.5 * (u_l + u_r))
 
 
-def _gate_for_4d(*, jump: bool) -> FixationGate:
+def _gate_for_pca_stability(*, jump: bool) -> FixationGate:
     return FixationGate(
         cfg=FixationGateConfig(
             lock_on_ms=80.0,
@@ -118,9 +139,16 @@ def _gate_for_4d(*, jump: bool) -> FixationGate:
     )
 
 
-def test_opposing_eye_jitter_fails_4d_stability_even_when_mean_uv_is_still():
-    """Left/right u that cancel in 2-D mean u,v must not lock as a stable fixation."""
-    gate = _gate_for_4d(jump=False)
+def test_as_built_opposing_eye_jitter_locks_because_mean_uv_is_still():
+    """As-built: left/right `u` that cancel in the mean look perfectly stable.
+
+    Each frame swings each eye by 0.08 in opposite directions — motion the
+    mapper's 4-D fit would see — yet the binocular mean never moves, so the
+    gate locks and accepts these frames as a clean fixation.
+
+    Desired (T017, unproven): this should never lock.
+    """
+    gate = _gate_for_pca_stability(jump=False)
     locked = False
     accepted = False
     for i in range(40):
@@ -130,27 +158,32 @@ def test_opposing_eye_jitter_fails_4d_stability_even_when_mean_uv_is_still():
         locked = locked or state.value == "LOCKED_COLLECTING"
         accepted = accepted or accept
 
-    assert not locked
-    assert not accepted
-    assert gate.state.value == "WAIT_LOCK"
+    assert locked
+    assert accepted
 
 
-def test_one_eye_jump_detected_when_binocular_mean_stays_below_threshold():
-    """A 0.15 left-eye u jump is 0.075 in mean u (below 0.10) but must still reset."""
-    gate = _gate_for_4d(jump=True)
+def test_as_built_one_eye_jump_is_halved_by_the_mean_and_escapes_reset():
+    """As-built: a 0.15 left-eye jump becomes 0.075 in mean `u`.
+
+    That is below the 0.10 `jump_threshold_pca`, so no reset fires and the
+    frame is accepted into the target's samples.
+
+    Desired (T017, unproven): per-eye jump distance would trigger `jump_pca`.
+    """
+    gate = _gate_for_pca_stability(jump=True)
     stable = _feat()
     _lock_and_collect(gate, stable, n=20)
     assert gate.state.value == "LOCKED_COLLECTING"
 
     jumped = _feat(pca_uL=0.15, pca_uR=0.0)
     state, accept, reason = gate.update(jumped, dt_ms=20.0)
-    assert not accept
-    assert reason == "jump_pca"
-    assert state.value == "RESET_JUMP"
+    assert reason != "jump_pca"
+    assert accept
+    assert state.value == "LOCKED_COLLECTING"
 
 
-def test_binocular_stable_4d_still_collects():
-    gate = _gate_for_4d(jump=True)
+def test_binocular_stable_gaze_still_collects():
+    gate = _gate_for_pca_stability(jump=True)
     feat = _feat(pca_uL=0.02, pca_vL=-0.01, pca_uR=0.02, pca_vR=-0.01)
     _lock_and_collect(gate, feat, n=20)
     state, accept, reason = gate.update(feat, dt_ms=20.0)

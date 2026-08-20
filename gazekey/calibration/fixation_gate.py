@@ -1,9 +1,7 @@
 """Fixation gating for calibration samples.
 
-Stability is checked on legacy ratio features (avg_h/avg_v) and on the same
-4-D PCA representation the mapper consumes (pca_uL, pca_vL, pca_uR, pca_vR).
-Averaging left/right into 2-D mean u,v is not sufficient: opposing-eye motion
-can cancel in that mean while still polluting the PCA4 fit.
+Stability is checked on both legacy ratio features (avg_h/avg_v) and geometric
+eye-local PCA coordinates so saccades between targets are less likely to pollute means.
 """
 
 from __future__ import annotations
@@ -44,8 +42,7 @@ class FixationGateConfig:
     max_head_drift_eye_h: float = 0.003
 
 
-def _pca4(features: FrameFeatures) -> Optional[Tuple[float, float, float, float]]:
-    """Mapper PCA4 vector: (uL, vL, uR, vR). None if any channel is missing."""
+def _pca_uv_mean(features: FrameFeatures) -> Optional[Tuple[float, float]]:
     if (
         features.pca_uL is None
         or features.pca_vL is None
@@ -53,12 +50,9 @@ def _pca4(features: FrameFeatures) -> Optional[Tuple[float, float, float, float]
         or features.pca_vR is None
     ):
         return None
-    return (
-        float(features.pca_uL),
-        float(features.pca_vL),
-        float(features.pca_uR),
-        float(features.pca_vR),
-    )
+    u = 0.5 * (float(features.pca_uL) + float(features.pca_uR))
+    v = 0.5 * (float(features.pca_vL) + float(features.pca_vR))
+    return u, v
 
 
 @dataclass
@@ -69,7 +63,7 @@ class FixationGate:
     _elapsed_point_ms: float = 0.0
     _elapsed_collect_ms: float = 0.0
     _ratio_window: Deque[Tuple[float, float]] = field(default_factory=deque)
-    _pca_window: Deque[Tuple[float, float, float, float]] = field(default_factory=deque)
+    _pca_window: Deque[Tuple[float, float]] = field(default_factory=deque)
     _window_ms: float = 0.0
     _head_baseline: Optional[dict[str, float]] = None
 
@@ -129,7 +123,7 @@ class FixationGate:
             return self._state, False, "missing_ratios"
 
         ratio = (float(features.avg_h), float(features.avg_v))
-        pca4 = _pca4(features)
+        pca = _pca_uv_mean(features)
 
         if self.cfg.enable_jump_reset and self._ratio_window:
             mx = float(np.mean([p[0] for p in self._ratio_window]))
@@ -138,16 +132,16 @@ class FixationGate:
             if shift > self.cfg.jump_threshold_ratio:
                 self.reset_point()
                 return FixationState.RESET_JUMP, False, "jump_ratio"
-        if self.cfg.enable_jump_reset and pca4 is not None and self._pca_window:
-            mu = np.mean(np.array(self._pca_window, dtype=np.float64), axis=0)
-            jump_l = float(np.hypot(pca4[0] - mu[0], pca4[1] - mu[1]))
-            jump_r = float(np.hypot(pca4[2] - mu[2], pca4[3] - mu[3]))
-            if max(jump_l, jump_r) > self.cfg.jump_threshold_pca:
+        if self.cfg.enable_jump_reset and pca is not None and self._pca_window:
+            mx = float(np.mean([p[0] for p in self._pca_window]))
+            my = float(np.mean([p[1] for p in self._pca_window]))
+            shift = float(np.hypot(pca[0] - mx, pca[1] - my))
+            if shift > self.cfg.jump_threshold_pca:
                 self.reset_point()
                 return FixationState.RESET_JUMP, False, "jump_pca"
 
         if self._state == FixationState.WAIT_LOCK:
-            self._push_windows(ratio, pca4, dt_ms=dt_ms_f)
+            self._push_windows(ratio, pca, dt_ms=dt_ms_f)
             stable = self._is_stable()
             if self._window_ms >= self.cfg.lock_on_ms and stable:
                 self._state = FixationState.COLLECTING
@@ -161,7 +155,7 @@ class FixationGate:
             return FixationState.RESET_JUMP, False, "jump"
 
         self._elapsed_collect_ms += dt_ms_f
-        self._push_windows(ratio, pca4, dt_ms=dt_ms_f)
+        self._push_windows(ratio, pca, dt_ms=dt_ms_f)
         if not self._is_stable():
             self.reset_point()
             return FixationState.WAIT_LOCK, False, "unstable"
@@ -174,13 +168,13 @@ class FixationGate:
     def _push_windows(
         self,
         ratio: Tuple[float, float],
-        pca4: Optional[Tuple[float, float, float, float]],
+        pca: Optional[Tuple[float, float]],
         *,
         dt_ms: float,
     ) -> None:
         self._ratio_window.append(ratio)
-        if pca4 is not None:
-            self._pca_window.append(pca4)
+        if pca is not None:
+            self._pca_window.append(pca)
         self._window_ms += dt_ms
         while len(self._ratio_window) > 180:
             self._ratio_window.popleft()
@@ -194,19 +188,13 @@ class FixationGate:
         ys = np.array([p[1] for p in window], dtype=np.float64)
         return float(np.std(xs)), float(np.std(ys))
 
-    def _pca4_channel_stds(self) -> Tuple[float, float, float, float]:
-        if len(self._pca_window) < int(self.cfg.min_stability_window):
-            return 0.0, 0.0, 0.0, 0.0
-        arr = np.array(self._pca_window, dtype=np.float64)
-        stds = np.std(arr, axis=0)
-        return float(stds[0]), float(stds[1]), float(stds[2]), float(stds[3])
-
     def _is_stable(self) -> bool:
         std_h, std_v = self._std_window(self._ratio_window)
         if max(std_h, std_v) > self.cfg.max_std_ratio:
             return False
         if len(self._pca_window) >= int(self.cfg.min_stability_window):
-            if max(self._pca4_channel_stds()) > self.cfg.max_std_pca:
+            std_u, std_v2 = self._std_window(self._pca_window)
+            if max(std_u, std_v2) > self.cfg.max_std_pca:
                 return False
         return True
 
@@ -219,7 +207,7 @@ class FixationGate:
 
     def debug_metrics(self) -> dict[str, Any]:
         std_h, std_v = self._std_window(self._ratio_window)
-        std_ul, std_vl, std_ur, std_vr = self._pca4_channel_stds()
+        std_u, std_v2 = self._std_window(self._pca_window)
         return {
             "state": str(self._state.value),
             "elapsed_point_ms": float(self._elapsed_point_ms),
@@ -228,12 +216,8 @@ class FixationGate:
             "window_ms": float(self._window_ms),
             "std_h": float(std_h),
             "std_v": float(std_v),
-            "std_pca_uL": float(std_ul),
-            "std_pca_vL": float(std_vl),
-            "std_pca_uR": float(std_ur),
-            "std_pca_vR": float(std_vr),
-            "std_pca_u": float(max(std_ul, std_ur)),
-            "std_pca_v": float(max(std_vl, std_vr)),
+            "std_pca_u": float(std_u),
+            "std_pca_v": float(std_v2),
             "max_std_ratio": float(self.cfg.max_std_ratio),
             "max_std_pca": float(self.cfg.max_std_pca),
             "lock_on_ms": float(self.cfg.lock_on_ms),
