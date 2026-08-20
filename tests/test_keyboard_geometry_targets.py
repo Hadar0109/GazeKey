@@ -2,7 +2,7 @@
 
 from PySide6.QtCore import QRect
 
-from gazekey.calibration.targets import keyboard_geometry_targets
+from gazekey.calibration.targets import calibration_row_groups, keyboard_geometry_targets
 from gazekey.layout.layout_inspector import KeyGeometryRow
 
 
@@ -73,6 +73,27 @@ def test_keyboard15_target_count_and_real_key_actions():
         "key_space",
     ]
     assert all(t.screen_x >= region.x() for t in targets)
+
+
+def test_keyboard15_space_shares_grid_row_with_zcbm_not_its_physical_row():
+    """As-built: Space is packed as grid_row=2 / grid_col=4 with Z,C,B,M.
+
+    Its screen_y is on the space bar (row_index 3), below those letter centers.
+    calibration_row_groups therefore puts Space in the same bottom bucket as Z/C/B/M.
+    T024 must compare this tagging to actual screen_x/y clusters before any retag.
+    """
+    keys = _qwerty_like_keys()
+    region = QRect(8, 135, 1264, 273)
+    targets = keyboard_geometry_targets(keys=keys, typing_region_rect=region, mode="keyboard15")
+    by_label = {t.label: t for t in targets}
+    z, c, b, m, space = (by_label[k] for k in ("key_z", "key_c", "key_b", "key_m", "key_space"))
+    assert z.grid_row == c.grid_row == b.grid_row == m.grid_row == space.grid_row == 2
+    assert (z.grid_col, c.grid_col, b.grid_col, m.grid_col, space.grid_col) == (0, 1, 2, 3, 4)
+    assert space.screen_y > z.screen_y
+    assert space.screen_y > m.screen_y
+    _top, _mid, bot = calibration_row_groups(targets)
+    bot_labels = {targets[i].label for i in bot}
+    assert bot_labels == {"key_z", "key_c", "key_b", "key_m", "key_space"}
 
 
 def test_keyboard15_gap_preserves_legacy_layout():

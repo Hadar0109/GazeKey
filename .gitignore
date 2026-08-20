@@ -40,5 +40,6 @@ runtime_key_confidence.csv
 coverage/
 .coverage
 htmlcov/
+.pytest_cache/
 
 .cursor/

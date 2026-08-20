@@ -15,6 +15,15 @@ fidelity may land before the baseline. After the baseline, **one** logical
 area per iteration; keep / revert / inconclusive. Audit items are
 **investigations**, not a patch list.
 
+**Product condition (decided 2026-08-20):** The target system is used **with
+the chin/head support**, because the product goal is a stable head and the
+highest achievable gaze-mapping accuracy under that condition. All accuracy
+evaluation, `hadar` gates, and repeatability runs are captured **with** the
+support. Free-head runs are diagnostic context only and MUST NOT be the
+optimization target, even when they currently pass more easily. Baseline A
+and B (free-head) remain the mandatory `eval_before` reference; T060 adds a
+product-condition reference pair. See Phase 3.
+
 **Path conventions**: Repository root (`gazekey/`, `tools/evaluation/`,
 `tests/`).
 
@@ -85,28 +94,58 @@ current behavior.
 
 **Depends on**: Phase 2 baseline (T014–T015)
 
+**Product condition (decided 2026-08-20)**: The shipped system is used **with
+the chin/head support**. Every mapping evaluation, `hadar` gate, and
+repeatability run from here on is captured **with** the support. Baseline A
+(`14938da0bdf0`) and B (`34fb259ccdfd`) were captured free-head; they remain
+the required `eval_before` reference, and T060 adds a product-condition
+("rest-condition") reference pair. Do not optimize against free-head runs.
+
+**Order within Phase 3 (revised 2026-08-20)** — measurement capability first:
+
+```text
+T059 → T026 → T027 → T060 → T020 → T019 → T021 → T022 → T024 → T025
+```
+
+Reason: **with** the support, 0 of 5 sessions reached mapping evaluation
+(`2879900a17e0`, `bfb745b0b87e` confirmed; `0694c1663623`, `42662808ac84`,
+`cfdd5f1ea546` likely). All were blocked by the `avg_v` vs screen-Y
+catastrophic check, which scores a **clamped 2-D proxy** rather than the
+mapper's Y representation `(pca_vL, pca_vR)`. Both confirmed support sessions
+beat accepted baselines A and B on `r(Y, pca_vL)` (+0.459 / +0.625 vs +0.357
+/ +0.344), model-Y fidelity, training Y error, LOOCV (86.6 / 81.5 vs 89.4 /
+95.2) and warning count — and were rejected. No collection experiment can be
+measured under the product condition until that is resolved. This reorders
+tasks **inside** Phase 3; plan phases A–F are unchanged.
+Evidence: `runs/_feature004/T017_controlled_rest_vs_free.md`.
+
+### Isolation of the unproven T017 change (do this first)
+
+- [ ] T059 [US2] **Isolate T017** (decision `inconclusive`, see `runs/_feature004/T017_4d_fixation_gate.md`): revert the 4-D fixation-gate product change, restoring the as-built 2-D behavior in `gazekey/calibration/fixation_gate.py`. The change is isolated in commit **`bedfb86`** ("fix(calibration): use per-eye 4D PCA for fixation stability checks"), which touches that file **only** — so this is a clean single-commit revert. In the **same** commit, revert or mark-as-desired the still-uncommitted T016 assertions in `tests/test_fixation_head_gate.py` so the suite matches the restored behavior. Leave the T018 and T023 pin tests untouched. Finish with `pytest -q` green. This is **isolation, not an accuracy experiment**: no eval vs A/B, no `keep_git_sha`, no accuracy claim, and T017's verdict stays `inconclusive` (recorded as `disposition`, not rewritten to `revert`). Rationale — T017 cannot be decided under the product condition until T027 unblocks measurement, and the experiment contract forbids starting a new experiment on top of an unproven change. T017 becomes re-testable as its own experiment after T060
+
+### Quality / pass-fail gates (research R10) — now the measurement blocker
+
+- [ ] T026 [US2] Write the gate finding (**evidence only, no policy change**): correlate `quality_gate_kind` with held-out inside-key and `hadar` focus using T010 summaries; inspect `_keyboard_blocking_reason` vs warning reasons in `gazekey/calibration/quality.py`. Record that the catastrophic check scores clamped binocular `avg_v` while the mapper fits Y from `(pca_vL, pca_vR)` with weight concentrated on `vL`, that `pca_vR` tracks screen **X** in all 11 sessions on disk (`r(X, vR)` −0.78…−0.97), and that `avg_v` does not rank-order sessions consistently with measured outcomes while `r(Y, vL)` and `r(Y, model-Y)` do. Inputs already on disk: `runs/_feature004/T017_y_correlation_investigation.md`, `runs/_feature004/T017_controlled_rest_vs_free.md`. Also note that A/B passed this gate and were still untypeable — passing it guarantees nothing
+- [ ] T027 [US2] **One** product change in `gazekey/calibration/quality.py`, scoped to **what the vertical check measures**: score the catastrophic Y check on the representation the mapper uses for Y (unclamped `pca_vL`/`pca_vR`, or fitted model-Y vs taught Y) instead of clamped binocular `avg_v`. Keep threshold semantics, keep blocking behavior, do **not** loosen pass/fail into a warning, do **not** make LOOCV the sole product accept/reject, do **not** add on-screen metrics during fixation (FR-004), pass/fail stays **after** the session (FR-005, SC-009). Then recalibrate **with the chin/head support**, run the developer evaluation, and run the `hadar` gate; compare to baseline A and B; keep/revert/inconclusive; Git commit if keep. Requires T059 first. Do **not** combine with T025 or T020
+- [ ] T060 [US2] **Product-condition ("rest-condition") reference pair**: once sessions pass under the product condition, capture **two** calib+eval sessions **with the chin/head support** on the kept stack and label them the product-condition reference (`runs/<session_id>/experiment_record.md`, plus `hadar_wrong_focus.md` on both). These **add to**, and do not replace, baseline A and B — the contract still requires citing A+B as `eval_before` (FR-026, SC-011). Record the condition difference explicitly
+
 ### Collection representation
 
-- [ ] T016 [P] [US2] Add failing-then-passing tests that the fixation gate evaluates the same 4-D representation the mapper consumes in `tests/test_fixation_head_gate.py` against `gazekey/calibration/fixation_gate.py` (not only averaged 2-D `u,v`)
-- [ ] T017 [US2] Investigate 4-D vs 2-D lock in `gazekey/calibration/fixation_gate.py` vs `gazekey/mapping/` predict; if evidence implicates it, make **one** gate change, recalibrate, compare held-out to baseline, record keep/revert/inconclusive
-- [ ] T018 [P] [US2] Add tests for coherent per-frame aggregation (no independent per-channel means inventing a vector) in `tests/unit/test_calibration_session_collection.py` against `gazekey/calibration/session.py`
-- [ ] T019 [US2] Investigate `_finalize_target_training_feature` (or equivalent) in `gazekey/calibration/session.py`; if implicated, one aggregation change, then eval vs baseline
-- [ ] T020 [US2] Investigate left/right `u` semantics in `gazekey/features/extractor.py` vs `gazekey/tracking/` eye-corner order; if implicated, one semantics fix, then eval vs baseline
+- [x] T016 [P] [US2] Add failing-then-passing tests that the fixation gate evaluates the same 4-D representation the mapper consumes in `tests/test_fixation_head_gate.py` against `gazekey/calibration/fixation_gate.py` (not only averaged 2-D `u,v`) — landed; its assertions are reverted or marked-as-desired by **T059**, because the product change they pin is unproven
+- [ ] T017 [US2] Investigate 4-D vs 2-D lock in `gazekey/calibration/fixation_gate.py` vs `gazekey/mapping/` predict — **decision: inconclusive**; product change reverted by **T059**. Controlled diagnostic (2 WITH support, 2 WITHOUT): 0/2 usable with support, 1/2 without. T017 is **not** the Y-gate cause (the same block predates it), and its one supporting eval (`e3488095862f`) was free-head, i.e. not the product condition. Re-test as its own experiment after T060, under the product condition
+- [x] T018 [P] [US2] Add tests for coherent per-frame aggregation (no independent per-channel means inventing a vector) in `tests/unit/test_calibration_session_collection.py` against `gazekey/calibration/session.py` — pins as-built Frankenstein means; aggregation itself is not changed until T019
+- [ ] T020 [US2] **Run this first among T019–T022.** Investigate left/right eye-local **basis semantics** in `gazekey/features/extractor.py` (`_eye_uv_one_eye`) vs `gazekey/tracking/` eye-corner order — **`v` as well as `u`**. Evidence: `pca_vR` tracks screen **X** in all 11 sessions (`r(X, vR)` −0.78…−0.97) and `corr(uR, vR)` is +0.78…+0.94, i.e. the right eye's vertical axis is mixed with its horizontal one. That is the highest-value accuracy candidate under a stabilized head, and it also corrupts `avg_v`. If implicated, **one** semantics fix; recalibrate with the support; eval vs A/B (and the T060 reference); keep/revert/inconclusive. Requires T027 first — validating this needs an evaluation the gate currently blocks. Do **not** combine with T027 or T019
+- [ ] T019 [US2] Investigate `_finalize_target_training_feature` (or equivalent) in `gazekey/calibration/session.py`; if implicated, one aggregation change, then eval vs baseline. **Not implicated by any of the 11 sessions on disk** — do not start it before T059/T026/T027/T060/T020
 - [ ] T021 [US2] Investigate missing-eye policy in `gazekey/calibration/fixation_gate.py`, `gazekey/calibration/session.py`, and `gazekey/runtime/mapper_runtime.py`; align only if they silently diverge; one change; eval vs baseline
 - [ ] T022 [US2] Investigate label-based `_row_column_peers` in `gazekey/calibration/outliers.py` (substring `"top"`/`"left"` vs `key_*` labels); if dead or misleading, one grouping change **or** documented keep — do not combine with T024/T026
 
 ### Spatial row/column metadata (research R5) — investigate, do not assume retag
 
-- [ ] T023 [P] [US2] Add tests that document **as-built** `grid_row`/`grid_col` for Space vs Z/C/B/M and column coarsening in `parse_target_region` (`gazekey/calibration/region_quality.py`, `gazekey/calibration/targets.py`) in `tests/test_region_quality.py` / `tests/test_keyboard_geometry_targets.py` — these tests pin current behavior first
+- [x] T023 [P] [US2] Add tests that document **as-built** `grid_row`/`grid_col` for Space vs Z/C/B/M and column coarsening in `parse_target_region` (`gazekey/calibration/region_quality.py`, `gazekey/calibration/targets.py`) in `tests/test_region_quality.py` / `tests/test_keyboard_geometry_targets.py` — these tests pin current behavior first
 - [ ] T024 [US2] Investigate whether those tags mix distinct `screen_x/y` clusters for Space and other non-letter controls (Shift/Calibrate/Enter if used as targets) via `calibration_row_groups` in `gazekey/calibration/targets.py`, `evaluate_calibration_quality` in `gazekey/calibration/quality.py`, and region gates in `gazekey/calibration/region_quality.py`. Compare quality conclusions to actual coordinates. **No retag unless this evidence says the checks lie**
 - [ ] T025 [US2] If T024 implicates metadata: one focused retag or grouping-rule change in `gazekey/calibration/targets.py` (and callers); recalibrate; eval vs baseline; keep/revert/inconclusive. Do **not** change pass/fail policy in the same iteration
 
-### Warning-only quality / pass-fail gates (research R10) — investigate, do not assume harden
-
-- [ ] T026 [US2] Using baseline (and later) summaries from T010, correlate `quality_gate_kind` with held-out inside-key and `hadar` focus. Inspect `_keyboard_blocking_reason` vs warning reasons in `gazekey/calibration/quality.py`. Ask whether warning-only sessions are unusable, and whether clean/pass sessions still fail practical typing because gates measure the wrong thing (including T024 metadata). Write the finding in experiment notes — **no policy change in this task**
-- [ ] T027 [US2] If T026 implicates the policy: one justified change (keep warnings, harden a **subset**, or change what is measured) in `gazekey/calibration/quality.py`. Do **not** make LOOCV the sole product accept/reject. Do **not** combine with T025. Do **not** add on-screen metrics during fixation (FR-004); pass/fail remains **after** the session (FR-005, SC-009). Recalibrate; eval vs baseline A and B; keep/revert/inconclusive; Git commit if keep
-
-**Checkpoint**: Each collection hypothesis has evidence; unproven changes are not stacked; gates and metadata were investigated separately
+**Checkpoint**: T017 is isolated, not carried; a session can pass under the product condition; a rest-condition reference pair exists; each remaining collection hypothesis has evidence; unproven changes are not stacked; gates and metadata were investigated separately
 
 ---
 
@@ -213,7 +252,7 @@ Historical 67% / 55 px / 80% row are **reference floors**, not automatic
 Feature 004 pass.
 
 - [ ] T046 Compare the kept stack to **baseline A and B**: held-out letters, editing/control inside-key, focus stability, key-relative error, clamp diagnostic, quality_gate_kind — write pass/fail + primary metrics in `runs/<session_id>/` via `tools/evaluation/run_summary.py`
-- [ ] T058 Run the **3-session final repeatability** protocol (SC-004) on the kept stack: three fresh calib+eval sessions; record mapped-key rates and best–worst spread vs the 53% / 20 pp reference floors in `runs/<session_id>/` via `tools/evaluation/run_summary.py`. Do not substitute baseline A/B for these three sessions
+- [ ] T058 Run the **3-session final repeatability** protocol (SC-004) on the kept stack, **all three with the chin/head support** (product condition): three fresh calib+eval sessions; record mapped-key rates and best–worst spread vs the 53% / 20 pp reference floors in `runs/<session_id>/` via `tools/evaluation/run_summary.py`. Do not substitute baseline A/B or the T060 reference pair for these three sessions
 - [ ] T047 USER GATE on the kept product (`specs/004-gaze-mapping-accuracy/quickstart.md`): `hadar` wrong-focus vs baseline A and B; then **2–3 additional short words not used during development**, covering different rows/keyboard regions, suggestions unused. Record focus errors under `runs/<session_id>/`
 - [ ] T048 Confirm Feature 003 suggestions still work when used (preservation, not mapping accept) via `tests/contract/test_suggestion_typing_path.py` and a short manual check
 - [ ] T049 Run full-project `pytest -q` from repo root; fix regressions caused by 004 changes only
@@ -257,7 +296,12 @@ confusion. Each deletion is its own approved task.
 - **Mapper Plan E (Phase 7)**: Only if Phase 6 still fails vs baseline A and B
 - **Benchmark (Phase 9)**: After the kept stack is stable; T058 is the
   3-session final protocol, not a substitute for T014
-- **US2 collection (Phase 3)**: After baseline T014–T015
+- **US2 collection (Phase 3)**: After baseline T014–T015. Internal order
+  revised 2026-08-20 to `T059 → T026 → T027 → T060 → T020 → T019 → T021 →
+  T022 → T024 → T025`. **T059 (T017 isolation) blocks every later Phase 3
+  experiment** — no new experiment starts on top of an unproven change.
+  **T027 blocks T060 and T020–T025** under the product condition, because
+  the vertical gate currently rejects rest sessions before evaluation runs
 - **US3 sync (Phase 4)**: After baseline; prefer after US2 so data quality
   is not confounded with smoother mismatch
 - **US4 geometry (Phase 5)**: After baseline; T009 diagnostic may be
@@ -292,6 +336,8 @@ confusion. Each deletion is its own approved task.
 ### Forbidden pairings (same iteration)
 
 - Metadata retag (T025) **and** gate-policy change (T027)
+- Gate change (T027) **and** feature semantics (T020)
+- T017 isolation (T059) **and** any accuracy change — T059 is isolation only
 - Clamp/clip change (T034) **and** ridge alpha (T041)
 - Aggregation **and** auto-alpha
 - Layout change (T037 or T057) **and** mapper lever (T041)
@@ -301,7 +347,8 @@ confusion. Each deletion is its own approved task.
 - T002 / T003 after T001
 - T004 / T005 before or beside T006–T011 (tests may fail until scoring lands)
 - T012 / T013 / T055 after T007 / T009 (different test files)
-- T016 / T018 / T023 as tests while T017/T019 are sequential experiments
+- T016 / T018 / T023 as tests (done) while T027/T020/T019 are sequential
+  experiments; T026 write-up may be drafted beside T059
 - T031 tests vs T032 investigation (different files)
 - T042 tests only if T041 chooses an alpha-rule experiment
 - T052 / T053 after the kept stack is known
@@ -324,7 +371,8 @@ Task: "Pin as-built Space grid_row vs letter row in tests/test_region_quality.py
 Task: "Pin 4-D vs 2-D gate behavior in tests/test_fixation_head_gate.py"
 ```
 
-Then run T017, T019, T024, T026 **one at a time**.
+Then run T027, T020, T019, T024 **one at a time** (after T059 isolation and
+the T026 write-up).
 
 ---
 
@@ -339,14 +387,19 @@ Then run T017, T019, T024, T026 **one at a time**.
 
 ### Incremental delivery (one investigation at a time)
 
-1. US2 collection (gate, aggregation, u-axis, missing-eye, peers)
-2. US2 metadata (Space / non-letter tags) then, separately, warning-only gates
-3. US3 sync
-4. US4 geometry then, separately, clip/clamp if implicated
-5. US1 coverage candidates (one per experiment; continue via T057 if needed)
-6. Plan E auto-alpha diagnosis, then at most one mapper lever
-7. Plan F: vs A/B + 3-session SC-004 + `hadar` vs A/B + hold-out words +
-   `pytest -q`
+1. US2 isolation: revert the unproven T017 gate change (T059)
+2. US2 measurement capability: gate evidence (T026), then **one** change to
+   what the vertical gate measures (T027), then the product-condition
+   reference pair (T060)
+3. US2 collection: eye-local `u`/`v` basis semantics (T020) first, then
+   aggregation, missing-eye, peers
+4. US2 metadata (Space / non-letter tags)
+5. US3 sync
+6. US4 geometry then, separately, clip/clamp if implicated
+7. US1 coverage candidates (one per experiment; continue via T057 if needed)
+8. Plan E auto-alpha diagnosis, then at most one mapper lever
+9. Plan F: vs A/B + 3-session SC-004 + `hadar` vs A/B + hold-out words +
+   `pytest -q` — all under the product condition (chin/head support)
 
 ### Suggested MVP scope
 
@@ -359,7 +412,13 @@ measurement MVP. Product accuracy work starts only after T015.
 
 - [P] = different files, no incomplete dependencies
 - Investigation ≠ patch: T024, T026, T033, T040 are evidence tasks
+- Isolation ≠ experiment: T059 reverts an unproven change and makes no
+  accuracy claim; it needs no eval and no `keep_git_sha`
 - Follow-up change tasks exist only if evidence implicates that area
+- All accuracy runs use the **chin/head support** (product condition);
+  free-head runs are diagnostic context only
+- Passing the calibration quality gates is **necessary, not sufficient**:
+  baseline A and B both passed and were still not practically typeable
 - USER GATE `hadar` always suggestions-off; compare wrong-focus to A and B
 - Final hold-out words must not be used as development practice words
 - Each **keep** requires a Git checkpoint (FR-026)

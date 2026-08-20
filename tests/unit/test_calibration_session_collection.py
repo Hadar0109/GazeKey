@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from gazekey.calibration.fixation_gate import FixationGateConfig
 from gazekey.calibration.session import CalibrationSession
 from gazekey.calibration.targets import CalibrationTarget
@@ -139,3 +141,32 @@ def test_partial_collection_does_not_finish_target():
     assert session.target_index == 0
     assert session.accepted_count_for_target(0) == 0
     assert session.samples_used_for_target_mean(0) < session.gate.cfg.min_samples
+
+
+def test_as_built_independent_channel_means_can_invent_unobserved_vector():
+    """Pin T019: IQR+mean per channel can yield a 4-D vector no accepted frame had.
+
+    Half the frames are (uL=1, vL=0, …); half are (uL=0, vL=1, …). The as-built
+    aggregator stores the channel-wise mean (0.5, 0.5, 0, 0), which was never
+    observed. Coherent aggregation (T019) must keep or reject whole frames.
+    """
+    session = CalibrationSession(
+        targets=_targets(1),
+        session_id="frankenstein-mean",
+        gate_cfg=_fast_gate(),
+    )
+    frames = []
+    for _ in range(4):
+        frames.append(_feat(pca_uL=1.0, pca_vL=0.0, pca_uR=0.0, pca_vR=0.0))
+    for _ in range(4):
+        frames.append(_feat(pca_uL=0.0, pca_vL=1.0, pca_uR=0.0, pca_vR=0.0))
+    session._accepted_frames[0] = frames
+    session._accepted_ratios[0] = [(0.5, 0.5)] * len(frames)
+    session._finalize_target_training_feature(0)
+
+    aggregated = session._accepted_features[0][-1]
+    observed = {(fr.pca_uL, fr.pca_vL, fr.pca_uR, fr.pca_vR) for fr in frames}
+    invented = (aggregated.pca_uL, aggregated.pca_vL, aggregated.pca_uR, aggregated.pca_vR)
+    assert aggregated.pca_uL == pytest.approx(0.5)
+    assert aggregated.pca_vL == pytest.approx(0.5)
+    assert invented not in observed

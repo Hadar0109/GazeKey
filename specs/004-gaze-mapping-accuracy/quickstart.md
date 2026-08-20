@@ -10,9 +10,16 @@ until section 3 (two-session baseline) is done.**
 
 - Webcam; face visible; single primary monitor
 - Product keyboard: Feature 003 letters + editing/control keys
-- Sit consistently; move eyes, not head, during calibration
+- **Chin/head support in place** — this is the product condition
+  (spec Clarifications 2026-08-20). Move eyes, not head
 - Suggestions unused during mapping word checks
 - Development word check is `hadar` only until Plan F
+
+**Condition rule**: every calibration, evaluation, `hadar` gate, and
+repeatability run is captured **with** the support. Free-head runs are
+diagnostic only; label them `condition: free-head` in the experiment record
+and never present them as a product result. Baseline A/B predate this rule
+and were free-head — they are still the mandatory `eval_before` reference.
 
 ## 1. Product path (unchanged)
 
@@ -57,6 +64,17 @@ Later experiments compare to **both** A and B. Historical 67% / 55 px are
 reference only. The **3-session** protocol in section 8 is a later final
 check on the kept stack — not a substitute for A and B.
 
+**Status**: done. A = `14938da0bdf0`, B = `34fb259ccdfd`, both free-head,
+both `warning_only`, `hadar` wrong-focus 5/5 and 4/5.
+
+### 3b. Product-condition reference pair (T060)
+
+Once a session can pass **with** the chin/head support, capture **two**
+calib+eval sessions with the support on the kept stack and label them the
+product-condition reference. These **add to** A and B; the experiment
+contract still requires citing A+B as `eval_before`. Record the condition
+difference so a support-vs-free comparison is never implicit.
+
 ## 4. One experiment
 
 1. Write hypothesis + logical area (`collection` / `sync` / `geometry` /
@@ -69,14 +87,25 @@ check on the kept stack — not a substitute for A and B.
    experiment record
 6. If revert or inconclusive, restore the last keep commit; do not stack
 
-Suggested first product/mapping experiments after baseline (only if the
-baseline pattern agrees): 4-D fixation gate; coherent frame aggregation;
-left/right `u` semantics — **one** of these, not all.
+If the change under test is unproven (revert or inconclusive), restore the
+parent **before** starting the next experiment. An unproven change left in
+the tree makes every later result unattributable.
 
-Also investigate (still one at a time, evidence-driven — not predetermined
-fixes): warning-only calib quality gates vs held-out/`hadar`; spatial
-row/col tags for Space and non-letter controls; unclamped vs clamped
-hit-test when predictions leave the prediction domain.
+Executed order after the baseline (revised 2026-08-20, evidence-driven —
+see `tasks.md` Phase 3):
+
+1. Isolate the inconclusive 4-D fixation gate (revert; not an experiment)
+2. Write the gate evidence (no code change)
+3. **One** change to what the blocking vertical check measures — score the
+   mapper's Y representation, not clamped binocular `avg_v`
+4. Capture the product-condition reference pair (section 3b)
+5. Left/right eye-local `u` **and** `v` basis semantics (right-eye `v`
+   currently tracks screen X)
+6. Then coherent frame aggregation, missing-eye policy, outlier peers
+7. Then spatial row/col tags for Space and non-letter controls; unclamped
+   vs clamped hit-test when predictions leave the prediction domain
+
+Still one at a time, evidence-driven, not a predetermined patch list.
 
 Layout coverage: one candidate per experiment. If the first candidate is
 revert/inconclusive, another candidate MAY be tried. That does **not**
@@ -121,7 +150,8 @@ do not assume the rule is wrong.
 ## 8. Final accept (kept stack)
 
 1. Compare eval slices to baseline A and B
-2. Run **3** fresh calib+eval sessions (SC-004 reference floors)
+2. Run **3** fresh calib+eval sessions **with the chin/head support**
+   (SC-004 reference floors)
 3. USER GATE: `hadar` vs baseline wrong-focus, then **2–3 additional short
    words not used during development**, different rows/regions, suggestions
    unused
@@ -137,6 +167,7 @@ do not assume the rule is wrong.
 | Final hold-out words | 2–3 short words unused in development |
 | Overlay vs keyboard | Dots land on intended screen positions; restored keyboard hitboxes match |
 | Resize | Test if supported; else document unsupported |
+| Product-condition reference | Two passing calib+eval sessions **with** the chin/head support (T060) |
 
 Live webcam checks cannot be fully automated; pytest covers scoring, gate
 dimensionality, aggregation coherence, spatial fit (no key-id / label / row

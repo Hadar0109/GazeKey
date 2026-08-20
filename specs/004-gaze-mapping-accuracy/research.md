@@ -294,6 +294,29 @@ change per iteration.
 **Rationale**: Audit ranked 4-D gate, Frankenstein means, and u-axis mismatch
 above alpha. Constitution III: simple pipeline before new layers.
 
+**Order revision (2026-08-20, evidence-driven)**: the suggested order above
+was written from a static audit. Eleven sessions on disk now contradict it,
+so the executed order becomes **6 → 3 → 1 → 2 → 4 → 5 → 7**:
+
+- Item 6 moves first because it is no longer only a policy question. It is a
+  **measurement blocker**: under the product condition (chin/head support)
+  every session was rejected by the catastrophic `avg_v` vs screen-Y check
+  before evaluation could run, and the two confirmed rest sessions had
+  *better* `r(Y, pca_vL)`, model-Y fidelity, training Y error and LOOCV than
+  the accepted baselines. Nothing downstream is measurable until the
+  vertical check scores the representation the mapper actually fits.
+- Item 3 moves second and is **widened from `u` to `u` and `v`**: `pca_vR`
+  correlates with screen **X** in all 11 sessions (`r(X, vR)` −0.78…−0.97)
+  and `corr(uR, vR)` is +0.78…+0.94. The right eye's eye-local basis appears
+  rotated or mis-cornered, which both weakens Y and contaminates `avg_v`.
+- Item 1 (T017) was attempted early and is **inconclusive**; it is reverted
+  for isolation and re-tested after measurement works, per FR-026.
+- Item 2 is not implicated by any session on disk and moves later.
+
+Evidence: `runs/_feature004/T017_y_correlation_investigation.md`,
+`runs/_feature004/T017_controlled_rest_vs_free.md`. Plan phases A–F are
+unchanged; this reorders work **inside** Phase B.
+
 **Alternatives considered**:
 
 | Alternative | Rejected because |
@@ -435,6 +458,44 @@ the session (FR-004, FR-005, SC-009).
 
 **Rationale**: Soft gates can ship unusable maps; hard LOOCV can reject
 usable maps or encourage fitting to the train set. Evidence first.
+
+**Evidence note (2026-08-20, T017 investigation — not a sequence change):**
+Baseline A/B were `warning_only` and still unusable (`hadar` 5/5 and 4/5).
+The catastrophic `avg_v` vs screen-Y block (threshold 0.15) already fired
+pre-T017 (`05e40e22688f`, r=−0.119) and on three early T017 attempts.
+
+**Controlled rest vs free (same T017 tree):** WITH rest `2879900a17e0`
+(r=+0.019) and `bfb745b0b87e` (r=+0.142) both blocked. WITHOUT rest
+`e3488095862f` passed (r=+0.699, LOOCV 45.7, held-out 17%) and
+`3d4be8b6eef7` blocked on eye_box_h span 0.0068 plus Y (r=−0.080).
+WITH rest-2 still had `r(Y, pca_vL)=+0.625` — the gate scored the wrong
+proxy. The usable session had the largest `face_y` span (0.0073): working
+Y appears to include head pitch leaked into vL. T017 remains inconclusive
+(n=1 eval, hadar pending, and that one eval was free-head). Details:
+`runs/_feature004/T017_controlled_rest_vs_free.md`.
+
+**Superseding product decision (2026-08-20):** the target condition is
+**with** the chin/head support (spec Clarifications 2026-08-20). An earlier
+draft of this note suggested avoiding the chin rest for mapping evals; that
+is withdrawn. Head pitch leaking into `pca_vL` is a **dependency to remove**,
+not a signal to preserve — relying on it would make the product require
+exactly the head motion the support is meant to eliminate, and it cannot be
+reproduced on demand. Consequences for R10:
+
+- The gate is now the **binding constraint on measurement**, not just a
+  policy question: 0 of 5 support sessions reached evaluation.
+- `avg_v` is a poor proxy. It clamps `(0.5 + pca_vL)` and `(0.5 + pca_vR)`
+  into `[0,1]` and averages them, so a clean `vL` Y-signal is diluted by a
+  `vR` channel that tracks screen **X** in all 11 sessions
+  (`r(X, vR)` −0.78…−0.97). Across sessions `avg_v` does not rank-order
+  measured outcomes; `r(Y, pca_vL)` and `r(Y, model-Y)` do.
+- The T027 change is therefore scoped to **what the vertical check
+  measures** (mapper Y representation, unclamped), keeping the blocking
+  semantics and threshold intent. It is not a loosening of pass/fail.
+- Necessary ≠ sufficient still holds: A and B passed this gate and were
+  untypeable.
+
+This is input to T026 (finding only). T027 remains a separate iteration.
 
 **Alternatives considered**:
 

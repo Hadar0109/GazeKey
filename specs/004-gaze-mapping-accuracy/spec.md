@@ -74,6 +74,33 @@ mapping error. Mapping accuracy MUST remain independently measurable.
   tested, but only one per experiment. A failed or inconclusive first
   candidate does not prove the current key-centered layout is optimal.
 
+### Session 2026-08-20
+
+- **Product condition is head-stabilized**: The delivered system is used
+  **with the chin/head support**. The product goal is a stable head and the
+  highest achievable mapping accuracy under that condition. All accuracy
+  evaluation, `hadar` word checks, and repeatability runs are therefore
+  captured **with** the support. Free-head sessions remain useful diagnostic
+  context but MUST NOT become the optimization target, even when they pass
+  more easily. Baseline A and B were captured free-head; they stay the
+  mandatory pre-change reference (SC-011), and a product-condition reference
+  pair is captured once sessions can pass under the support.
+- **Accuracy must not depend on head motion**: If mapping accuracy is found
+  to rely on head movement correlated with target position (for example head
+  pitch leaking into a vertical eye feature), that dependency is a **defect
+  to remove**, not a signal to preserve. A product that needs the user's head
+  to move contradicts the stabilized product condition and is not repeatable.
+- **Gates must measure what mapping uses**: A blocking calibration
+  quality check MUST score a representation the mapper actually consumes.
+  A check that scores a derived or clamped proxy can reject sessions whose
+  mapper-relevant signal is better than accepted sessions, which blocks
+  measurement rather than protecting the user. Fixing *what* such a check
+  measures is not the same as loosening pass/fail, and does not relax
+  FR-004, FR-005, or SC-009.
+- **Passing the gates is necessary, not sufficient**: Baseline A and B both
+  passed the current calibration gates and were still not practically
+  typeable. Gate pass MUST NOT be reported as mapping success.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Look at a Key and Hit That Key (Priority: P1)
@@ -316,6 +343,13 @@ evaluation to both baselines; record keep / revert / inconclusive; on
   that would fail historical LOOCV / train-pixel / region checks still
   enables typing (investigate correlation with held-out / practical typing;
   do not assume gates must be hardened)
+- A **blocking** gate that rejects a session whose mapper-relevant signal is
+  measurably better than sessions the same gate accepted (gate scores a
+  derived/clamped proxy instead of the representation the mapper fits) —
+  measurement is blocked, so no experiment under that condition is decidable
+- A vertical or horizontal gaze signal that is only usable because head
+  motion happened to correlate with target position (accuracy that
+  disappears once the head is stabilized)
 - Predictions that fall **outside** the prediction-domain clip rect and are
   **clamped** onto the AABB (investigate whether that pins edge keys; do not
   assume clamp must be removed)
@@ -549,6 +583,10 @@ baseline and experiments) from:
 - real typing: `hadar` compared to baseline wrong-focus, then 2–3 additional
   short words not used during development, suggestions unused
 
+All of these are measured under the **product condition** (chin/head
+support, Clarifications 2026-08-20). Free-head runs MUST NOT be substituted
+for a product-condition result.
+
 Developer evaluation may be used to measure these outcomes; it remains
 outside the product runtime.
 
@@ -572,7 +610,8 @@ outside the product runtime.
   correct keyboard row (reference floor).
 - **SC-004**: **Session repeatability (final protocol)** — After the kept
   mapping stack is chosen, run **3** fresh calibration + evaluation
-  sessions on the same setup (not the two current-state baselines). Every
+  sessions on the same setup, **all with the chin/head support** (product
+  condition), and not the two current-state baselines. Every
   session meets a **≥ 53%** mapped-key reference floor, and the spread
   between best and worst session is **≤ 20 percentage points**. This is
   the final repeatability check. It does **not** replace the mandatory
@@ -725,6 +764,10 @@ Initial hypotheses (not a fixed patch list):
   not assumed identical.
 - **Single user, single monitor**: One primary user, consistent seating,
   lighting, and one display; glasses and small setup variation are tolerated.
+- **Head stabilization is part of the setup**: The user sits with the
+  chin/head support in place. Accuracy work targets that condition
+  (Clarifications 2026-08-20). Mapping MUST NOT require head motion to
+  produce a usable vertical or horizontal signal.
 - **Per-session calibration**: The user calibrates at launch (existing
   product behavior); this feature does not add saved-profile mapping.
 - **Numeric floors are reference only**: SC-001–SC-004 reuse historical

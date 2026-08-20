@@ -29,3 +29,15 @@ already-answered file is never overwritten (pass `overwrite=True` to reset one).
 
 The Phase A gate is now satisfied. Every later accuracy experiment must cite **both** run ids as
 `eval_before`, change **one** logical area, and re-run this gate before a `keep`.
+
+## Condition note (added 2026-08-20)
+
+A and B were captured **free-head** (no chin/head support). The product condition was decided later
+to be **with the chin/head support** (spec Clarifications 2026-08-20). A and B remain the mandatory
+`eval_before` reference under SC-011 — they are not re-captured, because re-capturing them on a
+changed tree would no longer be a current-state baseline. Instead, T060 adds a **product-condition
+reference pair** once a session can pass under the support, and every comparison states its
+condition explicitly so a support-vs-free difference is never read as a code effect.
+
+Both A and B **passed** the calibration quality gates (`warning_only`) and were still not
+practically typeable (`hadar` 5/5 and 4/5 wrong focus). Gate pass is necessary, not sufficient.

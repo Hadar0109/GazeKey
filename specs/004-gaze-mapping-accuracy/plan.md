@@ -67,12 +67,18 @@ on the product typing path
 
 **Constraints**:
 
-- Spec 004 clarifications (2026-08-16) + [research.md](./research.md)
+- Spec 004 clarifications (2026-08-16, 2026-08-20) +
+  [research.md](./research.md)
 - Constitution v1.3.0: mapping independently measured; no downstream
   compensation; simple pipeline before new layers; minimal calib UI
 - Developer evaluation isolated (FR-020–022)
 - 67% / 55 px / 80% row = **reference floors** vs baseline, not automatic
   final accept
+- **Product condition**: the system is used **with the chin/head support**.
+  All accuracy evaluation, `hadar` gates, and repeatability runs are
+  captured with it; free-head runs are diagnostic context only and are not
+  the optimization target (spec Clarifications 2026-08-20). Baseline A/B
+  (free-head) stay the mandatory `eval_before` reference
 - Feature 003 product behavior preserved
 - One logical accuracy change per iteration
 
@@ -170,23 +176,34 @@ from product typing/calibration fit.
 Hypotheses (confirm/reject with eval vs baseline). Each is an
 **investigation**, not a predetermined patch:
 
-- Fixation gate vs full mapper representation
+- **Calibration quality / pass-fail gates** (research R10) — **first, and
+  now a blocker**: under the product condition the catastrophic `avg_v` vs
+  screen-Y check rejects sessions before any evaluation can run, because it
+  scores a clamped 2-D proxy instead of the mapper's Y representation.
+  Write the evidence, then make **one** change to *what* the vertical check
+  measures. Do not harden or drop gates beyond that
+- Left/right eye-local **`u` and `v` basis semantics** — next, once
+  measurement is possible: `pca_vR` tracks screen X in every session on
+  disk, so the right eye's vertical axis is mixed with its horizontal one
+- Fixation gate vs full mapper representation (T017: inconclusive and
+  reverted for isolation; re-testable once sessions pass under the product
+  condition)
 - Coherent per-frame aggregation
-- Left/right `u` semantics
 - Missing-eye policy aligned with predict
 - Label-based outlier peers vs spatial grid
-- **Warning-only calibration quality / pass-fail gates** (research R10):
-  correlate blocking vs warning-only vs clean with held-out mapped-key and
-  `hadar`; do not harden or drop gates without that evidence
 - **Spatial row/column metadata** used by quality checks (research R5):
   especially Space and other non-letter controls sharing a letter-row or
   coarsened column index; confirm tags vs `screen_x/y` clusters before
   retagging
 
 Keep / revert / inconclusive after each. Do not stack. Do not combine
-metadata retagging with a gate-policy change. Quality-gate experiments MUST
-NOT add fixation-screen metrics (FR-004); pass/fail only after the session
-(FR-005). Each `keep` is a Git checkpoint.
+metadata retagging with a gate-policy change, or a gate change with a
+feature-semantics change. Quality-gate experiments MUST NOT add
+fixation-screen metrics (FR-004); pass/fail only after the session
+(FR-005). Each `keep` is a Git checkpoint. Ordering inside Phase B was
+revised 2026-08-20 (see `tasks.md` Phase 3) so that measurement capability
+under the product condition comes before further collection experiments;
+phases A–F themselves are unchanged.
 
 ### Phase C — Train/live sync + Feature 003 geometry
 

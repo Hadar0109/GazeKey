@@ -1,0 +1,1 @@
+[calibration] FAILED session=3d4be8b6eef7 layout=keyboard15 targets=15/15 ridge_alpha=0.5 loocv_rms=96.8px (supplementary) quality_warnings=17 quality_gate_kind=blocking reason=head drift: eye_box_h span 0.0068 > 0.0040 across targets; avg_v poorly correlated with screen Y (r=-0.080, catastrophic threshold >=0.15)

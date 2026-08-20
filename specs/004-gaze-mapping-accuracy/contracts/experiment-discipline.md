@@ -31,11 +31,25 @@ ExperimentRecord
   # metadata (Space / non-letter controls). geometry includes clip/clamp.
   # mapper includes auto-alpha selection (Phase E only).
   change: one focused modification
+  condition: head-support | free-head
+  # head-support is the product condition (spec Clarifications 2026-08-20).
+  # free-head results are diagnostic only and MUST NOT be reported as a
+  # product result or used to justify a keep.
   eval_before: run ids (baseline A+B or last keep)
-  eval_after: run id
+  eval_after: run id, or "blocked (<reason>)" when calibration never
+              reached mapping evaluation
   decision: keep | revert | inconclusive
   keep_git_sha: str  # required when decision == keep
 ```
+
+A session that is **blocked** by a calibration gate still gets a record.
+Blocked sessions are the evidence that a gate is the binding constraint, and
+they are the `eval_before` state for any change to that gate.
+
+**Isolation is not an experiment.** Reverting an unproven change to restore
+a clean parent needs no evaluation, no `keep_git_sha`, and makes no accuracy
+claim. Record it on the original experiment as `disposition` so the
+inconclusive verdict is not silently rewritten into `revert`.
 
 ## Decision meanings
 
@@ -92,8 +106,9 @@ Copy this template (fill every field; `keep_git_sha` is required on `keep`):
 - hypothesis:
 - logical_area: eval | collection | sync | geometry | coverage | mapper
 - change:
+- condition: head-support | free-head  # head-support = product condition
 - eval_before:  # baseline A+B session ids, or last keep
-- eval_after:
+- eval_after:  # run id, or "blocked (<gate reason>)"
 - decision: keep | revert | inconclusive
 - keep_git_sha:  # required when decision == keep; else omit or "n/a"
 - notes:
