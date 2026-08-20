@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Sequence, Union
 
-from tools.evaluation.session_paths import artifact_path, ensure_session_dir
+from tools.evaluation.session_paths import artifact_path, ensure_session_dir, folder_session_id
 
 EXPERIMENT_RECORD_FILE = "experiment_record.md"
 HADAR_WRONG_FOCUS_FILE = "hadar_wrong_focus.md"
@@ -28,14 +28,18 @@ HADAR_WRONG_FOCUS_TEMPLATE = """# hadar USER GATE (suggestions unused)
 - session_id: {session_id}
 - word: hadar
 - suggestions_used: no
-- wrong_focus_letters:
-  - H: {h_focus}
-  - A: {a_focus}
-  - D: {d_focus}
-  - R: {r_focus}
+- keystroke_focus (intended -> focused):
+  1. H -> {h_focus}
+  2. A -> {a_focus}
+  3. D -> {d_focus}
+  4. A -> {a2_focus}
+  5. R -> {r_focus}
+- wrong_focus_count: {wrong_focus_count}
 - dwell_notes: {dwell_notes}
 - compared_to_baseline_a_b: {compared_to}
 """
+
+HADAR_KEYSTROKES = ("H", "A", "D", "A", "R")
 
 
 @dataclass
@@ -92,25 +96,46 @@ def write_experiment_record(
     return path
 
 
+def count_wrong_focus(observed: Sequence[str]) -> str:
+    """``n/5`` wrong-focus keystrokes for ``hadar``, or ``pending`` if unanswered."""
+    if len(observed) != len(HADAR_KEYSTROKES):
+        raise ValueError(f"expected {len(HADAR_KEYSTROKES)} observations for 'hadar'")
+    seen = [str(v).strip() for v in observed]
+    if any(not v or v.lower() == "pending" for v in seen):
+        return "pending"
+    wrong = sum(
+        1 for intended, got in zip(HADAR_KEYSTROKES, seen) if got.upper() != intended.upper()
+    )
+    return f"{wrong}/{len(HADAR_KEYSTROKES)}"
+
+
 def write_hadar_wrong_focus(
     session_id: str,
     *,
     h_focus: str = "pending",
     a_focus: str = "pending",
     d_focus: str = "pending",
+    a2_focus: str = "pending",
     r_focus: str = "pending",
     dwell_notes: str = "",
     compared_to: str = "n/a (this is a baseline capture)",
     runs_dir: Optional[Union[Path, str]] = None,
+    overwrite: bool = False,
 ) -> Path:
     ensure_session_dir(session_id, runs_dir=runs_dir)
     path = artifact_path(session_id, HADAR_WRONG_FOCUS_FILE, runs_dir=runs_dir)
+    if path.exists() and not overwrite:
+        # A gate the user already answered must survive a re-run of the same session.
+        return path
+    observed = (h_focus, a_focus, d_focus, a2_focus, r_focus)
     body = HADAR_WRONG_FOCUS_TEMPLATE.format(
-        session_id=session_id,
+        session_id=folder_session_id(session_id),
         h_focus=h_focus,
         a_focus=a_focus,
         d_focus=d_focus,
+        a2_focus=a2_focus,
         r_focus=r_focus,
+        wrong_focus_count=count_wrong_focus(observed),
         dwell_notes=dwell_notes or "(fill after typing hadar with suggestions unused)",
         compared_to=compared_to,
     )

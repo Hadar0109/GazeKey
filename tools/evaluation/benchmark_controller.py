@@ -17,7 +17,11 @@ from tools.evaluation.benchmark_runner import (
 )
 from tools.evaluation.benchmark_session import BenchmarkEvalSession, resolve_sample_keys
 from tools.evaluation.clamp_diagnostic import clip_bounds_of, make_eval_predict_fns
-from tools.evaluation.experiment_record import ExperimentRecord, write_experiment_record
+from tools.evaluation.experiment_record import (
+    ExperimentRecord,
+    write_experiment_record,
+    write_hadar_wrong_focus,
+)
 from tools.evaluation.failure_analysis import format_failure_analysis, infer_likely_cause
 from tools.evaluation.session import format_location_results
 from tools.evaluation.session_paths import folder_session_id
@@ -275,6 +279,7 @@ class BenchmarkController:
                 ),
                 runs_dir=h._run_summary_writer.runs_dir,
             )
+            write_hadar_wrong_focus(session_id, runs_dir=h._run_summary_writer.runs_dir)
         except Exception as e:
             h._log_verbose(f"[benchmark] experiment_record write failed: {e}")
         try:
