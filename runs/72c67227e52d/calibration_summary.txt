@@ -1,0 +1,1 @@
+[calibration] PASSED session=72c67227e52d layout=keyboard15 targets=15/15 ridge_alpha=1 loocv_rms=84.4px (supplementary) quality_warnings=14 quality_gate_kind=warning_only

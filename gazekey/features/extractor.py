@@ -76,8 +76,10 @@ def _eye_uv_one_eye(
     if len(eye_landmarks) >= 13:
         rel = pts - origin
         proj_y = rel @ y_hat
-        upper = proj_y[1:5]
-        lower = np.concatenate([proj_y[5:8], proj_y[9:13]])
+        # Ring order (measured): 0=corner, 1-7=lower lid, 8=corner, 9-15=upper lid.
+        # Corners are the u-axis, not lid points.
+        upper = proj_y[9:16]
+        lower = proj_y[1:8]
         if upper.size and lower.size:
             upper_y = float(np.median(upper))
             lower_y = float(np.median(lower))
