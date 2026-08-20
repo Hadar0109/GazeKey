@@ -1,6 +1,4 @@
 {
-  "feature_directory": "specs/004-gaze-mapping-accuracy",
-  "feature": "gaze-mapping-accuracy",
-  "plan_phases": ["A", "B", "C", "D", "E", "F"],
-  "implementation_gate": "phase-A-two-session-baseline"
+  "feature_directory": "specs/005-gazefollower-backend",
+  "feature": "gazefollower-backend"
 }
