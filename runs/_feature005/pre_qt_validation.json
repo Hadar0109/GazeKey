@@ -1,0 +1,230 @@
+{
+  "kind": "pre_qt_validation",
+  "recorded_at": "2026-08-24T13:18:12.216062+00:00",
+  "screen_size": [
+    1920,
+    1080
+  ],
+  "pygame_mode": [
+    1920,
+    1080
+  ],
+  "gf_screen_size": [
+    1920,
+    1080
+  ],
+  "hold_settle_s": 1.0,
+  "hold_record_s": 1.5,
+  "aborted": false,
+  "points": [
+    {
+      "id": "TL",
+      "target_xy": [
+        192.0,
+        108.0
+      ],
+      "fraction_xy": [
+        0.1,
+        0.1
+      ],
+      "n": 34,
+      "calibrated_xy": [
+        406.6928958892822,
+        162.1380865573883
+      ],
+      "filtered_xy": [
+        413.9961862564087,
+        163.27779471874237
+      ],
+      "settled_error_calibrated_px": 221.41357673237079,
+      "settled_error_filtered_px": 228.77487034496932
+    },
+    {
+      "id": "T",
+      "target_xy": [
+        960.0,
+        108.0
+      ],
+      "fraction_xy": [
+        0.5,
+        0.1
+      ],
+      "n": 35,
+      "calibrated_xy": [
+        1199.681282043457,
+        259.0766555070877
+      ],
+      "filtered_xy": [
+        1206.6934204101562,
+        261.3331711292267
+      ],
+      "settled_error_calibrated_px": 283.3218537303511,
+      "settled_error_filtered_px": 290.46291508935667
+    },
+    {
+      "id": "TR",
+      "target_xy": [
+        1728.0,
+        108.0
+      ],
+      "fraction_xy": [
+        0.9,
+        0.1
+      ],
+      "n": 34,
+      "calibrated_xy": [
+        1859.4824409484863,
+        313.64706158638
+      ],
+      "filtered_xy": [
+        1866.0233688354492,
+        309.3335545063019
+      ],
+      "settled_error_calibrated_px": 244.08675960994805,
+      "settled_error_filtered_px": 244.1017216547816
+    },
+    {
+      "id": "L",
+      "target_xy": [
+        192.0,
+        540.0
+      ],
+      "fraction_xy": [
+        0.1,
+        0.5
+      ],
+      "n": 33,
+      "calibrated_xy": [
+        473.3447742462158,
+        641.1442351341248
+      ],
+      "filtered_xy": [
+        437.1233367919922,
+        644.9339389801025
+      ],
+      "settled_error_calibrated_px": 298.9733069966636,
+      "settled_error_filtered_px": 266.6394227977557
+    },
+    {
+      "id": "C",
+      "target_xy": [
+        960.0,
+        540.0
+      ],
+      "fraction_xy": [
+        0.5,
+        0.5
+      ],
+      "n": 32,
+      "calibrated_xy": [
+        1077.191219329834,
+        660.1005756855011
+      ],
+      "filtered_xy": [
+        1064.1224670410156,
+        661.7302751541138
+      ],
+      "settled_error_calibrated_px": 167.80324838334337,
+      "settled_error_filtered_px": 160.1866037838484
+    },
+    {
+      "id": "R",
+      "target_xy": [
+        1728.0,
+        540.0
+      ],
+      "fraction_xy": [
+        0.9,
+        0.5
+      ],
+      "n": 34,
+      "calibrated_xy": [
+        1796.5523529052734,
+        758.2629561424255
+      ],
+      "filtered_xy": [
+        1801.1293029785156,
+        748.5273098945618
+      ],
+      "settled_error_calibrated_px": 228.77531141467063,
+      "settled_error_filtered_px": 220.97858250515168
+    },
+    {
+      "id": "BL",
+      "target_xy": [
+        192.0,
+        972.0
+      ],
+      "fraction_xy": [
+        0.1,
+        0.9
+      ],
+      "n": 33,
+      "calibrated_xy": [
+        415.85351943969727,
+        974.0173602104187
+      ],
+      "filtered_xy": [
+        415.85351943969727,
+        975.8705949783325
+      ],
+      "settled_error_calibrated_px": 223.86260944552018,
+      "settled_error_filtered_px": 223.88697968176982
+    },
+    {
+      "id": "B",
+      "target_xy": [
+        960.0,
+        972.0
+      ],
+      "fraction_xy": [
+        0.5,
+        0.9
+      ],
+      "n": 34,
+      "calibrated_xy": [
+        1135.5767440795898,
+        944.0649175643921
+      ],
+      "filtered_xy": [
+        1131.353874206543,
+        943.41796875
+      ],
+      "settled_error_calibrated_px": 177.78515655777903,
+      "settled_error_filtered_px": 173.7212788231992
+    },
+    {
+      "id": "BR",
+      "target_xy": [
+        1728.0,
+        972.0
+      ],
+      "fraction_xy": [
+        0.9,
+        0.9
+      ],
+      "n": 29,
+      "calibrated_xy": [
+        1924.0747833251953,
+        1076.4829802513123
+      ],
+      "filtered_xy": [
+        1928.8286590576172,
+        1076.3897681236267
+      ],
+      "settled_error_calibrated_px": 222.17563731925785,
+      "settled_error_filtered_px": 226.33906862887193
+    }
+  ],
+  "summary": {
+    "n_points": 9,
+    "n_points_with_samples": 9,
+    "median_error_calibrated_px": 223.86260944552018,
+    "median_error_filtered_px": 226.33906862887193,
+    "max_error_calibrated_px": 298.9733069966636,
+    "max_error_filtered_px": 290.46291508935667,
+    "mean_error_filtered_px": 226.12127147885604
+  },
+  "interpretation": "gaze already inaccurate before Qt \u2192 investigate GazeFollower calibration/sampling (not the keyboard handoff first)",
+  "notes": "Targets are GazeFollower/pygame pixels (no Qt, no DPR). If settled error is already large here, the keyboard miss is not introduced by the Qt handoff. If error is small here but the keyboard dots miss, investigate integration."
+}

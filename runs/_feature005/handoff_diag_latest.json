@@ -1,0 +1,82 @@
+{
+  "kind": "header",
+  "recorded_at": "2026-08-24T12:31:20.888917+00:00",
+  "gf_screen_size": [
+    1920,
+    1080
+  ],
+  "pygame_mode": [
+    1920,
+    1080
+  ],
+  "pygame_display_info": [
+    1920,
+    1080
+  ],
+  "screeninfo_size": [
+    1920,
+    1080
+  ],
+  "qt_geometry": [
+    0,
+    0,
+    1280,
+    720
+  ],
+  "qt_available_geometry": [
+    0,
+    0,
+    1280,
+    672
+  ],
+  "device_pixel_ratio": 1.5,
+  "screen_dpr": 1.5,
+  "widget_dpr": 1.5,
+  "logical_dpi": 96.0,
+  "monitor_origin": [
+    0,
+    0
+  ],
+  "keyboard_origin": [
+    0,
+    0
+  ],
+  "keyboard_widget_origin": [
+    8,
+    90
+  ],
+  "active_transform": "origin+dpr",
+  "origin_offset": [
+    0.0,
+    0.0
+  ],
+  "transform_dpr": 1.5,
+  "notes": "GREEN dot = GazeSample after the currently selected transform (not changed in this diagnosis). ORANGE dot = raw GazeFollower filtered pixels passed to mapFromGlobal with no /DPR. QPainter draws those local points with no extra DPR scale.",
+  "latest_sample": {
+    "kind": "sample",
+    "t": 1787574701.374563,
+    "valid": true,
+    "gf_filtered_before": [
+      2027.6834106445312,
+      198.74777734279633
+    ],
+    "gazesample_after": [
+      1351.7889404296875,
+      132.49851822853088
+    ],
+    "transform": "origin+dpr",
+    "dpr": 1.5,
+    "origin_offset": [
+      0.0,
+      0.0
+    ],
+    "debug_dot_qt_local_transformed": [
+      1351,
+      132
+    ],
+    "debug_dot_qt_local_identity": [
+      2027,
+      198
+    ]
+  }
+}

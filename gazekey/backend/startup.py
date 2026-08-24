@@ -43,9 +43,10 @@ def record_live_geometry(lifecycle: GazeFollowerLifecycle, keyboard: Any) -> Any
 
 
 def wire_debug_gaze_dot(lifecycle: GazeFollowerLifecycle, keyboard: Any) -> Any:
-    """Stage C debug dot from GazeSample.x/y only. Dwell stays disconnected."""
-    host = getattr(keyboard, "keyboard_widget", keyboard)
-    overlay = DebugGazeOverlay(host)
+    """Stage C debug overlay: official-sized GREEN ring. Dwell stays off."""
+    geom = getattr(lifecycle, "geometry", None)
+    dpr = float(geom.dpr) if geom is not None else 1.0
+    overlay = DebugGazeOverlay(keyboard, dpr=dpr)
     keyboard._gf_debug_overlay = overlay
     bridge = lifecycle.attach_qt_bridge(keyboard)
     bridge.sample_ready.connect(overlay.update_sample)

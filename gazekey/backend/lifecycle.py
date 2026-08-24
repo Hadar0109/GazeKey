@@ -43,7 +43,7 @@ class GazeFollowerLifecycle:
         self._pygame_win: Any = None
         self.pygame_mode: tuple[int, int] | None = None
         self.gf_screen_size: tuple[int, int] | None = None
-        self._sample_queue: queue.Queue[GazeSample] = queue.Queue(maxsize=1)
+        self._sample_queue: queue.Queue[Any] = queue.Queue(maxsize=1)
         self._qt_bridge: Any = None
         self._released = False
 

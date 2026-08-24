@@ -133,4 +133,18 @@ def test_camera_thread_queue_not_raw_get_gaze_info(monkeypatch):
     sample = life.take_latest_sample()
     assert sample is not None
     assert sample.valid is True
+    assert (sample.x, sample.y) == (1.0, 2.0)
     assert life.take_latest_sample() is None
+
+
+def test_official_startup_preview_calibrate_then_sampling(monkeypatch):
+    from gazekey.backend.startup import run_official_startup
+
+    _patch_official(monkeypatch)
+    life = GazeFollowerLifecycle(gf_factory=FakeGazeFollower)
+    monkeypatch.setattr(life, "_ensure_pygame_window", lambda: "win")
+    run_official_startup(life)
+    assert life.gf.preview_calls == 1
+    assert life.gf.calibrate_calls == 1
+    assert life.gf.sampling_calls == 1
+    assert life._on_camera_sample in life.gf.subscribers

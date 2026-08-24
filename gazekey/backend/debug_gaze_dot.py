@@ -1,59 +1,82 @@
-"""Temporary Stage C debug gaze overlay driven only by GazeSample.x/y.
+"""Temporary Stage C debug overlay: official-style GREEN ring from GazeSample.x/y.
 
-Does not call GazeTypingRuntime.on_mapped_gaze, DwellEngine, or ActionDispatcher.
+Hold-last is visualization-only. Does not call GazeTypingRuntime.on_mapped_gaze,
+DwellEngine, or ActionDispatcher. Does not change GazeSample.valid.
 """
 
 from __future__ import annotations
 
 from typing import Optional, Tuple
 
-from PySide6.QtCore import QPoint, QRect, Qt
+from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import QBrush, QColor, QPainter, QPen
 from PySide6.QtWidgets import QWidget
 
 from gazekey.backend.gaze_sample import GazeSample
 
+# pygame_example.py: pygame.draw.circle(win, (0, 255, 0), (gx, gy), 50, 5)
+OFFICIAL_RING_RADIUS_GF_PX = 50.0
+OFFICIAL_RING_STROKE_GF_PX = 5.0
+OFFICIAL_RING_COLOR = QColor(0, 255, 0)
+
+
+def overlay_ring_metrics(dpr: float) -> tuple[float, float]:
+    """Map official GF-pixel ring size into current overlay (logical) pixels."""
+    scale = float(dpr) if dpr and float(dpr) > 0 else 1.0
+    return OFFICIAL_RING_RADIUS_GF_PX / scale, OFFICIAL_RING_STROKE_GF_PX / scale
+
 
 class DebugGazeDot(QWidget):
-    """Transparent overlay drawing official filtered gaze on the keyboard."""
+    """Transparent overlay drawing official filtered gaze as a GREEN ring."""
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        *,
+        radius: float = OFFICIAL_RING_RADIUS_GF_PX,
+        stroke: float = OFFICIAL_RING_STROKE_GF_PX,
+    ) -> None:
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self._pos: Optional[Tuple[int, int]] = None
-        self._valid = False
+        self._radius = float(radius)
+        self._stroke = max(1.0, float(stroke))
 
-    def set_local_pos(self, x: int, y: int, *, valid: bool) -> None:
+    def set_local_pos(self, x: int, y: int) -> None:
         self._pos = (int(x), int(y))
-        self._valid = bool(valid)
         self.update()
 
     def clear_state(self) -> None:
         self._pos = None
-        self._valid = False
         self.update()
 
     def paintEvent(self, event) -> None:  # noqa: N802
         _ = event
-        if self._pos is None or not self._valid:
+        if self._pos is None:
             return
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         x, y = self._pos
-        radius = 10
-        painter.setPen(QPen(QColor(255, 255, 255, 220), 2))
-        painter.setBrush(QBrush(QColor(16, 185, 129, 210)))
-        painter.drawEllipse(int(x - radius), int(y - radius), int(radius * 2), int(radius * 2))
+        radius = self._radius
+        painter.setPen(QPen(OFFICIAL_RING_COLOR, self._stroke))
+        painter.setBrush(QBrush(Qt.BrushStyle.NoBrush))
+        painter.drawEllipse(
+            int(round(x - radius)),
+            int(round(y - radius)),
+            int(round(radius * 2)),
+            int(round(radius * 2)),
+        )
         painter.end()
 
 
 class DebugGazeOverlay:
-    """Developer overlay: GazeSample.x/y → keyboard-local dot."""
+    """Developer overlay: GazeSample.x/y after the approved transform. Hold-last viz only."""
 
-    def __init__(self, keyboard_widget: QWidget) -> None:
-        self._keyboard = keyboard_widget
-        self._dot = DebugGazeDot(keyboard_widget)
-        self._dot.setGeometry(keyboard_widget.rect())
+    def __init__(self, parent: QWidget, *, dpr: float = 1.0) -> None:
+        self._keyboard = parent
+        radius, stroke = overlay_ring_metrics(dpr)
+        self._dot = DebugGazeDot(parent, radius=radius, stroke=stroke)
+        self._dot.setGeometry(parent.rect())
         self._dot.raise_()
 
     def resize_to_keyboard(self) -> None:
@@ -61,10 +84,9 @@ class DebugGazeOverlay:
 
     def update_sample(self, sample: GazeSample) -> None:
         if not sample.valid:
-            self._dot.clear_state()
             return
         local = self._keyboard.mapFromGlobal(QPoint(int(sample.x), int(sample.y)))
-        self._dot.set_local_pos(local.x(), local.y(), valid=True)
+        self._dot.set_local_pos(local.x(), local.y())
         self._dot.show()
         self._dot.raise_()
 

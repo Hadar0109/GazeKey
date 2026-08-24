@@ -51,9 +51,8 @@ def main(argv: list[str] | None = None) -> int:
     app.aboutToQuit.connect(lifecycle.release)
 
     print("GazeKey started (GazeFollower backend)!")
-    print("- Official Preview/Calibration completed; sampling is running")
-    print("- Debug gaze dot is official filtered gaze (dwell is not connected yet)")
-    print("- Drag the window to reposition")
+    print("- GREEN ring = filtered gaze (pygame_example size; hold-last is debug-only)")
+    print("- Stream and origin+dpr transform are unchanged. Dwell stays off.")
     print("- Close the window to exit")
 
     return int(app.exec())

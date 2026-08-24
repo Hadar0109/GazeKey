@@ -5,8 +5,9 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from gazekey.backend.debug_gaze_dot import DebugGazeOverlay
+from gazekey.backend.debug_gaze_dot import DebugGazeOverlay, overlay_ring_metrics
 from gazekey.backend.gaze_sample import GazeSample
+from gazekey.backend.geometry import GeometryConfig
 from gazekey.backend.geometry_audit import build_live_audit, write_geometry_audit
 from gazekey.backend.lifecycle import GazeFollowerLifecycle
 from gazekey.backend.startup import record_live_geometry, wire_debug_gaze_dot
@@ -41,12 +42,42 @@ def test_debug_dot_uses_gazesample_only_not_dwell(qapp, monkeypatch):
     assert overlay._dot._pos is not None
 
 
-def test_invalid_sample_hides_debug_dot_no_hold_last(qapp):
+def test_invalid_sample_holds_last_debug_only(qapp):
     vk = VirtualKeyboard()
     vk.show()
     qapp.processEvents()
     overlay = DebugGazeOverlay(vk.keyboard_widget)
     overlay.update_sample(_valid_sample(80.0, 90.0))
+    qapp.processEvents()
+    held = overlay._dot._pos
+    assert held is not None
+    invalid = GazeSample(
+        timestamp_ns=2,
+        valid=False,
+        x=0.0,
+        y=0.0,
+        calibrated_x=None,
+        calibrated_y=None,
+        tracking_state="FACE_MISSING",
+        left_openness=0.0,
+        right_openness=0.0,
+    )
+    overlay.update_sample(invalid)
+    qapp.processEvents()
+    assert overlay._dot._pos == held
+
+
+def test_overlay_ring_metrics_scale_official_pygame_size_by_dpr():
+    radius, stroke = overlay_ring_metrics(1.5)
+    assert radius == 50.0 / 1.5
+    assert stroke == 5.0 / 1.5
+
+
+def test_first_invalid_sample_does_not_draw(qapp):
+    vk = VirtualKeyboard()
+    vk.show()
+    qapp.processEvents()
+    overlay = DebugGazeOverlay(vk.keyboard_widget, dpr=1.5)
     invalid = GazeSample(
         timestamp_ns=2,
         valid=False,
@@ -109,6 +140,9 @@ def test_wire_debug_dot_does_not_construct_second_keyboard(qapp, monkeypatch):
 
     monkeypatch.setattr(VirtualKeyboard, "__init__", wrapped)
     life = SimpleNamespace(
+        gf_screen_size=(1920, 1080),
+        pygame_mode=(1920, 1080),
+        geometry=GeometryConfig(transform="origin+dpr", dpr=1.5),
         attach_qt_bridge=lambda parent: SimpleNamespace(
             sample_ready=SimpleNamespace(connect=lambda fn: None),
             start=lambda: None,
@@ -118,3 +152,29 @@ def test_wire_debug_dot_does_not_construct_second_keyboard(qapp, monkeypatch):
     wire_debug_gaze_dot(life, vk)
     assert created == []
     assert vk._gf_debug_overlay is not None
+    assert isinstance(vk._gf_debug_overlay, DebugGazeOverlay)
+    assert abs(vk._gf_debug_overlay._dot._radius - (50.0 / 1.5)) < 1e-6
+    assert abs(vk._gf_debug_overlay._dot._stroke - (5.0 / 1.5)) < 1e-6
+
+
+def test_wired_debug_dot_covers_full_keyboard_not_dwell(qapp, monkeypatch):
+    vk = VirtualKeyboard()
+    vk.show()
+    qapp.processEvents()
+    monkeypatch.setattr(vk._typing_runtime, "on_mapped_gaze", MagicMock())
+    overlay = DebugGazeOverlay(vk)
+    overlay.update_sample(_valid_sample(640.0, 360.0))
+    qapp.processEvents()
+    vk._typing_runtime.on_mapped_gaze.assert_not_called()
+    assert overlay._dot._pos is not None
+
+
+def test_debug_dot_paint_does_not_apply_dpr_again():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    debug = (root / "gazekey/backend/debug_gaze_dot.py").read_text(encoding="utf-8")
+    debug_dot = debug.split("class DebugGazeDot", 1)[1].split("class DebugGazeOverlay", 1)[0]
+    assert "devicePixelRatio" not in debug_dot
+    assert "apply_geometry" not in debug_dot
+    assert "/ dpr" not in debug_dot

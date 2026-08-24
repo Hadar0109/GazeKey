@@ -51,3 +51,5 @@ def test_origin_and_dpr_transform():
     sample = gaze_info_to_sample(_info(), geom)
     assert sample.x == 10.0 + 100.0 / 2.0
     assert sample.y == 20.0 + 200.0 / 2.0
+    assert sample.calibrated_x == 10.0 + 101.0 / 2.0
+    assert sample.calibrated_y == 20.0 + 201.0 / 2.0
