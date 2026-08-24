@@ -124,3 +124,14 @@ def test_virtual_keyboard_mouse_routes_to_dispatcher_when_active(qapp, monkeypat
     vk.on_key_pressed("a")
     assert injected and injected[0]["action"] == "a"
     assert not hasattr(vk, "_text_buffer")
+
+
+def test_ensure_typing_auto_started_reenables_inject_when_official_session_active(qapp):
+    vk = VirtualKeyboard()
+    vk._is_calibrating = False
+    vk._official_gaze_ready = True
+    vk._typing_runtime.session.activate()
+    vk._typing_runtime.set_os_inject_enabled(False)
+    vk._ensure_typing_auto_started()
+    assert vk._typing_runtime.os_inject_enabled is True
+    assert vk._typing_runtime.session.is_active

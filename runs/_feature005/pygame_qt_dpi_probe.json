@@ -1,5 +1,5 @@
 {
-  "recorded_at": "2026-08-24T14:58:55.174837+00:00",
+  "recorded_at": "2026-08-24T16:34:27.924521+00:00",
   "notes": "Read-only display/DPI probe. Never re-inits pygame. Does not change origin+dpr, camera order, or overlay. Compare screeninfo / Win32 / gf.screen_size / DPI awareness across after_calibrate, after_pygame_quit, after_start_sampling, and after_qt_keyboard.",
   "phases": [
     {

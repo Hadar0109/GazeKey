@@ -125,33 +125,42 @@ class GazeFollowerLifecycle:
                 ),
             )
 
-    def preview(self) -> None:
+    def preview(self, *, cleanup_on_failure: bool = True) -> None:
         self._require_closing("preview()")
         try:
             win = self._ensure_pygame_window()
             self._gf.preview(win=win)
         except GazeFollowerLifecycleError:
-            self._cleanup_after_failure()
+            if cleanup_on_failure:
+                self._cleanup_after_failure()
             raise
         except Exception as exc:
-            self._cleanup_after_failure()
+            if cleanup_on_failure:
+                self._cleanup_after_failure()
             self._fail_closed("preview()", exc)
 
-    def calibrate(self) -> None:
+    def calibrate(self, *, cleanup_on_failure: bool = True) -> None:
         """Official 13-point Calibration + result UI (Space accept / R retry)."""
         self._require_closing("calibrate()")
         try:
             win = self._ensure_pygame_window()
             self._gf.calibrate(win=win)
         except GazeFollowerLifecycleError:
-            self._cleanup_after_failure()
+            if cleanup_on_failure:
+                self._cleanup_after_failure()
             raise
         except Exception as exc:
-            self._cleanup_after_failure()
+            if cleanup_on_failure:
+                self._cleanup_after_failure()
             self._fail_closed("calibrate()", exc)
 
     def calibration_accepted(self) -> bool:
-        """True when official ``cali_available`` is set after Space accept."""
+        """True when official ``cali_available`` is set after Space accept.
+
+        First-run startup still uses this flag. Recalibrate uses
+        ``calibration_model_usable()`` (``has_calibrated``) and does not
+        fall back to a previous SVR.
+        """
         gf = self._gf
         if gf is None:
             return False
@@ -159,6 +168,55 @@ class GazeFollowerLifecycle:
         if controller is None:
             return False
         return bool(getattr(controller, "cali_available", False))
+
+    def calibration_model_usable(self) -> bool:
+        """True when the live GazeFollower SVR (or test double) is trained."""
+        gf = self._gf
+        if gf is None:
+            return False
+        cal = getattr(gf, "calibration", None)
+        if cal is None:
+            return False
+        return bool(getattr(cal, "has_calibrated", False))
+
+    def invalidate_live_calibration(self) -> None:
+        """Mark the live model unusable. Does not keep or restore a prior SVR."""
+        if self._gf is None:
+            return
+        cal = getattr(self._gf, "calibration", None)
+        if cal is not None and hasattr(cal, "has_calibrated"):
+            cal.has_calibrated = False
+        controller = getattr(self._gf, "_calibration_controller", None)
+        if controller is not None:
+            controller.cali_available = False
+
+    def _return_camera_to_closing(self) -> None:
+        if self._gf is None:
+            return
+        name = self.camera_state_name()
+        if name == CLOSING_NAME:
+            return
+        cam = getattr(self._gf, "camera", None)
+        try:
+            if name == "SAMPLING":
+                self.stop_sampling()
+            elif name == "PREVIEWING" and cam is not None:
+                cam.stop_previewing()
+            elif name == "CALIBRATING" and cam is not None:
+                cam.stop_calibrating()
+        except Exception as exc:
+            print(
+                f"GazeFollower camera close after recalibrate failed: {exc}",
+                file=sys.stderr,
+            )
+
+    def resume_sampling_after_pygame(self) -> None:
+        """CLOSING → SAMPLING after pygame. No-op if already sampling."""
+        if self.camera_state_name() == "SAMPLING":
+            return
+        self._return_camera_to_closing()
+        if self.camera_state_name() == CLOSING_NAME:
+            self.start_sampling()
 
     def quit_pygame(self) -> None:
         self._pygame_win = None

@@ -218,6 +218,11 @@ class VirtualKeyboard(QWidget):
             runtime.session.resume()
             runtime.set_os_inject_enabled(True)
             self._sync_typing_session_ui()
+        elif runtime.session.is_active and bool(
+            getattr(self, "_official_gaze_ready", False)
+        ):
+            # Recalibrate disables inject but leaves the session active.
+            runtime.set_os_inject_enabled(True)
 
     def _reset_typing_for_recalibration(self) -> None:
         runtime = getattr(self, "_typing_runtime", None)

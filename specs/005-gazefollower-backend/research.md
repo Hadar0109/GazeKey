@@ -222,9 +222,10 @@ Recalibration (keyboard Calibrate / dwell calibrate):
 
 Abort/reject: official UI has no separate cancel; Space accepts, R
 restarts calibration inside `calibrate()`. If the user closes the pygame
-window, treat as unaccepted: do not resume typing as if newly calibrated;
-keep previous accepted model if one exists, otherwise fail closed without
-PCA4 fallback.
+window or the new fit is unusable, treat as unaccepted: do not resume
+typing as if newly calibrated; do **not** fall back to the previous SVR
+(operator 2026-08-24); fail closed without PCA4 fallback and require
+Calibrate again.
 
 Shutdown: `stop_sampling()` if sampling; `release()` (camera, filter,
 estimator, face alignment, calibration); then Qt `app.quit()`.

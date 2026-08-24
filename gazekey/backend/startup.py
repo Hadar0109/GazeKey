@@ -13,7 +13,7 @@ from gazekey.backend.display_probe import (
     DisplayProbe,
 )
 from gazekey.backend.geometry_audit import build_live_audit, write_geometry_audit
-from gazekey.backend.lifecycle import GazeFollowerLifecycle
+from gazekey.backend.lifecycle import GazeFollowerLifecycle, GazeFollowerLifecycleError
 from gazekey.backend.provenance import product_interpreter_path, provenance_record
 
 
@@ -119,14 +119,45 @@ def wire_official_gaze_typing(lifecycle: GazeFollowerLifecycle, keyboard: Any) -
     return bridge
 
 
+def _show_keyboard(keyboard: Any) -> None:
+    show = getattr(keyboard, "show", None)
+    if callable(show):
+        show()
+    raise_ = getattr(keyboard, "raise_", None)
+    if callable(raise_):
+        raise_()
+    activate = getattr(keyboard, "activateWindow", None)
+    if callable(activate):
+        activate()
+
+
+def _schedule_qt_consumer_resume(lifecycle: GazeFollowerLifecycle, keyboard: Any) -> None:
+    """Rewire debug ring + typing consumers on the next Qt tick after pygame.quit()."""
+
+    def _resume(
+        life: GazeFollowerLifecycle = lifecycle, kb: Any = keyboard
+    ) -> None:
+        wire_debug_gaze_dot(life, kb)
+        wire_official_gaze_typing(life, kb)
+
+    try:
+        from PySide6.QtCore import QTimer
+        from PySide6.QtWidgets import QApplication
+    except Exception:
+        _resume()
+        return
+    app = QApplication.instance()
+    if app is None:
+        _resume()
+        return
+    QTimer.singleShot(0, _resume)
+
+
 def run_official_recalibrate(lifecycle: GazeFollowerLifecycle, keyboard: Any) -> bool:
-    """Hide Qt, official Preview+Calibration, resume sampling. Keep prior model if unaccepted."""
+    """Hide Qt, official Preview+Calibration from scratch. Resume only if the new model is usable."""
     from PySide6.QtWidgets import QApplication
 
-    from gazekey.backend.lifecycle import GazeFollowerLifecycleError
-
     runtime = getattr(keyboard, "_typing_runtime", None)
-    had_accepted = bool(getattr(keyboard, "_official_gaze_ready", False))
     if runtime is not None:
         runtime.set_os_inject_enabled(False)
         runtime.dwell.cancel_progress()
@@ -138,36 +169,34 @@ def run_official_recalibrate(lifecycle: GazeFollowerLifecycle, keyboard: Any) ->
     if app is not None:
         app.processEvents()
 
-    accepted = False
+    usable = False
     try:
         lifecycle.stop_sampling()
-        lifecycle.preview()
-        lifecycle.calibrate()
-        accepted = lifecycle.calibration_accepted()
+        lifecycle.preview(cleanup_on_failure=False)
+        lifecycle.calibrate(cleanup_on_failure=False)
         lifecycle.quit_pygame()
-        lifecycle.start_sampling()
+        usable = lifecycle.calibration_model_usable()
+        if usable:
+            lifecycle.resume_sampling_after_pygame()
     except GazeFollowerLifecycleError:
-        show = getattr(keyboard, "show", None)
-        if callable(show):
-            show()
-        raise
+        try:
+            lifecycle.quit_pygame()
+        except Exception:
+            pass
+        lifecycle._return_camera_to_closing()
+        usable = False
+    finally:
+        _show_keyboard(keyboard)
 
-    show = getattr(keyboard, "show", None)
-    if callable(show):
-        show()
-    raise_ = getattr(keyboard, "raise_", None)
-    if callable(raise_):
-        raise_()
-    activate = getattr(keyboard, "activateWindow", None)
-    if callable(activate):
-        activate()
-
-    wire_debug_gaze_dot(lifecycle, keyboard)
-    if accepted or had_accepted:
-        wire_official_gaze_typing(lifecycle, keyboard)
-    elif runtime is not None:
+    if not usable:
+        lifecycle.invalidate_live_calibration()
+        if hasattr(keyboard, "_official_gaze_ready"):
+            keyboard._official_gaze_ready = False
+        if runtime is not None:
+            runtime.set_os_inject_enabled(False)
         lifecycle._fail_closed(
-            "recalibrate (not accepted, no prior model)",
+            "recalibrate (new calibration not usable)",
             RuntimeError("official calibration was not accepted"),
         )
-    return accepted
+    _schedule_qt_consumer_resume(lifecycle, keyboard)
+    return True

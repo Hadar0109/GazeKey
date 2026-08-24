@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from types import SimpleNamespace
 
 import pytest
@@ -15,8 +16,20 @@ class _State:
         self.name = name
 
 
+class FakeCalibration:
+    def __init__(self, token: str = "orig", has_calibrated: bool = True) -> None:
+        self.token = token
+        self.has_calibrated = has_calibrated
+
+
 class FakeCamera:
     def __init__(self) -> None:
+        self.camera_running_state = _State("CLOSING")
+
+    def stop_previewing(self) -> None:
+        self.camera_running_state = _State("CLOSING")
+
+    def stop_calibrating(self) -> None:
         self.camera_running_state = _State("CLOSING")
 
 
@@ -37,6 +50,7 @@ class FakeGazeFollower:
         self.sampling_calls = 0
         self.release_calls = 0
         self._calibration_controller = SimpleNamespace(cali_available=True)
+        self.calibration = FakeCalibration(token="orig", has_calibrated=True)
 
     def preview(self, win=None) -> None:
         self.preview_calls += 1
@@ -45,6 +59,11 @@ class FakeGazeFollower:
     def calibrate(self, win=None) -> None:
         self.calibrate_calls += 1
         self._win = win
+        cal = getattr(self, "calibration", None)
+        if cal is not None:
+            cal.has_calibrated = bool(self._calibration_controller.cali_available)
+            if cal.has_calibrated:
+                cal.token = "new"
 
     def start_sampling(self) -> None:
         self.sampling_calls += 1
@@ -67,10 +86,9 @@ class FakeGazeFollower:
 
 
 def _patch_official(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "gazekey.backend.lifecycle.require_python_311", lambda: None
-    )
-    monkeypatch.setattr("gazekey.backend.lifecycle.verify_base_mnn", lambda: "ok")
+    mod = inspect.getmodule(GazeFollowerLifecycle)
+    monkeypatch.setattr(mod, "require_python_311", lambda: None)
+    monkeypatch.setattr(mod, "verify_base_mnn", lambda: "ok")
     monkeypatch.setattr(
         GazeFollowerLifecycle,
         "_load_official",

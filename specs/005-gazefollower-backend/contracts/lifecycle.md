@@ -41,10 +41,15 @@ Product runtime is **Python 3.11**. Do not start `TrackingManager` /
 2. `os_inject_enabled=False`; stop consuming samples.
 3. Hide Qt keyboard; `stop_sampling()`.
 4. Official `preview()` + `calibrate()`.
-5. `pygame.quit()`; `start_sampling()`; show keyboard; resume consume.
+5. If the **new** calibration is usable: `pygame.quit()`; `start_sampling()`;
+   show keyboard; resume consume (Qt timers on the next event-loop tick).
+   If the new calibration is rejected, failed, or unusable: do **not**
+   restore a previous SVR; do not resume gaze typing; keep dwell / OS
+   inject disabled; fail closed; require Calibrate again.
 
 Must `stop_sampling` before preview/calibrate or official `Camera` raises
-`RuntimeError`.
+`RuntimeError`. Recalibration is a true fresh calibration (operator
+2026-08-24): no previous-model fallback.
 
 ## Shutdown sequence (required)
 
