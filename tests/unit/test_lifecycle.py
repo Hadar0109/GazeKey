@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from gazekey.backend.geometry import GeometryConfig
 from gazekey.backend.lifecycle import GazeFollowerLifecycle, GazeFollowerLifecycleError
 
 
@@ -61,7 +62,7 @@ class FakeGazeFollower:
         self.release_calls += 1
 
     def get_gaze_info(self):
-        raise AssertionError("Qt thread must not consume camera get_gaze_info()")
+        return getattr(self, "_gaze_info", None)
 
 
 def _patch_official(monkeypatch) -> None:
@@ -135,6 +136,25 @@ def test_camera_thread_queue_not_raw_get_gaze_info(monkeypatch):
     assert sample.valid is True
     assert (sample.x, sample.y) == (1.0, 2.0)
     assert life.take_latest_sample() is None
+
+
+def test_debug_filtered_qt_xy_uses_get_gaze_info_and_origin_dpr(monkeypatch):
+    _patch_official(monkeypatch)
+    geom = GeometryConfig(transform="origin+dpr", dpr=1.5, origin_offset=(0.0, 0.0))
+    life = GazeFollowerLifecycle(gf_factory=FakeGazeFollower, geometry=geom)
+    life.construct()
+    life.gf._gaze_info = SimpleNamespace(
+        status=True,
+        filtered_gaze_coordinates=(960.0, 540.0),
+    )
+    assert life.debug_filtered_qt_xy() == (640.0, 360.0)
+    life.gf._gaze_info = SimpleNamespace(
+        status=False,
+        filtered_gaze_coordinates=(960.0, 540.0),
+    )
+    assert life.debug_filtered_qt_xy() is None
+    sample = life.take_latest_sample()
+    assert sample is None
 
 
 def test_official_startup_preview_calibrate_then_sampling(monkeypatch):

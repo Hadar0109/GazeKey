@@ -214,24 +214,35 @@ still covers.
 
 ---
 
-## 4. Step A implemented — live verdict pending
+## 4. Step A live result — PARTIAL PASS
 
-**A is in the product debug overlay now.** Stream and `origin+dpr` are unchanged.
+Official-sized GREEN ring + hold-last produced a significant visible
+improvement in stability and perceived accuracy. Visualization was part of
+the gap.
+
+A noticeable **settled spatial miss** vs the official pygame_example +
+keyboard-screenshot reference **remains**. T029 stays FAIL.
 
 - GREEN unfilled ring `(0, 255, 0)`, radius `50 / dpr`, stroke `5 / dpr`
-  (at DPR 1.5: ~33 logical px radius)
-- Hold-last on this overlay only when `GazeSample.valid` is False
+- Hold-last on this overlay only
 - `GazeSample.valid` rules unchanged (future dwell still cancels on invalid)
-- Subscriber/queue, adapter, HeuristicFilter, calibration: unchanged
+- Stream / `origin+dpr` / HeuristicFilter / calibration unchanged
 
-**Live gate (chin/head support):** compare to official pygame_example +
-keyboard screenshot. Hold 1–2 s on letter keys.
+**B is the next isolation step.** C / D are not started.
 
-- **Match** (stable, only a small offset like pygame) → stop; cause was
-  visualization. Do **not** start B.
-- **Still a large settled miss** → A FAIL; implement B only.
+## 5. Step B implemented — live verdict pending
 
-**B / C / D are not implemented.**
+Debug ring polls official `gf.get_gaze_info()` like pygame_example (unlocked
+`_gaze_info` read). Updates when `status` is True and filtered xy is finite,
+then applies the **current** `origin+dpr` transform. Otherwise hold-last.
+
+The T010 subscriber + maxsize-1 queue remains for the future product stream
+and is **not** connected to the debug ring.
+
+**Live gate:** chin/head support vs the official screenshot reference.
+
+- Match → stop; cause was subscriber/queue consumption.
+- Settled miss remains → B FAIL; then C (identity vs origin+dpr A/B) only.
 
 ---
 
@@ -241,4 +252,4 @@ keyboard screenshot. Hold 1–2 s on letter keys.
 - No change to DPR transform, calibration, HeuristicFilter, or camera
   lifecycle
 - No PCA/Ridge/affine/bias/extra smoothing
-- No Step B `get_gaze_info()` debug path, no identity A/B overlay
+- No Step C identity A/B overlay, no Step D pygame.quit DPI probe

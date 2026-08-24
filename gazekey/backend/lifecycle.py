@@ -6,13 +6,14 @@ Never starts Preview/Calibration/sampling unless camera state is CLOSING.
 
 from __future__ import annotations
 
+import math
 import queue
 import sys
 from typing import Any, Callable
 
 from gazekey.backend.adapter import gaze_info_to_sample
 from gazekey.backend.gaze_sample import GazeSample
-from gazekey.backend.geometry import GeometryConfig
+from gazekey.backend.geometry import GeometryConfig, apply_geometry
 from gazekey.backend.provenance import (
     CALI_MODE,
     PHYSICAL_SCREEN_SIZE,
@@ -197,10 +198,36 @@ class GazeFollowerLifecycle:
                 break
         return sample
 
+    def debug_filtered_qt_xy(self) -> tuple[float, float] | None:
+        """Step B debug ring: pygame-style ``gf.get_gaze_info()`` plus current geometry.
+
+        Updates only when ``status`` is True and filtered xy is finite (official
+        pygame_example). T010 queue remains the product path. This read matches
+        pygame's unlocked ``_gaze_info`` access and is debug-only.
+        """
+        gf = self._gf
+        if gf is None:
+            return None
+        gaze_info = gf.get_gaze_info()
+        if gaze_info is None or not bool(getattr(gaze_info, "status", False)):
+            return None
+        coords = getattr(gaze_info, "filtered_gaze_coordinates", None)
+        try:
+            if coords is None or len(coords) != 2:
+                return None
+            x = float(coords[0])
+            y = float(coords[1])
+        except (TypeError, ValueError):
+            return None
+        if not math.isfinite(x) or not math.isfinite(y):
+            return None
+        return apply_geometry(x, y, self.geometry)
+
     def attach_qt_bridge(self, parent: Any = None) -> Any:
         """Qt-thread-safe consumer: timer on the Qt thread drains the camera queue.
 
         Camera-thread ``get_gaze_info()`` is not read on the Qt thread.
+        Product path (unused by the Step B debug ring).
         """
         from PySide6.QtCore import QObject, QTimer, Signal
 
@@ -227,6 +254,36 @@ class GazeFollowerLifecycle:
                     self.sample_ready.emit(sample)
 
         self._qt_bridge = GazeSampleBridge()
+        return self._qt_bridge
+
+    def attach_debug_get_gaze_info_bridge(self, overlay: Any, parent: Any = None) -> Any:
+        """Step B: poll official ``gf.get_gaze_info()`` for the debug ring only.
+
+        Does not drain the T010 subscriber queue. Stopped by ``stop_qt_bridge``.
+        """
+        from PySide6.QtCore import QObject, QTimer
+
+        lifecycle = self
+
+        class DebugGetGazeInfoBridge(QObject):
+            def __init__(self) -> None:
+                super().__init__(parent)
+                self._timer = QTimer(self)
+                self._timer.setInterval(16)
+                self._timer.timeout.connect(self._poll)
+
+            def start(self) -> None:
+                self._timer.start()
+
+            def stop(self) -> None:
+                self._timer.stop()
+
+            def _poll(self) -> None:
+                xy = lifecycle.debug_filtered_qt_xy()
+                if xy is not None:
+                    overlay.update_xy(xy[0], xy[1])
+
+        self._qt_bridge = DebugGetGazeInfoBridge()
         return self._qt_bridge
 
     def release(self) -> None:

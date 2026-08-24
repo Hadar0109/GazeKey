@@ -1,5 +1,6 @@
-"""Temporary Stage C debug overlay: official-style GREEN ring from GazeSample.x/y.
+"""Temporary Stage C debug overlay: official-style GREEN ring.
 
+Step B reads gf.get_gaze_info() filtered xy after the approved transform.
 Hold-last is visualization-only. Does not call GazeTypingRuntime.on_mapped_gaze,
 DwellEngine, or ActionDispatcher. Does not change GazeSample.valid.
 """
@@ -85,7 +86,11 @@ class DebugGazeOverlay:
     def update_sample(self, sample: GazeSample) -> None:
         if not sample.valid:
             return
-        local = self._keyboard.mapFromGlobal(QPoint(int(sample.x), int(sample.y)))
+        self.update_xy(sample.x, sample.y)
+
+    def update_xy(self, x: float, y: float) -> None:
+        """Place the ring at Qt-global xy. Hold-last is the caller's job when skipped."""
+        local = self._keyboard.mapFromGlobal(QPoint(int(x), int(y)))
         self._dot.set_local_pos(local.x(), local.y())
         self._dot.show()
         self._dot.raise_()

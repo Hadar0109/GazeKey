@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import MagicMock
 
 from gazekey.backend.debug_gaze_dot import DebugGazeOverlay, overlay_ring_metrics
@@ -139,18 +140,27 @@ def test_wire_debug_dot_does_not_construct_second_keyboard(qapp, monkeypatch):
         return real_init(self, *args, **kwargs)
 
     monkeypatch.setattr(VirtualKeyboard, "__init__", wrapped)
+    qt_calls: list[Any] = []
+    debug_calls: list[Any] = []
     life = SimpleNamespace(
         gf_screen_size=(1920, 1080),
         pygame_mode=(1920, 1080),
         geometry=GeometryConfig(transform="origin+dpr", dpr=1.5),
-        attach_qt_bridge=lambda parent: SimpleNamespace(
+        attach_qt_bridge=lambda parent: qt_calls.append(parent)
+        or SimpleNamespace(
             sample_ready=SimpleNamespace(connect=lambda fn: None),
             start=lambda: None,
             stop=lambda: None,
+        ),
+        attach_debug_get_gaze_info_bridge=lambda overlay, parent=None: debug_calls.append(
+            overlay
         )
+        or SimpleNamespace(start=lambda: None, stop=lambda: None),
     )
     wire_debug_gaze_dot(life, vk)
     assert created == []
+    assert qt_calls == []
+    assert debug_calls == [vk._gf_debug_overlay]
     assert vk._gf_debug_overlay is not None
     assert isinstance(vk._gf_debug_overlay, DebugGazeOverlay)
     assert abs(vk._gf_debug_overlay._dot._radius - (50.0 / 1.5)) < 1e-6
@@ -163,7 +173,7 @@ def test_wired_debug_dot_covers_full_keyboard_not_dwell(qapp, monkeypatch):
     qapp.processEvents()
     monkeypatch.setattr(vk._typing_runtime, "on_mapped_gaze", MagicMock())
     overlay = DebugGazeOverlay(vk)
-    overlay.update_sample(_valid_sample(640.0, 360.0))
+    overlay.update_xy(640.0, 360.0)
     qapp.processEvents()
     vk._typing_runtime.on_mapped_gaze.assert_not_called()
     assert overlay._dot._pos is not None

@@ -51,8 +51,8 @@ def main(argv: list[str] | None = None) -> int:
     app.aboutToQuit.connect(lifecycle.release)
 
     print("GazeKey started (GazeFollower backend)!")
-    print("- GREEN ring = filtered gaze (pygame_example size; hold-last is debug-only)")
-    print("- Stream and origin+dpr transform are unchanged. Dwell stays off.")
+    print("- GREEN ring = gf.get_gaze_info() filtered xy after origin+dpr")
+    print("- Hold-last is debug-only. Dwell stays off.")
     print("- Close the window to exit")
 
     return int(app.exec())
