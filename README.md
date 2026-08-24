@@ -72,7 +72,7 @@ Details: **`tools/README.md`**. Focus harness: `python tools/focus_validation.py
 ```
 Virtual Keyboard/
 ├── main.py                      # Product entry: official GazeFollower then Qt keyboard
-├── docs/                        # Pipeline and structure notes
+├── docs/                        # Long-term product specification (PDF)
 ├── runs/<session_id>/           # Per-session artifacts
 ├── gazekey/                     # Product runtime
 │   ├── app_config.py            # CLI → process config boundary
@@ -87,8 +87,6 @@ Virtual Keyboard/
 ├── tests/                       # Pytest suite
 └── specs/                       # Spec Kit feature docs (004 is historical)
 ```
-
-Deeper maps: **`docs/gazekey_code_structure.md`**, **`docs/PROJECT_STRUCTURE.md`**.
 
 ## Session artifacts
 
@@ -138,10 +136,10 @@ python -m pytest tests/unit -k "dwell or key_action or os_input or typing_sessio
 
 ## Technical notes
 
-- **Eye tracking**: MediaPipe Face Landmarker, ~30 FPS background thread
-- **Features**: PCA eye-local `uL/vL/uR/vR` + ratio `avg_h/avg_v`
-- **Mapping**: Frozen `pca4_baseline` + optional row-Y bias (see `docs/TYPING_CANDIDATE.md`)
+- **Gaze**: official GazeFollower 1.0.2 → `GazeSample` (no GazeKey PCA/Ridge mapper)
+- **Geometry**: production uses `origin+dpr` into live QRect hit-test
+- **Filter**: GazeFollower HeuristicFilter only; no extra GazeKey smoothing after it
 - **Typing**: Dwell 0.9 s / cooldown 0.20 s / 5-frame re-arm / 0.25 s key-switch confirm
 - **Prediction**: Prefix trie + frequency list (`gazekey/prediction/`); UI uses `WordProvider` only
 - **OS input**: `pynput` only inside `gazekey/input/pynput_adapter.py`
-- **Layout**: Fullscreen calib; top-half keyboard (`0.62`); simplified letters-only product chrome (003)
+- **Layout**: Official GazeFollower calib UI; top-half keyboard (`0.62`); letters-only product chrome

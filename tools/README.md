@@ -18,11 +18,11 @@ Product code under `gazekey/` must **not** import `tools.*`. Tools attach to a
 |------------|---------|---------|
 | Read-only gaze preview | `python -m tools.preview` | `tools/preview/` |
 | Key-hit benchmark / evaluation | `python -m tools.evaluation` | `tools/evaluation/` |
-| Debug overlays / diagnostics | imported by tools entries | `tools/debug/` |
+| Layout CSV export / geometry check | imported by tools entries | `tools/debug/` |
 | Offline correction-layer analysis | `python tools/debug/analyze_correction_layers.py` | `tools/debug/` |
 
-`python -m tools.evaluation` **implies** auto-benchmark after calib+preview — no
-extra flag required.
+`python -m tools.evaluation` **implies** auto-benchmark after official
+calibration — no extra flag required.
 
 ## CLI options
 
@@ -31,26 +31,27 @@ Shared (product + tools):
 | Option | Effect |
 |--------|--------|
 | `--verbose` | Detailed console logs |
-| `--calib-mode <mode>` | Calibration layout override |
-| `--calib-debug` | Verbose fixation UI |
+| `--calib-debug` | Extra official-calibration logs |
 | `--gaze-debug` | Extra mapped-gaze labels |
-| `--camera-preview-during-calib` | Camera PiP during fixation |
 
 Tools-only:
 
 | Option | Effect |
 |--------|--------|
-| `--calib-geom-debug` | Post-fit geometry overlay (independent of `--verbose` / `--calib-debug`) |
+| `--calib-mode <mode>` | Historical label only (not a product mapper) |
+| `--calib-geom-debug` | Leftover tools flag; no PCA4 overlay remains |
+| `--camera-preview-during-calib` | Leftover tools flag; unused on the GazeFollower path |
+| *(evaluation entry itself)* | `python -m tools.evaluation` implies auto-benchmark |
 
 Examples:
 
 ```text
 python -m tools.preview --gaze-debug
-python -m tools.evaluation --verbose --calib-geom-debug
+python -m tools.evaluation --verbose
 ```
 
 Config boundary: `gazekey/app_config.py` (no `GAZEKEY_*` env fallback).
-Helpers: `tools/flags.py` reads `get_config()`.
+Helpers: `tools.flags.py` reads `get_config()`.
 
 ## Layout
 
@@ -58,21 +59,21 @@ Helpers: `tools/flags.py` reads `get_config()`.
 tools/
   __init__.py
   README.md
-  flags.py                 # auto_benchmark + calib_geom_debug from AppConfig
+  flags.py                 # auto_benchmark + leftover calib_geom_debug from AppConfig
   devtools_install.py      # attach writers / preview / benchmark to product VK
+  focus_validation.py      # focus harness
   evaluation/
     __main__.py            # benchmark entry (implies auto-benchmark)
     benchmark_*.py
+    gazesample_scoring.py
     run_summary.py
     session_paths.py
     calib_finish_artifacts.py
     ...
   debug/
-    calibration_geometry_overlay.py
-    mapper_store.py
     layout_csv.py
+    layout_geometry_check.py
     analyze_correction_layers.py
-    ...
   preview/
     __main__.py            # preview entry
     gaze_preview.py
