@@ -1,57 +1,52 @@
-# Feature Specification: GazeFollower Backend Migration
+# Feature Specification: GazeFollower Production Integration
 
 **Feature Branch**: `005-gazefollower-backend`
 
 **Created**: 2026-08-20
 
+**Updated**: 2026-08-24
+
 **Status**: Draft
 
-**Input**: User description: "Create Feature 005: GazeFollower Backend
-Migration. Feature 004 showed that the current MediaPipe landmarks →
-handcrafted u/v → PCA4/Ridge gaze pipeline has a persistent vertical
-(Y-axis) accuracy problem. Multiple isolated fixes did not produce a
-reliable improvement. Feature 004 is preserved at tag
-004-pca4-investigation-closeout-20260820. Goal: implement a new
-gaze-estimation backend based on GazeFollower and determine whether it
-provides substantially better and more reliable 2D screen gaze mapping,
-especially on the Y axis. Two stages: (1) validate GazeFollower as an
-isolated research/evaluation backend while keeping the current PCA4
-product path unchanged; evaluate with GazeKey's existing benchmark under
-the chin/head-support product condition; measure key accuracy, row
-accuracy, median error, Y range/compression, stability, latency, and
-reachability of all keyboard regions including bottom row and suggestion
-row; multiple sessions required. Do not modify typing, dwell,
-suggestions, keyboard UI, blink detection, or unrelated behavior. (2)
-Migrate and clean up only if GazeFollower succeeds: stop for review
-before migration; after approval make GazeFollower the production gaze
-backend for main.py, calibration, and evaluation; then clean obsolete
-gaze-specific runtime code while preserving historical specs/, runs/,
-Git tags, and Feature 004 evidence. Architecture: clean gaze-backend
-boundary so downstream focus/dwell/typing consumes screen-space (x, y).
-Safety: do not delete/rewrite Feature 004 history; do not remove PCA4
-before the evaluation gate; keep a Git rollback checkpoint before
-migration/cleanup; if GazeFollower fails, the current product remains
-intact; do not introduce another gaze backend. Data: locally stored
-replayable gaze captures where practical; raw webcam/eye/face data
-gitignored; only derived results may be committed. Outcome A: migrate to
-one clean production pipeline, or B: preserve current product and
-document without destructive cleanup. Upstream: official GazeFollower
-repository is the primary technical reference
-(https://github.com/GanchengZhu/GazeFollower/tree/main). Do not
-recreate GazeFollower from scratch or approximate it from the paper.
-Record the exact upstream commit/version before implementation. If
-upstream architecture conflicts with this spec, report the conflict
-during planning rather than silently redesigning GazeFollower."
+**Input**: User description: "Substantially rewrite Feature 005 in place.
+The purpose is no longer to keep GazeFollower as a long-lived isolated
+research candidate while PCA4 remains the normal product path. Official
+GazeFollower has now been run standalone on the target Windows machine
+with Python 3.11: Preview worked, native calibration completed, and the
+official pygame live-gaze example produced visually strong real-time
+screen mapping. That discovery evidence justifies proceeding to
+integration; it is not sufficient to delete the old pipeline. New goal:
+replace GazeKey's gaze-estimation and calibration subsystem with the
+official GazeFollower pipeline, while preserving the existing GazeKey
+keyboard, dwell interaction, OS typing, predictive text, autocomplete,
+and other working downstream product behavior. After the integrated
+GazeFollower product passes acceptance, remove obsolete legacy gaze
+runtime code. GazeFollower owns camera-to-calibrated/filtered screen
+gaze, including official Preview and Calibration UI. GazeKey begins at
+the backend handoff and continues to own keyboard geometry, hit testing,
+focus, dwell, KeyAction/ActionDispatcher, OS typing, and predictive
+text. Production MUST NOT route GazeFollower through PCA/Ridge or any
+legacy mapper. Prefer official filtered gaze; do not double-filter.
+Planning defines a GazeSample contract from official GazeInfo. pygame
+Preview/Calibration and PySide6 keyboard use sequential screen
+ownership. Recalibration uses the official GazeFollower flow. Integrated
+product usability across at least three chin/head-support sessions is
+the cleanup gate. Feature 004 T060 numerical thresholds are historical
+reference only and MUST NOT gate whether integration may begin. Feature
+004 remains closed historical evidence."
 
 **Guidance**: GazeKey Constitution v1.3.0 (binding). This is a
-**mapping-foundation** feature: it may replace the current gaze estimator
-only after independent mapping benchmarks show a clear win, and only
-after explicit review. During **Stage 1**, downstream typing stays on
-the current product path so the comparison is fair. After a win,
-production architecture is built **around GazeFollower**, not by
-forcing GazeFollower through the historical estimator stack. Feature
-004 is a **closed historical record** (paused, not completed); this
-feature MUST NOT delete, renumber, or rewrite it.
+**mapping-foundation replacement**: the production gaze and calibration
+subsystem becomes official GazeFollower, while independently measured
+screen mapping remains the sealed **measurement** upstream for
+downstream typing. Downstream keyboard, dwell, OS typing, and
+predictive-text behavior MUST consume that screen gaze and MUST NOT
+retune or compensate mapping to “fix” typing. Feature 004 is a
+**closed historical record** (paused, not completed); this feature
+MUST NOT delete, renumber, resume, or rewrite it. Constitution text
+that still names PCA4 as the runtime foundation is a **planning
+constitution check**, not a reason to keep PCA4 on the new production
+path.
 
 ## Clarifications
 
@@ -64,877 +59,1114 @@ feature MUST NOT delete, renumber, or rewrite it.
   user's head to move in order to produce a usable vertical signal is a
   defect, not a keep.
 - **Passing calibration gates is necessary, not sufficient**: Gate pass
-  MUST NOT be reported as mapping success.
+  MUST NOT be reported as mapping or product success.
 - **Focus vs dwell**: Wrong mapped-key focus is already a mapping
   failure, even if dwell never activates a key.
 - **Word checks vs baseline**: Practical typing checks compare
   wrong-focus outcomes with suggestions unused.
 
-### Session 2026-08-20 (Feature 005 defaults)
+### Session 2026-08-24 (production integration architecture)
 
-These are specified here so planning does not reopen Feature 004's
-closed investigations as a substitute for this backend trial.
+These decisions **supersede** the 2026-08-20 Feature 005 defaults that
+kept PCA4 as the normal application path throughout a long Stage 1
+research trial, required GazeFollower to exist only as a separate
+evaluation backend, and forbade application integration until Feature
+004 T060 percentage/noise formulas were beaten.
 
-- **Two stages, hard stop between them**: Stage 1 is validation only.
-  Stage 2 (production switch + cleanup) MUST NOT start until Stage 1
-  meets the outperform gate **and** the user explicitly approves
-  migration.
-- **One candidate estimator**: GazeFollower is the only new backend in
-  this feature. Do not add a third estimator, an ensemble, or a
-  paper-only reimplementation.
-- **Current product stays the default until migration is approved**:
-  Normal application typing continues to use the current estimator
-  throughout Stage 1.
-- **Comparison baseline**: Every validation experiment cites Feature 004
-  free-head A/B (`14938da0bdf0`, `34fb259ccdfd`) and the product-condition
-  T060 pair (`689c8a8ce90c`, `4f665467b260`) as `eval_before`. The
-  current product tree is the Feature 004 closeout
-  (`004-pca4-investigation-closeout-20260820`).
-- **Multiple sessions**: One successful calibration is not a keep.
-  Stage 1 requires **at least three** product-condition calibration +
-  evaluation sessions on the candidate, plus the same primary metrics
-  reported for each.
-- **"Clearly outperforms" is relative to the current backend, then
-  review**: See SC-001–SC-006. Historical 67% / 55 px / 80% row floors
-  remain **reference** bars, not an automatic migration trigger.
-- **Suggestion-row reachability is measured, not used to hide letter
-  error**: Feature 003 suggestion keys are a required **reachability**
-  slice in Stage 1. They MUST NOT replace letter / editing mapped-key
-  accuracy as the primary Stage 1 comparison (SC-001). Before
-  production cleanup, all three suggestion slots are still part of
-  the full interactive-control sweep (SC-017).
-- **Upstream source of truth**: The official GazeFollower repository is
-  the implementation reference. Conflicts with this spec are reported
-  at planning time; they are not silently papered over.
-- **Do not assume `keyboard15`**: GazeKey's existing calibration layout
-  is **not** the default GazeFollower protocol. See Session
-  2026-08-20 (calibration, geometry, reachability).
+- **Integration is now the Feature 005 goal**: Replace GazeKey's
+  gaze-estimation and calibration subsystem with official GazeFollower.
+  Preserve the working GazeKey product above that handoff. After
+  integrated acceptance, remove obsolete legacy gaze runtime.
+- **Standalone discovery is integration evidence, not cleanup
+  evidence**: Manual official-repository Preview, native calibration,
+  and pygame live-gaze success on the target Windows / Python 3.11
+  machine justifies proceeding to integration. Integrated product
+  acceptance is still required before destructive cleanup.
+- **T060 is not an integration-start gate**: Feature 004 T060
+  numerical thresholds MUST NOT decide whether integration may begin.
+  Feature 004 results remain historical/reference evidence and
+  `eval_before` citation for mapping experiments.
+- **Binding ownership**: GazeFollower owns the complete gaze pipeline
+  from camera to final calibrated/filtered screen gaze, including
+  official Preview UI, Calibration UI, calibration-result UI, native
+  calibration/personalization, candidate validity, official filtering,
+  and final screen-space gaze. GazeKey MUST NOT recreate, approximate,
+  restyle, or replace those official UIs. GazeKey begins only at the
+  backend handoff.
+- **GazeKey ownership unchanged below the handoff**: keyboard
+  UI/layout, live key and suggestion geometry, screen-point → control
+  hit testing, focus, existing dwell, same-key lockout / existing
+  interaction semantics, KeyAction / ActionDispatcher, OS typing,
+  Shift/Backspace/Space/editing, prediction context, three word
+  suggestions, and autocomplete acceptance.
+- **Intended production flow**:
+  `GazeFollower calibrated/filtered screen gaze → live GazeKey
+  geometry → focus/dwell`. Forbidden:
+  `GazeFollower → PCA/Ridge → keyboard` and
+  `GazeFollower → legacy mapper → keyboard`.
+- **One production execution path**: Do not maintain two blended live
+  gaze pipelines. Legacy code may remain in the repository until
+  acceptance solely for rollback/history; it MUST NOT participate in
+  the new production execution path. If integrated GazeFollower is
+  unusable, rollback through Git.
+- **Official filtered gaze is the default pointing signal**: Audit
+  official GazeFollower filtering against existing GazeKey smoothing
+  so filtering is not applied twice. Prefer official filtered gaze
+  unless planning finds a concrete upstream reason not to. Dwell is
+  interaction logic, not smoothing. Do not add tuning or extra
+  smoothing to make acceptance look better.
+- **Official native calibration, not GazeKey `keyboard15`**: The
+  product uses GazeFollower's official calibration system. GazeKey
+  MUST NOT host its own calibration target UI. Planning inspects and
+  records the tested native protocol.
+- **Sequential UI ownership**: Official GazeFollower Preview/Calibration
+  (pygame) then GazeKey keyboard (PySide6). Do not recreate the
+  GazeFollower UI in Qt to make integration easier.
+- **No extra remapping**: Only legitimate coordinate-space/window
+  transforms are allowed. Do not apply a learned or hand-tuned
+  remapping to make coordinate systems match.
+- **Cleanup only after integrated acceptance**: At least three
+  product-condition sessions on the real keyboard and real OS typing
+  path. Then inventory-based removal of obsolete legacy gaze runtime.
+  Preserve Feature 004 specs, runs, commits, and tags.
+- **One candidate estimator**: GazeFollower is the only new backend.
+  Do not add EyeTheia, a third estimator, an ensemble, or a gaze
+  fallback cascade.
+- **Upstream source of truth**: The official GazeFollower repository
+  is the implementation reference. Conflicts with this spec are
+  reported at planning time; they are not silently papered over.
 
-### Session 2026-08-20 (calibration, geometry, reachability)
+### Session 2026-08-20 (calibration, geometry, reachability — still
+binding where not superseded)
 
-User-provided decisions (encoded; no further questions asked):
+User-provided decisions that remain in force, reinterpreted for
+production integration rather than an isolated Stage 1 trial:
 
-- Q: How must Stage 1 and pre-migration acceptance cover the real keyboard? → A: Stage 1 evaluates reachability from the **actual runtime layout**. Before production migration/cleanup, a **full interactive-control sweep** covers every active control: all letter keys, Space, Backspace, Enter/Shift and other active editing controls, and **all three suggestion slots**. Targets and hitboxes come from **live runtime layout geometry**, not a duplicated hard-coded coordinate list.
-- Q: Which calibration protocol does GazeFollower use? → A: Do **not** assume GazeKey `keyboard15`. Planning inspects the official GazeFollower calibration implementation (supported **5 / 9 / 13-point** modes, default mode, exact target placement, collection timing/sampling, and calibration model). Stage 1 starts from **one pinned official/native** protocol. Calibration MUST spatially cover the complete product interaction range, especially **top-to-bottom Y**. Calibration and benchmark remain **logically independent** so training-target overlap cannot falsely inflate evaluation.
-- Q: What is the coordinate/geometry contract? → A: Planning MUST verify that GazeFollower screen coordinates, Windows/Qt coordinates, keyboard window geometry, hitboxes, calibration targets, benchmark targets, and suggestion-row rectangles use the **same screen coordinate system**. Audit DPI / display scaling, `devicePixelRatio`, screen resolution, monitor selection/origin, window position, and any screen/camera physical-geometry configuration used by upstream. Do **not** copy upstream hard-coded camera/screen constants without proving they apply.
-- Q: May current-estimator quality gates accept or reject GazeFollower calibration? → A: **No.** Current-estimator-specific gates/features (including `pca_vL` and its 0.15 threshold) MUST NOT accept or reject GazeFollower calibration. Candidate validity/calibration semantics come from the candidate backend. Independent GazeKey mapping evaluation remains the **acceptance authority**.
-- Q: How are filtering, timestamps, and stale predictions handled? → A: Audit GazeFollower's own filtering versus GazeKey smoothing so filtering is not applied twice by accident. Record raw and filtered gaze where available, frame / prediction / target timestamps, update rate, and end-to-end latency. Benchmark scoring MUST NOT measure stale predictions from the previous target.
-- Q: What must every candidate run record for reproducibility? → A: Upstream commit, model/checkpoint hash, calibration mode and target positions, camera ID / resolution / FPS, preprocessing / mirroring, screen / DPI geometry, and relevant runtime config. Replayable local captures include enough information for offline investigation and remain **gitignored**.
-- Q: May shared code bake this developer's anatomy or calibration? → A: Feature 005 may be validated primarily with the current developer, but production architecture MUST NOT bake user-specific anatomical or calibration constants into shared code. GazeFollower personalization/calibration is **session/user-specific**. If practical, a **second-user smoke test** runs before final production migration.
-- Q: When is a backend production-ready? → A: After the architecture-win gate and **before cleanup**, require production-level validation of **both** independent mapping metrics **and** the full real keyboard path. Regional reachability or average correlations improving is **not** enough.
+- Coverage uses the **actual runtime layout**. Integrated acceptance
+  requires a **full interactive-control sweep** of every active
+  control: all letter keys, Space, Backspace, Enter/Shift and other
+  active editing controls, and **all three suggestion slots**. Targets
+  and hitboxes come from **live runtime layout geometry**, not a
+  duplicated hard-coded coordinate list.
+- Do **not** assume GazeKey `keyboard15`. Planning inspects the
+  official GazeFollower calibration implementation (supported **5 / 9 /
+  13-point** modes, default mode, exact target placement, collection
+  timing/sampling, calibration model, result/accept/recalibrate
+  behavior) and records the **tested native protocol**. Calibration
+  MUST spatially cover the complete product interaction range,
+  especially **top-to-bottom Y**. Calibration and any reused mapping
+  benchmark remain **logically independent** so training-target overlap
+  cannot falsely inflate evaluation.
+- Planning MUST verify that GazeFollower screen coordinates, Windows
+  desktop coordinates, Qt screen coordinates, keyboard window position,
+  key QRect geometry, suggestion QRect geometry, display resolution,
+  Windows DPI scaling, `devicePixelRatio`, and monitor origin are
+  compatible. Do **not** copy upstream hard-coded camera/screen
+  constants without proving they apply.
+- Current-estimator-specific gates/features (including `pca_vL` and
+  its 0.15 threshold) MUST NOT accept or reject GazeFollower
+  calibration. Candidate validity/calibration semantics come from
+  GazeFollower. Independent GazeKey mapping evaluation remains
+  valuable evidence but is **not** a reason to route GazeFollower
+  through old mapping infrastructure.
+- Audit GazeFollower's own filtering versus GazeKey smoothing so
+  filtering is not applied twice. Record raw and filtered gaze where
+  officially available and useful, plus timestamps, update rate, and
+  end-to-end latency. Benchmark scoring MUST NOT measure stale
+  predictions from the previous target.
+- Every run records upstream commit, model/checkpoint identification
+  or hash where practical, calibration mode, camera configuration,
+  preprocessing/mirroring, screen/DPI geometry, dependency/version
+  record, license/attribution, and relevant runtime config. Replayable
+  local captures remain **gitignored**.
+- Feature 005 may be validated primarily with the current developer,
+  but production architecture MUST NOT bake user-specific anatomical
+  or calibration constants into shared code. GazeFollower
+  personalization/calibration is **session/user-specific**. If
+  practical, a **second-user smoke test** runs before cleanup; if
+  skipped, the acceptance record MUST say so.
+- A backend is production-ready only after the **integrated product**
+  is reliably usable on the real keyboard and real OS typing path.
+  Regional reachability or average correlations improving is **not**
+  enough.
 
-### Session 2026-08-20 (legacy isolation and production contract)
+### Session 2026-08-20 (legacy isolation and production contract —
+still binding, Stage 1 comparison language superseded)
 
-User-provided decisions (encoded; no further questions asked):
-
-- Q: May the GazeFollower candidate reuse the current estimator stack? → A: **No.** GazeFollower is a genuinely independent pipeline from the official repository. The current estimator is a **historical baseline**, not a blueprint or component. Stage 1 MUST NOT depend on or reuse estimator-specific pieces (handcrafted u/v or FeatureExtractor gaze semantics, PCA/PCA4, Ridge, `pca_vL`/`pca_vR`, PCA-specific gates including 0.15, legacy aggregation/clamps/outlier logic/vertical normalization, or legacy estimator calibration assumptions/constants). Candidate preprocessing, eye/face preparation, inference, calibration/personalization, validity, and filtering follow official GazeFollower unless planning documents a real integration conflict. Existing GazeKey code may be reused **only** when backend-agnostic (live keyboard geometry, independent benchmark scoring, product interaction, generic display/camera that does not alter GazeFollower preprocessing). Planning MUST publish a dependency audit (official components used; GazeKey modules allowed; forbidden legacy gaze modules; exact handoff). Where practical, an import/isolation test MUST fail if the candidate starts depending on the handcrafted/PCA4 stack. If GazeFollower conflicts with existing calibration/tracking, **adapt the integration around GazeFollower** rather than routing it through the old estimator.
-- Q: Is the production prediction contract permanently `(x, y)` only? → A: **No.** Stage 1 keeps downstream behavior stable enough for a fair estimator comparison. Planning MUST inspect official GazeFollower outputs and decide whether the eventual backend-agnostic production contract stays `(x, y)` or also preserves useful semantics (validity, timestamp, confidence/quality, raw/filtered gaze). Downstream redesign (smoothing, validity, timing, focus stability, dwell integration) MAY occur **only after** the candidate has passed the required gates, **only** for documented technical reasons, and MUST NOT be used in Stage 1 to hide poor accuracy or inflate the benchmark. Fair isolated comparison first; if GazeFollower wins, build the cleanest production architecture around it rather than forcing it into the historical estimator architecture.
+- GazeFollower is a genuinely independent pipeline from the official
+  repository. The current estimator is a **historical baseline**, not
+  a blueprint or component. The **production GazeFollower path** MUST
+  NOT depend on or reuse estimator-specific pieces (handcrafted u/v or
+  FeatureExtractor gaze semantics, PCA/PCA4, Ridge, `pca_vL`/`pca_vR`,
+  PCA-specific gates including 0.15, legacy aggregation/clamps/outlier
+  logic/vertical normalization, or legacy estimator calibration
+  assumptions/constants). Preprocessing, eye/face preparation,
+  inference, calibration/personalization, validity, and filtering
+  follow official GazeFollower unless planning documents a real
+  integration conflict. Existing GazeKey code may be reused **only**
+  when backend-agnostic (live keyboard geometry, independent benchmark
+  scoring that does not require the legacy estimator, product
+  interaction, generic display/camera that does not alter GazeFollower
+  preprocessing). Planning MUST publish a dependency audit. Where
+  practical, an import/isolation test MUST fail if the production path
+  starts depending on the handcrafted/PCA4 stack. If GazeFollower
+  conflicts with existing calibration/tracking, **adapt the
+  integration around GazeFollower**.
+- Planning MUST inspect official GazeFollower GazeInfo/output APIs and
+  define a clean backend-agnostic **GazeSample-style** contract. It
+  MUST contain screen position and SHOULD preserve useful upstream
+  semantics when actually available (validity/status, timestamp,
+  filtered gaze, raw/unfiltered gaze for diagnostics, confidence/
+  quality only if provided). Do not invent unavailable fields. The
+  product hit-testing path uses the intentionally selected official
+  gaze coordinate, expected initially to be GazeFollower's filtered
+  screen coordinate.
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Try a New Gaze Estimator Without Changing Typing (Priority: P1)
+### User Story 1 - Official GazeFollower Startup, Then the Existing Keyboard (Priority: P1)
 
-The developer can run GazeFollower as an isolated research/evaluation
-path while the shipped product still uses the current gaze estimator.
-The candidate is calibrated with the **pinned official GazeFollower
-protocol** (not assumed `keyboard15`). The existing mapping **scoring**
-method then scores screen gaze against **live** key hitboxes: intended
-key, row, and pixel error under the chin/head support. Typing, dwell,
-suggestions, keyboard layout, and blink behavior stay as they are.
+The user launches the normal application. The official GazeFollower
+backend initializes and the official GazeFollower Preview UI appears.
+The user continues with the official upstream interaction, then the
+official GazeFollower Calibration UI, then the official calibration
+result / accept / recalibrate behavior. After successful accepted
+calibration, GazeFollower sampling starts, the GazeFollower calibration
+experience is closed or left, and the existing GazeKey keyboard is
+shown. GazeKey does not present a substitute Preview or Calibration
+screen.
 
-**Why this priority**: Feature 004 showed the current estimator's
-vertical mapping is not reliably fixable by small internal changes.
-The first value of Feature 005 is a fair trial of a different estimator
-without risking the working Feature 003 product.
+**Why this priority**: The standalone official Preview and Calibration
+flow already worked on the target machine. The first product value is
+to use that same official experience as application startup, not to
+rebuild it inside GazeKey or keep PCA4/`keyboard15` as the normal
+path.
 
-**Independent Test**: With the product still on the current estimator,
-complete a candidate session that uses the pinned native calibration
-protocol, then developer evaluation against live layout hitboxes, with
-the chin/head support. Confirm evaluation artifacts exist for the
-candidate, that current-estimator gates did not accept/reject that
-calibration, and that launching the normal product still uses the
-unchanged current estimator.
+**Independent Test**: Launch the Feature 005 application path. Confirm
+official Preview then official Calibration then official result/accept
+behavior, then the existing keyboard appears only after accepted
+calibration and sampling start. Confirm GazeKey did not host its own
+calibration-target UI and that the legacy GazeKey calibration system
+did not run.
 
 **Acceptance Scenarios**:
 
-1. **Given** the current product estimator is the default, **When** the
-   developer runs candidate evaluation, **Then** GazeFollower produces
-   screen-space gaze that the existing mapping benchmark can score, and
-   the product typing path is not switched.
-2. **Given** a candidate evaluation session, **When** it finishes,
-   **Then** a simple run summary reports pass/fail plus primary mapping
-   metrics (mapped-key, median error, row) without requiring the
-   evaluation tool to become part of product typing.
-3. **Given** Stage 1 is in progress, **When** the user launches the
-   normal application, **Then** dwell typing, suggestions, keyboard UI,
-   and blink handling behave as on the Feature 004 closeout product.
+1. **Given** a normal application launch, **When** startup proceeds,
+   **Then** the user sees official GazeFollower Preview and
+   Calibration UI rather than the legacy GazeKey calibration system.
+2. **Given** official calibration completes and is accepted, **When**
+   the calibration experience is left, **Then** GazeFollower sampling
+   has started and the existing GazeKey keyboard is shown.
+3. **Given** the user chooses official recalibrate on the GazeFollower
+   result UI before accepting, **When** that official flow finishes
+   and is accepted, **Then** the existing keyboard still appears only
+   after successful accepted calibration.
 4. **Given** GazeFollower cannot start (missing model, dependency, or
-   device), **When** the developer attempts candidate evaluation,
-   **Then** the failure is reported and the current product remains
-   usable.
-5. **Given** Stage 1 candidate code, **When** its imports and calls are
-   inspected, **Then** it does not use the historical estimator's
-   handcrafted features, PCA/PCA4, Ridge, or PCA-specific gates; it
-   only reuses backend-agnostic GazeKey pieces (live layout, scoring,
-   product interaction, generic camera/display).
+   device), **When** the user launches the application, **Then** the
+   failure is reported and the application does not silently fall back
+   to PCA4 or another estimator.
+5. **Given** the production startup path, **When** imports and calls
+   are inspected, **Then** it does not use the historical estimator's
+   handcrafted features, PCA/PCA4, Ridge, or PCA-specific gates to
+   produce or accept calibration.
 
 ---
 
-### User Story 2 - Know Whether Vertical Mapping and Whole-Keyboard Reach Actually Improved (Priority: P1)
+### User Story 2 - Official Screen Gaze Points at the Live Keyboard (Priority: P1)
 
-The developer can tell, from **multiple** product-condition sessions
-rather than one lucky calibration, whether the candidate maps gaze to
-the intended keys more accurately and more reliably than the current
-estimator — especially vertically — and whether gaze can reach **every
-active product control** on the live keyboard, not only the home row.
+After accepted calibration, GazeFollower gaze samples are handed
+continuously to GazeKey. A temporary developer/debug gaze dot shows
+the official GazeFollower output on the existing keyboard so testers
+can see that the strong standalone mapping survived integration. Focus
+is resolved from live keyboard and suggestion hitboxes. No extra
+learned or hand-tuned remapping is applied.
 
-**Why this priority**: Feature 004's product-condition references
-already showed usable horizontal mapping and ignored vertical range.
-A backend that tidies correlations but still ignores Y, or that cannot
-reach Space / suggestions / other live controls, is not a migration
-candidate.
+**Why this priority**: Integration is only justified if the visually
+strong standalone mapping is preserved after the handoff. This story
+proves coordinate compatibility and live geometry before reconnecting
+dwell and typing.
 
-**Independent Test**: Capture at least three chin/head-support
-sessions using the **pinned official GazeFollower calibration
-protocol**, then score gaze against **live runtime layout** hitboxes
-(not a hard-coded duplicate list). Compare mapped-key, median error,
-row, Y range/compression (or equivalent “is Y used?” measure),
-stability, latency, and per-control reachability to the Feature 004
-`eval_before` sessions. One session MUST NOT decide keep. Calibration
-targets and benchmark targets MUST be treated as independent sets.
+**Independent Test**: After official calibration, open the existing
+keyboard, display the debug gaze dot from official GazeFollower
+output, look around the live layout with the chin/head support, and
+confirm the dot tracks the intended screen regions without a
+post-GazeFollower mapper.
 
 **Acceptance Scenarios**:
 
-1. **Given** three product-condition candidate sessions, **When**
-   results are compared to Feature 004 T060 and A/B, **Then** mapped-key
-   accuracy, median error, and row accuracy are reported per session
-   and as a set, including session-to-session spread.
-2. **Given** those sessions, **When** vertical behavior is scored,
-   **Then** the record states whether predicted Y actually travels with
-   the target (range / compression / equivalent), not only whether
-   horizontal error improved.
-3. **Given** the Feature 003 keyboard as currently laid out at runtime,
-   **When** Stage 1 evaluation runs, **Then** reachability is scored
-   using that session's live key and suggestion-slot rectangles,
-   covering all letter keys, Space, Backspace, Enter/Shift and other
-   active editing controls, and all three suggestion slots — reported
-   separately from the letter + editing primary mapped-key rate.
-4. **Given** live candidate inference, **When** latency/stability are
-   recorded, **Then** the tester can say whether gaze updates remain
-   usable for existing dwell (not “accurate but seconds late”), and
-   that a target's score used predictions from **that** target's
-   window, not the previous one.
-5. **Given** session 1 looks strong and session 2 or 3 does not,
-   **When** the Stage 1 decision is made, **Then** the outcome is
-   **inconclusive** or **fail**, not migrate — one calibration is not
-   enough.
+1. **Given** accepted official calibration and sampling, **When** the
+   keyboard is shown, **Then** a temporary debug gaze dot follows the
+   selected official GazeFollower screen coordinate.
+2. **Given** that live handoff, **When** the user looks across the
+   keyboard including top letter rows, bottom editing controls, and
+   suggestion slots, **Then** the official gaze visibly spans the
+   required interaction area and does not systematically collapse
+   vertically.
+3. **Given** a GazeFollower screen sample, **When** GazeKey resolves
+   focus, **Then** the result uses that sample and **live** key /
+   suggestion rectangles, not a duplicated coordinate table and not
+   PCA4/Ridge internals.
+4. **Given** the geometry audit, **When** GazeFollower, Windows, Qt,
+   window position, QRect hitboxes, DPI, `devicePixelRatio`, and
+   monitor origin are compared, **Then** any conversion is a
+   legitimate coordinate-space or window transform, not a learned
+   remapping added to make systems match.
+5. **Given** official filtering already exists, **When** the debug
+   pointing signal is chosen, **Then** GazeKey has not accidentally
+   stacked its old smoothing on top of GazeFollower unless planning
+   recorded a concrete upstream reason.
 
 ---
 
-### User Story 3 - Compare Fairly Now; Do Not Freeze the Old Contract Forever (Priority: P1)
+### User Story 3 - Existing Typing Product Continues Above the New Gaze Foundation (Priority: P1)
 
-During Stage 1, the product typing path stays as it is so GazeFollower
-can be compared without changing dwell, smoothing, or focus rules to
-make the candidate look better. After a win, the production gaze
-contract is **not** permanently locked to today's screen-point-only
-shape: planning inspects official GazeFollower outputs and may preserve
-validity, timestamps, confidence, and raw vs filtered gaze if that
-makes a cleaner architecture.
+Once official gaze is reaching live controls, the existing GazeKey
+interaction layer is reconnected: dwell selects controls, the existing
+action pipeline types into the external OS application, and existing
+predictive-text / autocomplete behavior continues unchanged. Keyboard
+visual design, dwell algorithm, and prediction algorithm are not
+redesigned unless integration reveals a real backend-interface
+requirement.
 
-**Why this priority**: A fair trial needs a stable downstream. A good
-production architecture must be built around the winning estimator, not
-forced through the historical stack.
+**Why this priority**: The product above mapping already works. Feature
+005 replaces the gaze/calibration foundation; it must not become a
+redesign of typing, dwell, or suggestions.
 
-**Independent Test**: In Stage 1, confirm product typing still uses the
-current estimator and that candidate evaluation scores GazeFollower
-screen gaze against live hitboxes without changing dwell/smoothing to
-help the score. In planning (and only after a gate for implementation),
-record the chosen production prediction contract and why.
+**Independent Test**: After official calibration and live handoff,
+dwell-select letters and editing keys, type into an external
+application, confirm three suggestion slots appear from existing
+prediction, gaze-select a suggestion, and confirm suffix + Space
+acceptance. Compare interaction behavior with Feature 003 / Feature
+004 closeout except for the gaze source.
 
 **Acceptance Scenarios**:
 
-1. **Given** Stage 1, **When** the keyboard resolves focus for
-   **product typing**, **Then** behavior matches the Feature 004
-   closeout path (current estimator, existing dwell/smoothing) and
-   does not call GazeFollower.
-2. **Given** Stage 1 candidate evaluation, **When** mapped-key is
-   scored, **Then** scoring uses the candidate's screen gaze and live
-   layout hitboxes, without extra GazeKey estimator stages or extra
-   smoothing added to hide error.
-3. **Given** a screen gaze sample from the candidate, **When**
-   evaluation maps it to a key, **Then** the result depends on that
-   sample and live geometry, not on a copied coordinate table and not
-   on PCA4/Ridge internals.
-4. **Given** Stage 2 is approved, **When** production is integrated,
-   **Then** downstream uses the planning-chosen backend-agnostic
-   contract (at least screen position; plus validity / timestamp /
-   confidence / raw-vs-filtered if official outputs justify them), in
-   the same screen system as the keyboard window, and any smoothing /
-   validity / dwell redesign is documented and was **not** used to
-   inflate Stage 1.
+1. **Given** official gaze on a live key hitbox, **When** the user
+   dwells, **Then** the existing dwell interaction selects that
+   control using existing same-key lockout / interaction semantics.
+2. **Given** a selected key, **When** the existing action pipeline
+   runs, **Then** the expected character or editing action is typed
+   into the external OS application.
+3. **Given** typed context, **When** predictions are shown, **Then**
+   three word suggestions appear using the existing prediction
+   behavior.
+4. **Given** gaze on a suggestion slot, **When** dwell selects it,
+   **Then** accepting the suggestion types the expected suffix +
+   Space.
+5. **Given** this restored interaction path, **When** product behavior
+   is compared with the Feature 004 closeout keyboard, **Then** dwell
+   timing, suggestion ranking, keyboard visual design, and OS
+   injection have not been changed to compensate for mapping error.
 
 ---
 
-### User Story 4 - Switch Production Gaze Only After a Clear Win and Review (Priority: P2)
+### User Story 4 - Recalibrate with GazeFollower and Shut Down Cleanly (Priority: P2)
 
-If GazeFollower clearly outperforms the current backend on the Stage 1
-gate, work **stops for review**. After approval, the normal application,
-calibration, and evaluation all use GazeFollower as the production gaze
-backend. **Before cleanup**, production-level validation covers both
-independent mapping metrics and a full interactive sweep of every
-active keyboard control on the live layout. A Git rollback checkpoint
-exists immediately before the switch so the current product can be
-restored.
+From the GazeKey keyboard, recalibration invokes the same official
+GazeFollower Preview + Calibration flow rather than the legacy GazeKey
+calibration system. After accepted recalibration, the user returns to
+a usable keyboard with GazeFollower sampling. On exit, sampling stops
+and GazeFollower resources, including the camera, are released without
+conflicting UI event loops or leftover capture ownership.
 
-**Why this priority**: Migration is the payoff, but Feature 004's
-lesson is not to replace a working (if inaccurate) product path without
-a measured gate and a way back. Architecture-win on Y or regional
-reachability is not by itself production-ready.
+**Why this priority**: A pygame calibration experience and a PySide6
+keyboard cannot both own the screen, camera, and event loop at once.
+Safe recalibration and shutdown are required for a real product, not
+only a one-shot startup demo.
 
-**Independent Test**: After the Stage 1 record shows the outperform
-gate and written approval, switch production to the candidate, run
-calibration + independent mapping evaluation + a `hadar` check with
-suggestions unused + the full live-layout control sweep, and confirm
-the normal application no longer depends on the old estimator.
-Confirm the pre-migration Git checkpoint can restore the old path.
-Cleanup MUST NOT start until that production-level validation is
-recorded.
+**Independent Test**: From the keyboard, start recalibration, complete
+the official GazeFollower flow, return to the keyboard, confirm gaze
+handoff again, then exit the application and confirm sampling has
+stopped and the camera is released.
 
 **Acceptance Scenarios**:
 
-1. **Given** Stage 1 has not met the outperform gate, **When** someone
-   proposes switching the normal application, **Then** production stays on the
-   current estimator.
-2. **Given** Stage 1 meets the gate, **When** migration is about to
-   start, **Then** work stops until review approval, and a Git
-   checkpoint of the pre-migration product exists.
-3. **Given** approval, **When** Stage 2 production switch lands but
-   cleanup has not started, **Then** the normal application,
-   calibration, and evaluation all use GazeFollower for screen gaze,
-   independent mapping metrics are recorded, **and** every active
-   control on the live keyboard (letters, Space, Backspace,
-   Enter/Shift/active editing, all three suggestion slots) has been
-   swept from live hitboxes.
-4. **Given** only regional reachability or average correlations
-   improved, **When** the full keyboard path still misses active
-   controls or mapping metrics fail, **Then** the backend is **not**
-   production-ready and cleanup MUST NOT start.
-5. **Given** the pre-migration checkpoint, **When** rollback is needed,
-   **Then** the current (pre-GazeFollower-production) product is
-   recoverable without reconstructing it from memory.
+1. **Given** the GazeKey keyboard is showing, **When** the user
+   requests recalibration, **Then** the official GazeFollower Preview
+   + Calibration flow runs and the legacy GazeKey calibration system
+   does not.
+2. **Given** recalibration is accepted, **When** the GazeFollower
+   calibration experience is left, **Then** the existing keyboard
+   returns, sampling is active, and pointing is again usable.
+3. **Given** the user aborts recalibration or calibration is not
+   accepted, **When** control would return to GazeKey, **Then** the
+   application does not continue as if a new accepted calibration
+   existed, and planning-recorded recovery behavior is followed
+   without falling back to PCA4.
+4. **Given** the user exits the application, **When** shutdown runs,
+   **Then** GazeFollower sampling stops and GazeFollower resources are
+   released cleanly.
+5. **Given** pygame Preview/Calibration and the PySide6 keyboard,
+   **When** startup, recalibration, or shutdown occurs, **Then** the
+   two UI systems do not fight over the event loop or camera.
 
 ---
 
-### User Story 5 - Leave One Clean Gaze Path, or Leave the Current Product Intact (Priority: P2)
+### User Story 5 - Accept the Integrated Product, Then Remove Obsolete Gaze Code (Priority: P2)
 
-If migration is approved, obsolete current-estimator runtime, flags,
-tests, and dependencies that are no longer needed are removed so only
-one production gaze pipeline remains — without erasing Feature 004
-history. If GazeFollower does **not** prove better, none of that
-cleanup happens: the current product stays, and the negative result is
-written down.
+The developer runs at least three chin/head-support product-condition
+sessions on the **integrated** application: real keyboard, real OS
+typing, suggestions, recalibration, and independent mapping metrics
+where the existing benchmark can be reused without legacy estimator
+dependencies. If the integrated product is reliably usable, a Git
+checkpoint of the pre-cleanup product is created and obsolete legacy
+gaze runtime is removed by explicit inventory-based tasks. If it is
+not usable, the result is documented and rollback uses Git. Feature
+004 history remains untouched either way.
 
-**Why this priority**: Cleanup without a win would destroy the only
-shipping estimator. Cleanup after a win avoids carrying two gaze stacks
-forever.
+**Why this priority**: Standalone Preview success is not cleanup
+evidence. Cleanup without integrated acceptance would destroy the only
+rollback product. Cleanup after acceptance avoids carrying two gaze
+stacks forever.
 
-**Independent Test**: On the fail path, show the product tree still
-matches the Feature 004 closeout estimator and a written Stage 1
-result exists. On the success path after approval, show production has
-one gaze backend and `specs/004-*`, `runs/` Feature 004 artifacts, and
-the closeout tag still exist.
+**Independent Test**: Complete three product-condition integrated
+sessions covering the acceptance sweep in Success Criteria. On pass,
+confirm a pre-cleanup Git checkpoint exists, then show inventory-based
+deletions and surviving Feature 004 artifacts. On fail, show that
+destructive legacy-gaze cleanup has not occurred and Git can restore
+the pre-cleanup product.
 
 **Acceptance Scenarios**:
 
-1. **Given** Stage 1 fails or is inconclusive, **When** the feature
-   closes, **Then** the current product estimator remains the default,
-   GazeFollower is not the production path, and no destructive cleanup
-   of the current estimator has occurred.
-2. **Given** Stage 2 migration is approved, production-level
-   validation has passed, and cleanup is complete, **When** leftover
-   current-estimator product code is removed, **Then** each deletion
-   is an explicit approved task, and Feature 004 specs, runs, tags,
-   and evidence remain.
-3. **Given** either outcome, **When** a later reader opens the repo,
-   **Then** they can tell which estimator is production and where the
-   Feature 004 record lives.
+1. **Given** fewer than three product-condition integrated sessions,
+   **When** cleanup is proposed, **Then** obsolete legacy gaze runtime
+   MUST NOT be deleted.
+2. **Given** three sessions where the keyboard is not reliably usable
+   (vertical collapse, unreachable required controls, unusable dwell,
+   or OS typing failure), **When** the feature decision is made,
+   **Then** the outcome is fail or inconclusive, cleanup does not
+   start, and rollback is through Git rather than a GazeFollower/PCA4
+   cascade.
+3. **Given** integrated acceptance has passed, **When** cleanup is
+   about to start, **Then** a Git checkpoint/tag exists that restores
+   the pre-cleanup product.
+4. **Given** that checkpoint and passing acceptance, **When** obsolete
+   legacy gaze runtime, dependencies, configuration, and tests are
+   removed, **Then** each deletion is an explicit approved task, the
+   production path is GazeFollower-only, and Feature 004 specs, runs,
+   commits, and tags remain.
+5. **Given** either outcome, **When** a later reader opens the repo,
+   **Then** they can tell which gaze/calibration subsystem is
+   production and where the Feature 004 record lives.
 
 ---
 
 ### Edge Cases
 
-- GazeFollower model files, weights, or dependencies are missing:
-  evaluation fails closed; product typing is unchanged.
-- A candidate session is blocked before evaluation (candidate
-  calibration validity, tracker loss, user abort): it counts toward
-  “not a single lucky session” and MUST NOT be treated as a keep.
-  Current-estimator gates such as `pca_vL` / 0.15 MUST NOT be the
-  blocker.
-- Candidate accuracy is better horizontally but Y remains ignored
-  (predicted Y barely moves as targets move from top row to Space):
-  **fail** the outperform gate even if mapped-key ticked up on the
-  home row.
-- Candidate reaches letter keys but not Space, Backspace, Enter,
-  Shift, or any of the three suggestion slots on the **live** layout:
-  **fail** reachability; do not migrate.
+- Official GazeFollower model files, weights, or dependencies are
+  missing: startup fails closed; the application MUST NOT silently
+  start the legacy PCA4 path.
+- Official Preview, Calibration, or sampling cannot start because of
+  a pygame / Qt event-loop or camera-ownership conflict: **stop and
+  report at planning or implementation** — do not recreate the
+  GazeFollower UI in Qt merely to avoid the conflict, and do not
+  leave both UIs owning the camera.
+- The user aborts official calibration, rejects the result, or
+  requests official recalibrate before accept: follow official
+  GazeFollower behavior; do not treat an unaccepted calibration as
+  production-ready keyboard pointing.
+- Recalibration is requested while the keyboard is live: the official
+  GazeFollower flow must take sequential screen ownership; the
+  keyboard must not keep consuming a dead or double-owned camera
+  stream.
+- Shutdown occurs during Preview, Calibration, sampling, or keyboard
+  use: sampling stops and GazeFollower resources are released; no
+  orphan camera capture.
+- GazeFollower screen coordinates, Windows/Qt coordinates, window
+  position, QRects, DPI, `devicePixelRatio`, or monitor origin do not
+  match: only legitimate transforms are allowed; a learned or
+  hand-tuned remap to “make it look calibrated” is a **defect**.
+- Official GazeFollower 5/9/13-point protocol cannot cover the full
+  product Y range, cannot stay independent of the benchmark, or cannot
+  run with the Windows webcam setup: **stop and report at planning** —
+  do not invent a different estimator and do not silently fall back to
+  `keyboard15`.
+- Upstream ships hard-coded camera/screen constants (focal length,
+  screen cm, origin): they MUST NOT be copied until proven to match
+  this machine.
+- GazeKey smoothing and GazeFollower filtering are stacked without an
+  audit: treat as a **defect** until one intentional pointing-signal
+  policy is recorded.
+- Extra GazeKey smoothing, validity, or dwell changes are added so
+  acceptance looks better: **defect**.
+- Production is designed as “GazeFollower features fed into
+  Ridge/PCA4” or “GazeFollower then legacy mapper”: **forbidden**.
+- Production path imports or calls FeatureExtractor gaze semantics,
+  PCA/PCA4, Ridge, `pca_vL`/`pca_vR`, or PCA-specific gates:
+  **defect**; not a valid GazeFollower product path.
+- Camera/display helpers alter GazeFollower preprocessing (mirroring,
+  crop, color) away from official behavior without a documented
+  conflict: **defect**.
 - Evaluation uses a duplicated hard-coded coordinate list instead of
-  live runtime hitboxes: the run is invalid for Stage 1 and Stage 2.
+  live runtime hitboxes: the run is invalid for acceptance.
 - Calibration targets overlap the benchmark set and that overlap is
   used as the primary mapped-key rate: the run is invalid; report
   calib-location repeatability separately.
-- Candidate is accurate but too slow for existing dwell: **fail**
-  (not interactive).
 - Benchmark scores a sample against the previous target because
   timestamps were ignored: the run is invalid.
-- GazeKey smoothing and GazeFollower filtering are stacked without
-  an audit: treat as a defect until proven single-filter.
-- Replay capture is unavailable (disk, privacy, or camera-only mode):
-  live evaluation may still proceed; lack of replay is recorded, not
-  silently skipped as if replay existed.
-- Raw webcam / face / eye frames must never be committed; if a capture
-  is saved locally, it stays gitignored.
-- Official GazeFollower 5/9/13-point protocol cannot cover the full
-  product Y range, cannot stay independent of the benchmark, or cannot
-  run with GazeKey's minimal fixation UI / Windows webcam setup:
-  **stop and report at planning** — do not invent a different
-  estimator and do not silently fall back to `keyboard15`.
-- Upstream ships hard-coded camera/screen constants (focal length,
-  screen cm, origin): they MUST NOT be copied until proven to match
-  this machine's DPI, `devicePixelRatio`, monitor origin, and window
-  position.
+- Candidate is accurate but too slow for existing dwell: **fail**
+  (not interactive).
+- Gaze reaches letter keys but not Space, Backspace, Enter, Shift, or
+  any of the three suggestion slots on the **live** layout: **fail**
+  reachability; do not start cleanup.
+- Predicted Y barely moves as targets move from top row to Space:
+  **fail** for systematic vertical collapse, even if home-row letters
+  look improved.
+- Replay capture is unavailable: live evaluation may still proceed;
+  lack of replay is recorded.
+- Raw webcam / face / eye frames must never be committed; if a
+  capture is saved locally, it stays gitignored.
 - Shared product code contains this developer's anatomical or
-  calibration constants: **defect**; session/user-specific data only.
-- Feature 004 tasks remain unchecked/paused: do not resume them as
-  part of this feature and do not rewrite them to look completed.
+  calibration constants: **defect**.
+- Feature 004 tasks remain unchecked/paused: do not resume them and
+  do not rewrite them to look completed.
 - Two estimators MUST NOT be blended in one live predict (no averaging
-  current features with GazeFollower, no fallback cascade in this
-  feature).
-- Stage 1 candidate imports or calls FeatureExtractor gaze semantics,
-  PCA/PCA4, Ridge, `pca_vL`/`pca_vR`, or PCA-specific gates: **defect**;
-  the run is not a valid GazeFollower trial.
-- Camera/display helpers used by the candidate alter GazeFollower
-  preprocessing (mirroring, crop, color) away from official behavior
-  without a documented conflict: **defect**.
-- Stage 1 adds extra GazeKey smoothing, validity, or dwell changes so
-  the candidate benchmark looks better: **defect**; those changes are
-  allowed only after the gate, with documented technical reasons.
-- Production is designed as “GazeFollower features fed into Ridge/PCA4”:
-  **forbidden**; if integration conflicts, wrap GazeKey around
-  GazeFollower, not the reverse.
+  with PCA4, no fallback cascade).
+- Official GazeFollower UI contains more on-screen content than
+  Constitution Principle XI would allow for a GazeKey-hosted
+  calibration surface: **do not restyle or replace the official UI**.
+  Planning records the Principle XI conflict. Principle XI continues
+  to forbid GazeKey from hosting its own metric-heavy calibration
+  surface.
+- Standalone official Preview success is treated as permission to
+  delete the old pipeline before integrated acceptance: **forbidden**.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-**Stage 1 — validate, do not switch the product**
+**Product goal and ownership**
 
-- **FR-001**: System MUST integrate GazeFollower as a **genuinely
-  independent** research/evaluation gaze pipeline based on the official
-  repository, adapted through a GazeKey handoff rather than
-  reimplemented from the paper or copied into unrelated modules. The
-  current estimator is a **historical baseline**, not a blueprint or
-  component of the candidate (see FR-030).
-- **FR-002**: Before evaluation code is treated as the candidate path,
-  planning/implementation MUST record the **exact upstream
-  commit/version** of GazeFollower used. Every candidate run MUST also
-  record the provenance in FR-028.
-- **FR-003**: During Stage 1, the current product gaze path MUST remain
-  the default for the normal application. Candidate evaluation MUST NOT
-  silently replace it.
-- **FR-004**: During Stage 1, typing, dwell, suggestions, keyboard UI,
-  blink detection, and unrelated Feature 002/003 behavior MUST NOT be
-  modified to compensate for estimator error, to hide poor gaze
-  accuracy, or to inflate benchmark results. After the candidate has
-  passed the required gates, downstream redesign (smoothing, validity
-  handling, timing, focus stability, or dwell integration) MAY occur
-  **only** for documented technical reasons arising from official
-  GazeFollower outputs (FR-032).
-- **FR-005**: Candidate evaluation MUST use GazeKey's existing mapping
-  **scoring method** (mapped-key focus inside the intended live rect +
-  focus stability, held-out vs calibration-location reporting, median
-  error, row accuracy) under the **chin/head-support product
-  condition**. Evaluation **targets and hitboxes MUST come from the
-  live runtime keyboard layout** of that session (letter keys, editing
-  controls, and suggestion-row rectangles). They MUST NOT come from a
-  duplicated hard-coded coordinate list.
-- **FR-006**: Candidate evaluation MUST also record vertical mapping
-  quality (whether predicted Y travels with target Y: range and/or
-  compression, or an equivalent documented “Y used” measure),
-  stability, update rate, and end-to-end latency. Raw and filtered
-  gaze MUST be recorded where the candidate exposes both. Frame,
-  prediction, and target timestamps MUST be recorded so a sample is
-  scored against the target that was actually shown, not the previous
-  one.
-- **FR-007**: Stage 1 MUST evaluate reachability from the **actual
-  runtime layout** across the complete product interaction range,
-  especially top-to-bottom Y. The evaluated live controls MUST include
-  **all letter keys**, **Space**, **Backspace**, **Enter / Shift and
-  other active editing controls**, and **all three suggestion slots**.
-  Suggestion-slot scores remain a reachability/diagnostic slice for
-  the Stage 1 primary comparison (SC-001 still uses letter + editing);
-  they are **required** members of the pre-cleanup interactive-control
-  sweep (FR-029).
-- **FR-008**: Stage 1 MUST include **at least three** product-condition
-  calibration + evaluation sessions on the candidate. A single
-  successful session MUST NOT be treated as proof.
-- **FR-009**: Each Stage 1 session MUST produce a simple pass/fail
-  summary with primary metrics (Constitution Principles VII and X).
-  Developer evaluation remains infrastructure only and MUST NOT
-  participate in product enablement (same isolation rule as Feature
-  004).
-- **FR-010**: Calibration fixation UI hosted by GazeKey MUST remain
-  limited to the target dot and optional simple progress; no metrics
-  or debug text during fixation (Principle XI). Stage 1 MUST **not**
-  assume GazeKey `keyboard15`. Planning MUST inspect the official
-  GazeFollower calibration implementation — supported **5 / 9 / 13-point**
-  modes, default mode, exact target placement, collection
-  timing/sampling, and calibration model — and Stage 1 MUST start
-  from **one pinned official/native protocol**. That protocol MUST
-  spatially cover the complete product interaction range, especially
-  top-to-bottom Y. Calibration and the mapping benchmark MUST remain
-  **logically independent**: training-target overlap MUST NOT be used
-  as the primary mapped-key rate. If the native protocol conflicts
-  with Principle XI, with full-product Y coverage, with benchmark
-  independence, or with the Windows product setup, planning MUST
-  record the conflict and stop — not silently redesign GazeFollower
-  and not silently fall back to `keyboard15`.
+- **FR-001**: Feature 005 MUST replace GazeKey's gaze-estimation and
+  calibration subsystem with the official GazeFollower pipeline, while
+  preserving the existing GazeKey keyboard, dwell interaction, OS
+  typing, predictive text, autocomplete, and other working downstream
+  product behavior.
+- **FR-002**: GazeFollower MUST own the complete gaze pipeline from
+  camera to final calibrated/filtered screen gaze, including: webcam
+  acquisition used by GazeFollower; official face/eye preprocessing;
+  official gaze model/inference; official Preview UI; official
+  Calibration UI and calibration-result UI; official native
+  calibration/personalization; candidate validity semantics; official
+  filtering; and final screen-space gaze coordinates.
+- **FR-003**: GazeKey MUST NOT recreate, approximate, restyle, or
+  replace the official GazeFollower Preview or Calibration UI. The
+  startup calibration experience MUST use the official GazeFollower UI
+  and behavior directly, matching the standalone flow already tested
+  on the target machine.
+- **FR-004**: GazeKey MUST begin only at the backend handoff after
+  GazeFollower has produced gaze information. GazeKey MUST continue to
+  own: existing keyboard UI/layout; live runtime key and suggestion
+  geometry; screen-point → control hit testing; focus; existing dwell
+  interaction; same-key lockout / existing interaction semantics;
+  KeyAction / ActionDispatcher path; OS typing; Shift / Backspace /
+  Space / editing behavior; prediction context; three word
+  suggestions; and autocomplete acceptance behavior.
+- **FR-005**: The intended production flow MUST be `GazeFollower
+  calibrated/filtered screen gaze → live GazeKey geometry →
+  focus/dwell`. The system MUST NOT build `GazeFollower → PCA/Ridge →
+  keyboard` or `GazeFollower → legacy mapper → keyboard`.
 
-**Gaze-backend boundary**
+**Required application flow**
 
-- **FR-011**: **Stage 1** keeps the product typing path on the current
-  estimator so the comparison is fair. Candidate **evaluation** consumes
-  GazeFollower screen gaze against live keyboard geometry without
-  extra GazeKey estimator stages. Planning MUST verify that
-  GazeFollower output, Windows/Qt coordinates, keyboard window
-  geometry, live hitboxes, calibration targets, benchmark targets, and
-  suggestion-row rectangles share **one screen coordinate system**,
-  including DPI / display scaling, `devicePixelRatio`, screen
-  resolution, monitor selection/origin, window position, and any
-  upstream screen/camera physical-geometry settings. Upstream
-  hard-coded camera or screen constants MUST NOT be copied unless
-  proven to apply on this machine.
-- **FR-012**: This feature MUST NOT introduce a third gaze backend, an
-  ensemble, or a blended predict path (no GazeFollower-plus-PCA4
-  hybrid).
-- **FR-030**: During Stage 1 the candidate MUST NOT depend on or reuse
-  legacy estimator-specific components, including: handcrafted u/v
-  features or FeatureExtractor gaze semantics; PCA / PCA4; Ridge
-  mapping; `pca_vL` / `pca_vR`; PCA-specific quality gates such as the
-  0.15 gate; legacy feature aggregation, clamps, outlier logic, or
-  vertical normalization; legacy estimator-specific calibration
-  assumptions or constants. Candidate preprocessing, eye/face
-  preparation, model inference, calibration/personalization, validity
-  semantics, and filtering MUST follow official GazeFollower unless
-  planning identifies and documents a real integration conflict.
-  Existing GazeKey code MAY be reused **only** when backend-agnostic:
-  runtime keyboard geometry, independent benchmark scoring, product
-  interaction logic, and generic display/camera infrastructure that
-  does **not** alter GazeFollower preprocessing. If GazeFollower
-  conflicts with existing calibration/tracking architecture, the
-  integration MUST be adapted **around GazeFollower**, not routed
-  through the old estimator.
-- **FR-031**: Planning MUST include a **dependency audit** that
-  explicitly identifies: (1) official GazeFollower components used,
-  (2) existing GazeKey modules the candidate may reuse, (3) legacy
-  gaze modules the candidate is **forbidden** to import or call, and
-  (4) the exact handoff between the candidate and GazeKey. Where
-  practical, an import/dependency isolation test MUST fail if the
-  candidate starts depending on the PCA4 / handcrafted-feature stack.
-- **FR-032**: Planning MUST inspect official GazeFollower outputs and
-  decide the eventual **backend-agnostic production prediction
-  contract**. It MUST NOT be permanently locked to today's
-  `(x, y)`-only shape. The contract MUST include screen position and
-  MAY also preserve useful official semantics such as validity,
-  timestamp, confidence/quality, and raw vs filtered gaze. That
-  decision is recorded in the plan. Downstream changes that implement
-  it MUST wait until after the required gates (FR-004).
+- **FR-006**: Normal application startup MUST conceptually follow:
+  (1) initialize the official GazeFollower backend; (2) show official
+  Preview UI; (3) user continues using official upstream interaction;
+  (4) show official Calibration UI; (5) show/use official calibration
+  result/accept/recalibrate behavior; (6) after successful accepted
+  calibration, start GazeFollower sampling; (7) close/leave the
+  GazeFollower calibration experience; (8) show the existing GazeKey
+  keyboard; (9) continuously hand GazeFollower gaze samples to the
+  GazeKey downstream interaction layer; (10) resolve focus from live
+  keyboard/suggestion hitboxes; (11) existing dwell selects controls;
+  (12) existing action pipeline types into the external OS
+  application; (13) existing predictive-text/autocomplete behavior
+  continues unchanged.
+- **FR-007**: Recalibration requested from the GazeKey keyboard MUST
+  invoke the same official GazeFollower Preview + Calibration flow
+  rather than the legacy GazeKey calibration system.
+- **FR-008**: Shutdown MUST stop sampling and release GazeFollower
+  resources cleanly, including camera ownership, without leaving a
+  conflicting UI event loop.
 
-**Stage 1 decision**
+**Strict legacy isolation**
 
-- **FR-013**: If the candidate does not meet the outperform gate
-  (Success Criteria Stage 1), the current product MUST remain intact
-  and recoverable. The result MUST be documented. Destructive cleanup
-  of the current estimator MUST NOT occur.
-- **FR-014**: If the candidate meets the outperform gate, work MUST
-  **stop for review** before any production switch or cleanup.
+- **FR-009**: The production GazeFollower path MUST NOT import, call,
+  or route gaze through legacy estimator-specific components,
+  including: GazeKey handcrafted gaze u/v features; FeatureExtractor
+  gaze semantics; PCA / PCA4; Ridge; `pca_vL` / `pca_vR`; PCA-specific
+  calibration gates including the 0.15 gate; legacy vertical
+  normalization; legacy gaze aggregation/clamping/outlier corrections;
+  legacy gaze calibration targets/protocol; and any mapper/correction
+  applied after GazeFollower screen coordinates.
+- **FR-010**: Existing legacy gaze code MAY physically remain in the
+  repository until integrated acceptance passes, solely for
+  rollback/history. It MUST NOT participate in the new production
+  execution path. The feature MUST NOT maintain two blended live gaze
+  pipelines merely for safety.
+- **FR-011**: Planning MUST include a **dependency-isolation audit**
+  that identifies: (1) official GazeFollower components used; (2)
+  existing GazeKey modules the production path may reuse; (3) legacy
+  gaze modules the production path is **forbidden** to import or
+  call; and (4) the exact handoff between GazeFollower and GazeKey.
+  Where practical, an import/dependency isolation test MUST fail if
+  the production path starts depending on the PCA4 / handcrafted-
+  feature stack.
+- **FR-012**: This feature MUST NOT introduce EyeTheia, a third gaze
+  backend, an ensemble, or a gaze fallback cascade. If integrated
+  GazeFollower proves unusable, rollback MUST be through Git rather
+  than a fallback cascade between GazeFollower and PCA4.
 
-**Stage 2 — migrate then clean, only after approval**
+**Filtering and production gaze contract**
 
-- **FR-015**: After explicit approval, GazeFollower MUST become the
-  production gaze backend used by the normal application, calibration,
-  and evaluation, integrated through the production contract chosen in
-  FR-032 — not by feeding GazeFollower into PCA4/Ridge.
-- **FR-016**: A Git rollback checkpoint MUST exist **before**
-  production migration and before cleanup, restoring the pre-migration
-  product.
-- **FR-017**: After a successful production switch **and**
-  production-level validation (FR-029), obsolete current-estimator
-  runtime, configuration, flags, tests, and dependencies that are no
-  longer needed MUST be removed so one production gaze pipeline
-  remains. Each deletion MUST be its own approved task (Principle IX).
-  Cleanup MUST NOT start merely because Stage 1 regional reachability
-  or average correlations improved.
-- **FR-018**: Cleanup MUST NOT delete, rewrite, or renumber Feature
-  004 specifications, run artifacts, Git tags, or investigation
-  records. Historical `specs/` and `runs/` remain auditable.
-- **FR-019**: Feature 004's paused A–F task sequence MUST NOT be
-  resumed, completed, or rewritten as if it had finished. Feature 005
-  replaces that continuation with this backend trial.
+- **FR-013**: Planning MUST audit GazeFollower's official filtering
+  and the existing GazeKey smoothing. The first integrated production
+  path MUST NOT accidentally double-filter gaze.
+- **FR-014**: The product pointing signal MUST prefer the official
+  GazeFollower filtered gaze output unless planning finds a concrete
+  upstream reason not to. That choice MUST be recorded. Do not add
+  tuning or additional smoothing simply to make acceptance results
+  look better.
+- **FR-015**: Dwell MUST remain existing interaction logic and MUST
+  NOT be confused with gaze smoothing.
+- **FR-016**: Planning MUST inspect the official GazeFollower
+  GazeInfo/output API and define a clean backend-agnostic
+  GazeSample-style contract. The contract MUST contain screen position
+  and SHOULD preserve useful upstream semantics when available:
+  validity/status; timestamp; filtered gaze coordinate; raw/unfiltered
+  gaze for diagnostics if officially available and technically useful;
+  and confidence/quality only if actually provided upstream. The
+  contract MUST NOT invent unavailable fields.
+- **FR-017**: The product hit-testing path MUST use the intentionally
+  selected official gaze coordinate, expected initially to be
+  GazeFollower's filtered screen coordinate.
 
-**Safety, data, and logging**
+**UI framework boundary**
 
-- **FR-020**: The current estimator MUST NOT be removed from the
-  product tree until Stage 1 has passed and Stage 2 migration is
-  approved.
-- **FR-021**: Where practical, the system MUST support locally stored
-  **replayable** captures of a session so the same session can be
-  analyzed offline. Captures MUST include enough information for
-  offline investigation (gaze samples, timestamps, live layout
-  geometry, calibration mode/targets, and the FR-028 provenance
-  fields). Raw webcam, eye, and face data MUST remain local and
-  gitignored. Only derived results (summaries, metrics, written
-  records) MAY be committed.
-- **FR-022**: Normal product use MUST keep terminal output short;
-  optional verbose output is for investigation (Principle X).
-- **FR-023**: If upstream GazeFollower architecture, license,
-  dependencies, or runtime requirements conflict with this
-  specification or with the constitution (for example calibration UX,
-  5/9/13-point coverage vs full-product Y, platform, or mapping
-  isolation), planning MUST record the conflict and stop for a
-  decision. Silently redesigning GazeFollower to fit the historical
-  estimator, or routing GazeFollower through that estimator, is out of
-  scope. Adapt GazeKey around GazeFollower.
-- **FR-024**: Mapping accuracy remains independently measured.
-  Internal training losses, vendor demo metrics, regional
-  reachability alone, or average correlations MUST NOT be the sole
-  acceptance criteria (Principle II).
-- **FR-025**: Current-estimator-specific quality gates and features
+- **FR-018**: Planning MUST explicitly design the lifecycle boundary
+  between GazeFollower's pygame-based Preview/Calibration UI and
+  GazeKey's PySide6-based keyboard. GazeKey MUST NOT recreate the
+  GazeFollower UI in Qt merely to make integration easier.
+- **FR-019**: The application MUST use sequential screen ownership:
+  official GazeFollower preview/calibration → GazeFollower sampling →
+  GazeKey Qt keyboard. Planning MUST also cover safe recalibration and
+  clean shutdown without conflicting event loops or camera ownership.
+
+**Screen geometry**
+
+- **FR-020**: Planning MUST verify compatibility among: GazeFollower
+  screen coordinates; Windows desktop coordinates; Qt screen
+  coordinates; keyboard window position; key QRect geometry;
+  suggestion QRect geometry; display resolution; Windows DPI scaling;
+  `devicePixelRatio`; and monitor origin.
+- **FR-021**: The system MUST NOT apply a learned or hand-tuned
+  remapping to make coordinate systems match. Only legitimate
+  coordinate-space/window transforms are allowed. Upstream hard-coded
+  camera or screen constants MUST NOT be copied unless proven to apply
+  on this machine.
+
+**Upstream provenance and calibration**
+
+- **FR-022**: Planning/implementation MUST record: the exact official
+  GazeFollower upstream repository; the exact commit/version used;
+  model/checkpoint identification or hash where practical;
+  dependency/version record; calibration mode; camera configuration;
+  screen/DPI configuration; and license/attribution record.
+- **FR-023**: The feature MUST NOT reimplement GazeFollower from its
+  paper. The feature MUST NOT copy the upstream repository into
+  unrelated GazeKey gaze modules and modify it until it resembles the
+  old architecture. Prefer a thin GazeKey backend/adapter around the
+  official library.
+- **FR-024**: The product MUST use GazeFollower's official/native
+  calibration system, not GazeKey `keyboard15`. The UI, target
+  behavior, timing, collection, fitting, result screen,
+  accept/recalibrate behavior, and personalization remain owned by
+  GazeFollower. GazeKey MUST NOT host its own calibration target UI.
+- **FR-025**: Planning MUST inspect and record the tested native
+  protocol and current upstream behavior, including supported 5 / 9 /
+  13-point modes, default mode, exact target placement, collection
+  timing/sampling, calibration model, and result/accept/recalibrate
+  behavior. That protocol MUST spatially cover the complete product
+  interaction range, especially top-to-bottom Y. If the native
+  protocol conflicts with full-product Y coverage, benchmark
+  independence, the Windows product setup, or sequential UI ownership,
+  planning MUST record the conflict and stop — not silently redesign
+  GazeFollower and not silently fall back to `keyboard15`.
+- **FR-026**: Current-estimator-specific quality gates and features
   (including `pca_vL` and its 0.15 threshold, and other PCA4-only
   checks) MUST NOT be used to accept or reject GazeFollower
   calibration. Candidate validity and calibration semantics come from
-  the candidate backend. Independent GazeKey mapping evaluation
-  remains the acceptance authority for mapping success.
-- **FR-026**: Planning/implementation MUST audit GazeFollower's own
-  filtering against GazeKey smoothing so filtering is not applied
-  twice by accident. The audit result MUST be recorded. Stage 1 MUST
-  not add GazeKey smoothing on top of GazeFollower to improve scores.
-  After a win, the live product path MUST use one intentional filter
-  policy consistent with FR-032.
-- **FR-027**: Shared product code MUST NOT bake user-specific
+  GazeFollower.
+
+**Integration stages**
+
+- **FR-027**: The feature MUST be implemented in the following stages.
+  Later stages MUST NOT skip a prior stage's required proof.
+
+  - **Stage A — upstream pin and architecture**: Record upstream
+    provenance, dependency approach, GazeInfo contract, lifecycle,
+    geometry, filtering, and dependency-isolation audit. No product
+    code until this planning work exists.
+  - **Stage B — official GazeFollower startup flow**: Normal Feature
+    005 branch execution uses official Preview + Calibration +
+    start sampling. No legacy calibration/mapping participates.
+  - **Stage C — keyboard gaze handoff**: Open the existing GazeKey
+    keyboard after calibration and display a temporary
+    developer/debug gaze dot from the official GazeFollower output.
+    Use this stage to prove that the strong standalone mapping is
+    preserved after integration. No extra remapping.
+  - **Stage D — restore full interaction path**: Use live Qt geometry
+    for focus and reconnect existing dwell, key selection, OS typing,
+    editing, predictive text, three suggestion slots, and
+    autocomplete. Do not redesign these features unless integration
+    reveals a real backend-interface requirement.
+  - **Stage E — recalibration and lifecycle**: Recalibrate using the
+    official GazeFollower flow and return safely to the keyboard.
+    Clean release on exit.
+  - **Stage F — integrated production acceptance**: Run at least three
+    head/chin-support product-condition sessions on the integrated
+    product before legacy cleanup. Acceptance MUST cover the real
+    keyboard and real OS typing path, not only an isolated benchmark.
+  - **Stage G — cleanup**: Only after integrated acceptance passes,
+    remove obsolete legacy gaze runtime code/dependencies/
+    configuration/tests in explicit inventory-based tasks. Preserve
+    Feature 004 specs, runs, commits, and tags.
+
+**Integrated acceptance, metrics, and cleanup safety**
+
+- **FR-028**: Feature 004 T060 numerical thresholds MUST NOT be the
+  architectural gate for whether integration may begin. Feature 004
+  results remain historical/reference evidence and MAY be cited as
+  `eval_before` on mapping experiments.
+- **FR-029**: The decisive acceptance for cleanup MUST be whether the
+  new integrated product is reliably usable. Acceptance MUST require
+  at least **three** product-condition sessions and MUST verify the
+  Success Criteria listed under Integrated production acceptance.
+- **FR-030**: Independent mapped-key, row, and pixel-error metrics
+  MUST continue to be recorded where the existing benchmark can be
+  reused **without** legacy estimator dependencies. These metrics are
+  valuable evidence and MUST remain independent of typing success.
+  They MUST NOT be a reason to route GazeFollower through old mapping
+  infrastructure. Calibration and benchmark target sets MUST remain
+  logically independent: training-target overlap MUST NOT be used as
+  the primary mapped-key rate.
+- **FR-031**: Evaluation targets and hitboxes MUST come from the live
+  runtime keyboard layout of that session. They MUST NOT come from a
+  duplicated hard-coded coordinate list. The evaluated live controls
+  MUST include all letter keys, Space, Backspace, Enter / Shift and
+  other active editing controls, and all three suggestion slots.
+- **FR-032**: Before destructive cleanup, a Git checkpoint/tag MUST
+  exist that restores the pre-cleanup product. The feature branch
+  itself provides isolation while the new production path is built.
+- **FR-033**: After successful integrated acceptance, obsolete legacy
+  gaze runtime, configuration, flags, tests, and dependencies that are
+  no longer needed MUST be removed so one production gaze pipeline
+  remains. Each deletion MUST be its own approved task (Principle IX).
+  Cleanup MUST NOT start merely because standalone Preview succeeded
+  or because regional reachability or average correlations improved.
+- **FR-034**: Cleanup MUST NOT delete, rewrite, or renumber Feature
+  004 specifications, run artifacts, Git tags, commits, or
+  investigation records. Feature 004's paused A–F task sequence MUST
+  NOT be resumed, completed, or rewritten as if it had finished.
+- **FR-035**: Shared product code MUST NOT bake user-specific
   anatomical or calibration constants. GazeFollower
-  personalization/calibration MUST be session- or user-specific data,
-  not compiled-in defaults for the current developer. Feature 005 MAY
-  be validated primarily with the current developer. If practical, a
-  **second-user smoke test** MUST run before final production
-  migration; if it is skipped, the Stage 2 record MUST say so.
-- **FR-028**: Every candidate run MUST record: upstream commit,
-  model/checkpoint hash, calibration mode and target positions,
-  camera ID / resolution / FPS, preprocessing / mirroring, screen /
-  DPI geometry (including `devicePixelRatio` and monitor origin), and
-  relevant runtime config.
-- **FR-029**: After the architecture-win / Stage 1 gate and review
-  approval, and **before cleanup**, the production path MUST pass
-  **both** independent mapping metrics **and** a full
-  interactive-control acceptance sweep on the live runtime layout
-  covering every active keyboard control listed in FR-007. A backend
-  is not production-ready merely because regional reachability or
-  average correlations improved.
+  personalization/calibration MUST be session- or user-specific data.
+  If practical, a second-user smoke test MUST run before cleanup; if
+  skipped, the acceptance record MUST say so.
+
+**Safety, data, logging, and conflicts**
+
+- **FR-036**: Where practical, the system MUST support locally stored
+  **replayable** captures of a session so the same session can be
+  analyzed offline. Captures MUST include enough information for
+  offline investigation (gaze samples, timestamps, live layout
+  geometry, calibration mode/targets, and FR-022 provenance fields).
+  Raw webcam, eye, and face data MUST remain local and gitignored.
+  Only derived results MAY be committed.
+- **FR-037**: Normal product use MUST keep terminal output short;
+  optional verbose output is for investigation (Principle X). Each
+  integrated acceptance session MUST produce a simple pass/fail
+  summary with primary mapping metrics and the usability sweep result
+  (Principles VII and X).
+- **FR-038**: If upstream GazeFollower architecture, license,
+  dependencies, UI framework, calibration protocol, or runtime
+  requirements conflict with this specification or with the
+  constitution, planning MUST record the conflict and stop for a
+  decision. Silently redesigning GazeFollower to fit the historical
+  estimator, restyling official Preview/Calibration in Qt, or routing
+  GazeFollower through that estimator is out of scope.
+- **FR-039**: Mapping accuracy remains independently measured.
+  Internal training losses, vendor demo metrics, standalone Preview
+  impressions, regional reachability alone, or average correlations
+  MUST NOT be the sole acceptance criteria (Principle II).
+- **FR-040**: Typing, dwell, suggestions, keyboard UI, blink
+  detection, and unrelated Feature 002/003 behavior MUST NOT be
+  modified to compensate for estimator error, to hide poor gaze
+  accuracy, or to inflate acceptance results. Downstream interface
+  changes MAY occur only for documented technical reasons arising
+  from the official GazeFollower handoff (FR-016 / FR-018).
+- **FR-041**: Every integrated run MUST record the FR-022 provenance
+  fields plus calibration mode and target positions, camera ID /
+  resolution / FPS, preprocessing / mirroring, screen / DPI geometry
+  (including `devicePixelRatio` and monitor origin), and relevant
+  runtime config. Raw and filtered gaze MUST be recorded where the
+  official API exposes both. Frame, prediction, and target timestamps
+  MUST be recorded so a sample is scored against the target that was
+  actually shown, not the previous one.
+
+### Planning Obligations *(required before implementation)*
+
+These are specification requirements on `/speckit.plan`. They are
+**not** unresolved product-scope questions. Implementation MUST NOT
+begin until the plan records them.
+
+1. Pin exact official GazeFollower repository, commit/version,
+   model/checkpoint identification or hash where practical,
+   dependency/version approach, and license/attribution.
+2. Inspect official GazeInfo/output APIs and define the GazeSample
+   contract without inventing fields.
+3. Audit official filtering versus existing GazeKey smoothing; record
+   the single pointing-signal choice (default: official filtered
+   gaze).
+4. Inspect and record the tested native calibration protocol and
+   current upstream Preview / Calibration / result / accept /
+   recalibrate behavior.
+5. Design the pygame versus PySide6 lifecycle boundary for startup,
+   recalibration, abort/reject, and shutdown, including camera
+   ownership and event loops.
+6. Complete the screen-geometry / DPI / window / QRect compatibility
+   audit; list only legitimate transforms.
+7. Publish the dependency-isolation audit and the exact GazeFollower
+   → GazeKey handoff.
+8. Record the constitution check: independently measured screen
+   mapping remains the sealed measurement upstream; production
+   implementation of gaze/calibration becomes GazeFollower rather than
+   PCA4/Ridge; downstream still MUST NOT compensate via mapping
+   tweaks.
+9. Inventory obsolete legacy gaze runtime, tests, configuration, and
+   dependencies for Stage G, to be deleted only after Stage F.
 
 ### Key Entities
 
-- **Current estimator**: The Feature 004 closeout production gaze
-  path (landmark-based handcrafted features and the existing mapping
-  stack). **Historical baseline** for comparison. Default product path
-  until Stage 2 is approved. Not a component of the GazeFollower
-  candidate.
-- **Candidate estimator**: The official GazeFollower system as an
-  independent pipeline, handed off to GazeKey only at a documented
-  boundary, used for Stage 1 evaluation and — only if approved —
-  Stage 2 production.
-- **Gaze-backend handoff**: The documented Stage 1 join between
-  GazeFollower outputs and backend-agnostic GazeKey pieces (live
-  layout, independent scoring). Not a reuse of PCA4/Ridge.
-- **Production prediction contract**: The backend-agnostic record
-  production downstream will consume after a win. Chosen in planning
-  from official GazeFollower outputs. Always includes screen position;
-  may include validity, timestamp, confidence/quality, and
-  raw vs filtered gaze. **Not** permanently locked to `(x, y)` only.
-- **Pinned native calibration protocol**: The single official
-  GazeFollower calibration mode (one of upstream's 5 / 9 / 13-point
-  modes, chosen after inspecting the official default, placement,
-  timing, and model) used for all Stage 1 sessions until a later
-  measured experiment changes it. Not GazeKey `keyboard15` unless
-  planning proves they are the same protocol.
-- **Live runtime layout**: The keyboard and suggestion-slot
-  rectangles actually shown in that session (window position, DPI,
-  hitboxes). The source of evaluation targets; not a stored duplicate
-  coordinate table.
-- **Interactive-control sweep**: Pre-cleanup evaluation of **every**
-  active product control from live hitboxes: all letters, Space,
-  Backspace, Enter/Shift/active editing, all three suggestion slots.
-- **Mapped gaze**: Predicted screen/keyboard position used for key
-  focus. Sealed upstream for typing. Must share the audited screen
-  coordinate system.
+- **Official GazeFollower pipeline**: The pinned official repository
+  system that owns camera acquisition, preprocessing, inference,
+  Preview UI, Calibration UI, native calibration/personalization,
+  validity, filtering, and final screen-space gaze.
+- **GazeKey downstream product**: Existing keyboard UI, live geometry,
+  hit testing, focus, dwell, KeyAction / ActionDispatcher, OS typing,
+  editing keys, prediction context, three suggestion slots, and
+  autocomplete. Consumes gaze after the handoff; does not own
+  Preview/Calibration.
+- **Backend handoff**: The documented join after GazeFollower has
+  produced gaze information. Not a reuse of PCA4/Ridge and not a
+  post-GazeFollower learned remap.
+- **GazeSample**: Backend-agnostic production gaze record defined in
+  planning from official GazeInfo/output. Always includes screen
+  position; includes other official semantics only when actually
+  available.
+- **Selected pointing signal**: The official gaze coordinate used for
+  product hit testing. Expected initially to be GazeFollower filtered
+  screen gaze. One intentional filter policy.
+- **Legacy gaze runtime**: Historical GazeKey estimator stack
+  (handcrafted u/v, FeatureExtractor gaze semantics, PCA/PCA4, Ridge,
+  PCA-specific gates, legacy calibration protocol and corrections).
+  Historical baseline and rollback/history until Stage G. Forbidden on
+  the new production execution path.
+- **Official Preview / Calibration experience**: GazeFollower-owned
+  pygame UI and native protocol, including result/accept/recalibrate
+  behavior. Used for startup and keyboard-initiated recalibration.
+- **Live runtime layout**: Keyboard and suggestion-slot rectangles
+  actually shown in that session (window position, DPI, QRects). The
+  source of focus and evaluation targets.
+- **Debug gaze dot**: Temporary Stage C developer/debug visualization
+  of official GazeFollower output on the GazeKey keyboard. Not a
+  replacement for official Preview and not a production visual
+  redesign.
+- **Mapped gaze**: Predicted screen position used for key focus.
+  Sealed measurement upstream for typing. Must share the audited
+  screen coordinate system.
 - **Mapped key (focus)**: Keyboard control identified from mapped gaze
   via **live** key-hit geometry, before dwell.
-- **Product-condition session**: One calibration + evaluation (and
-  `hadar` / sweep when required) captured **with** the chin/head
-  support.
-- **Stage 1 record**: Written comparison of the candidate against
-  Feature 004 `eval_before` sessions, including Y behavior, live-layout
-  reachability, stability, latency, provenance, and a keep / fail /
-  inconclusive decision — never migrate without review.
-- **Run provenance**: Per-run record of upstream commit,
-  model/checkpoint hash, calibration mode/targets, camera
-  ID/resolution/FPS, preprocessing/mirroring, screen/DPI geometry, and
-  runtime config.
+- **Product-condition session**: One calibration + integrated product
+  evaluation (and `hadar` / sweep when required) captured **with**
+  the chin/head support.
+- **Integrated acceptance record**: Written result of at least three
+  product-condition sessions on the real keyboard and real OS typing
+  path, including usability sweep, independent mapping metrics,
+  provenance, and a pass / fail / inconclusive decision for cleanup.
+- **Run provenance**: Per-run record of upstream commit, model/
+  checkpoint identification, calibration mode/targets, camera
+  configuration, preprocessing/mirroring, screen/DPI geometry,
+  dependency/version, license/attribution, and runtime config.
 - **Replay capture**: Local, gitignored recording sufficient to replay
-  a session offline (including timestamps and live layout); derived
-  metrics may be committed.
-- **Pre-migration checkpoint**: Git commit/tag of the product
-  immediately before Stage 2 switch/cleanup.
+  a session offline; derived metrics may be committed.
+- **Pre-cleanup checkpoint**: Git commit/tag of the product
+  immediately before Stage G cleanup.
 - **Feature 004 record**: Specs, runs, and tags including
   `004-pca4-investigation-closeout-20260820` and
   `004-pre-pivot-exact-20260820`; read-only history for this feature.
 
 ## Success Criteria *(mandatory)*
 
-All Stage 1 and Stage 2 mapping measurements use the **chin/head
-support**. Free-head runs MUST NOT decide migration.
+All integrated acceptance measurements use the **chin/head support**.
+Free-head runs MUST NOT decide cleanup.
 
-Developer evaluation may measure these outcomes; it remains outside
-product typing.
+Developer evaluation may measure these outcomes; evaluation tooling
+MUST NOT become part of product enablement.
 
-Historical 67% mapped-key / 55 px median / 80% row figures remain
-**reference floors** from the mapping foundation. They are comparison
-bars, not an automatic Feature 005 migration trigger.
+Feature 004 T060 figures (including 29% / 23% mapped-key, 78.2 px
+median, 39% row, and the 6 pp / 2.8 px / 4 pp envelopes) and the
+historical 67% / 55 px / 80% floors remain **reference evidence
+only**. They MUST NOT gate whether integration may begin and MUST NOT
+be treated as an automatic cleanup trigger.
 
-### Stage 1 — validation gate (must pass before any review-for-migration)
+Standalone official Preview / Calibration / pygame live-gaze success
+is **discovery evidence** for starting integration. It MUST NOT be
+treated as integrated product acceptance.
 
-- **SC-001**: **Mapped-key accuracy (primary)** — On at least **three**
-  product-condition candidate sessions, mean intended-key focus rate
-  on the letter + editing/control evaluation set **beats the Feature
-  004 product-condition reference** by more than that pair's own
-  session noise (**6 percentage points** above the better T060 session
-  of 29%, i.e. mean **> 35%**), and no candidate session falls below
-  the worse T060 session (23%) by more than that 6 pp envelope.
-- **SC-002**: **Spatial error** — Mean median error on that same set
-  is **better** than the better T060 median (78.2 px) by more than
-  T060's 2.8 px envelope (mean **< 75.4 px**). Pixel error alone is
-  not enough if Y is still ignored (SC-004) or keys are still missed
-  (SC-001).
-- **SC-003**: **Row accuracy** — Mean row correctness **beats** the
-  better T060 row rate (39%) by more than T060's 4 pp envelope (mean
-  **> 43%**), because vertical failure in Feature 004 showed up as
-  wrong-row focus.
-- **SC-004**: **Vertical mapping is actually used** — On **every**
-  Stage 1 session, predicted Y must travel with target Y rather than
-  stay nearly constant. Operational bar, matching Feature 004's
-  last keep test for this symptom: slope of vertical error vs target
-  Y is **better than −0.80** (a slope of −1 means predicted Y is
-  constant). Equivalent documented compression/range evidence MAY
-  supplement; it MUST NOT replace this “Y is used” requirement.
-- **SC-005**: **Live-layout reachability** — Stage 1 scores the
-  **actual runtime layout**, not a hard-coded duplicate list. All
-  letter keys, Space, Backspace, Enter/Shift and other active editing
-  controls, and all three suggestion slots are evaluated. A session
-  that never places mapped gaze on the bottom band or suggestion band
-  (predicted Y collapsed to one letter row), or that skips those live
-  controls, fails this criterion even if home-row letters look
-  improved. Suggestion-slot hits MUST NOT replace letter + editing as
-  the SC-001 primary rate.
-- **SC-006**: **Repeatability, latency, and freshness** — The three
-  sessions agree on the direction of SC-001–SC-004 (not one win and
-  two collapses). Gaze updates remain usable for existing dwell
-  (continuous pointing, not multi-second lag). Measured latency,
-  update rate, and timestamps are recorded on each session. A
-  target's score MUST use predictions from that target's time window,
-  not the previous target.
-- **SC-007**: **No product regression during Stage 1** — Normal
-  application typing still uses the current estimator; Feature 003
-  dwell, suggestions, and keyboard UX still work without GazeFollower
-  running. Stage 1 does not add downstream smoothing/validity/dwell
-  changes to improve candidate scores.
-- **SC-015**: **Pinned native calibration** — All Stage 1 sessions use
-  the same planning-pinned official GazeFollower calibration protocol
-  (one of 5 / 9 / 13 after inspecting the official default). That
-  protocol covers the full product Y range. Primary mapped-key
-  (SC-001) is not computed solely on those training targets.
-- **SC-016**: **One screen geometry** — Before Stage 1 results are
-  treated as on-screen mapping evidence, planning has recorded that
-  candidate coordinates, Qt/Windows coordinates, live hitboxes,
-  calibration targets, benchmark targets, and suggestion rectangles
-  share one screen system (DPI, `devicePixelRatio`, resolution,
-  monitor origin, window position). Unproven upstream camera/screen
-  constants were not copied.
-- **SC-019**: **Estimator isolation** — Stage 1 candidate code does not
-  import or call the forbidden historical estimator stack (FR-030).
+### Integrated production acceptance (must pass before Stage G cleanup)
+
+- **SC-001**: **Repeatable product sessions** — At least **three**
+  product-condition sessions are recorded on the integrated
+  application. One successful calibration MUST NOT decide cleanup.
+- **SC-002**: **Full required interaction area** — On every acceptance
+  session, gaze visibly spans the full required X and Y interaction
+  area of the live keyboard, including letter rows, editing controls,
+  and suggestion slots.
+- **SC-003**: **Letter-row reachability** — Letter rows are distinctly
+  reachable. All active letter keys are reachable from live hitboxes.
+- **SC-004**: **Editing-control reachability** — Space is reachable.
+  Backspace is reachable. Shift, Enter, and other active editing
+  controls are reachable.
+- **SC-005**: **Suggestion-slot reachability** — All three suggestion
+  slots are reachable from live hitboxes.
+- **SC-006**: **No systematic vertical collapse** — Predicted Y
+  travels with the user's vertical look rather than remaining nearly
+  constant across top letter rows through Space / suggestions. A
+  session that collapses to one letter row fails even if home-row
+  letters look improved.
+- **SC-007**: **Dwell-usable pointing** — Pointing is stable enough
+  for the existing dwell interaction. Focus uses the intended live
+  control from live geometry, not a stale or remapped substitute.
+- **SC-008**: **Interactive latency** — Gaze updates remain usable for
+  existing dwell (continuous pointing, not multi-second lag). Measured
+  update rate and end-to-end latency are recorded. A target's score
+  MUST use predictions from that target's time window, not the
+  previous target.
+- **SC-009**: **Real OS typing path** — Actual typing into an external
+  application works through the existing action pipeline.
+- **SC-010**: **Practical word check** — `hadar` is tested with
+  suggestions disabled and recorded. It informs review; it MUST NOT
+  override SC-006 (vertical collapse) or SC-003–SC-005 (required
+  controls unreachable).
+- **SC-011**: **Predictive text preserved** — Predictive suggestions
+  work. Gaze-selection of suggestions works. Accepting a suggestion
+  types the expected suffix + Space.
+- **SC-012**: **Recalibration** — Recalibration uses the official
+  GazeFollower flow and returns to a usable keyboard.
+- **SC-013**: **Independent mapping metrics (evidence, not T060
+  gate)** — Mapped-key, row, and pixel-error metrics are recorded on
+  the integrated path where the existing benchmark can be reused
+  without legacy estimator dependencies. Feature 004 T060 / A/B
+  sessions MAY be cited as `eval_before`. These metrics MUST NOT be
+  used as a reason to route GazeFollower through old mapping
+  infrastructure, and they MUST NOT replace SC-002–SC-012 as the
+  cleanup decision.
+- **SC-014**: **Official calibration path** — Startup and
+  recalibration use official GazeFollower Preview + Calibration +
+  result/accept behavior. GazeKey does not host a substitute
+  calibration-target UI. Legacy `keyboard15` / PCA calibration does
+  not run on the production path.
+- **SC-015**: **Estimator isolation** — Production path code does not
+  import or call the forbidden historical estimator stack (FR-009).
   Planning's dependency audit exists. Where practical, an isolation
   test fails if that dependency appears.
+- **SC-016**: **One pointing-signal policy** — Official GazeFollower
+  filtering versus GazeKey smoothing has been audited. The live path
+  uses one intentional pointing signal. Extra smoothing was not added
+  to dress acceptance results.
+- **SC-017**: **One screen geometry** — Before acceptance results are
+  treated as on-screen mapping evidence, planning has recorded that
+  GazeFollower coordinates, Qt/Windows coordinates, live hitboxes,
+  and suggestion rectangles are compatible (DPI, `devicePixelRatio`,
+  resolution, monitor origin, window position). Unproven upstream
+  camera/screen constants were not copied. No learned remapping was
+  applied.
+- **SC-018**: **Lifecycle** — Sequential pygame then Qt ownership
+  works for startup, recalibration, and shutdown. Sampling stops and
+  GazeFollower resources are released on exit.
+- **SC-019**: **User-independent architecture** — Shared product code
+  contains no baked-in user-specific anatomical or calibration
+  constants. If practical, a second-user smoke test is recorded
+  before cleanup; if skipped, the record says so.
+- **SC-020**: **GazeSample contract** — The plan records the chosen
+  production GazeSample contract after inspecting official GazeInfo
+  outputs, including which official fields were preserved and that
+  unavailable fields were not invented.
 
-Meeting SC-001–SC-007, SC-015, SC-016, and SC-019 makes GazeFollower a
-**migration candidate**. It does **not** by itself switch production
-(FR-014) or permit cleanup (FR-029).
+Cleanup MUST NOT start until SC-001–SC-020 are recorded on the
+integrated production path (FR-029, FR-033).
 
-### Stage 2 — only after review approval
+### After cleanup
 
-- **SC-008**: Production application, calibration, and evaluation all
-  obtain screen gaze from the approved candidate estimator through the
-  FR-032 production contract (not through PCA4/Ridge). A
-  product-condition independent mapping evaluation and a
-  suggestions-off `hadar` wrong-focus check are recorded on that
-  production path and are not worse than the Stage 1 candidate set.
-- **SC-020**: The plan records the chosen production prediction
-  contract after inspecting official GazeFollower outputs, including
-  whether validity, timestamp, confidence/quality, and raw/filtered
-  gaze are preserved. Downstream redesign implementing that contract
-  is documented and was not used during Stage 1 scoring.
-- **SC-017**: **Full interactive-control sweep (before cleanup)** —
-  Every active live control is evaluated from live hitboxes: all
-  letters, Space, Backspace, Enter/Shift/active editing, and all
-  three suggestion slots. Systematic holes (a required control never
-  reached) fail this criterion. Passing SC-005 regional reachability
-  or improved average correlations is **not** sufficient.
-- **SC-018**: Shared product code contains no baked-in user-specific
-  anatomical or calibration constants. Calibration/personalization is
-  session- or user-specific. If practical, a second-user smoke test
-  is recorded before final production migration; if skipped, the
-  record says so.
-- **SC-009**: A Git checkpoint taken before migration/cleanup can
-  restore the pre-migration product.
-- **SC-010**: After cleanup, one production gaze pipeline remains, and
-  Feature 004 history (specs, runs, tags) is still present and
-  readable.
+- **SC-021**: A Git checkpoint taken before cleanup can restore the
+  pre-cleanup product.
+- **SC-022**: After cleanup, one production gaze pipeline remains, and
+  Feature 004 history (specs, runs, commits, tags) is still present
+  and readable.
 
-Cleanup MUST NOT start until SC-008, SC-017, SC-018, and SC-020 are
-recorded on the production path (FR-029).
+### Fail / inconclusive (no destructive cleanup)
 
-### Fail / inconclusive (outcome B)
-
-- **SC-011**: If any of SC-001–SC-006, SC-015, SC-016, or SC-019 fail, or
-  sessions disagree so the result is inconclusive, the current product
-  estimator remains the default, GazeFollower is not production,
-  cleanup of the current estimator has not occurred, and a written
-  Stage 1 record explains the result.
+- **SC-023**: If any of SC-001–SC-018 fail, or sessions disagree so
+  the result is inconclusive, GazeFollower is not accepted for
+  cleanup, destructive removal of legacy gaze runtime has not
+  occurred, rollback is through Git if needed, and a written
+  integrated-acceptance record explains the result.
 
 ### Cross-cutting
 
-- **SC-012**: **Run clarity** — After each candidate session a tester
-  can state pass/fail and the primary metrics without reading verbose
-  logs. The FR-028 provenance fields are present on the run record.
-- **SC-013**: **Calibration UX** — No on-screen text distractions
-  beyond the target and optional progress during active fixation.
-- **SC-014**: **Practical word check (reported, does not alone
-  migrate)** — `hadar` with suggestions unused is recorded on
-  candidate sessions that reach evaluation, compared to Feature 004
-  wrong-focus. It informs review; it MUST NOT override SC-004 (Y
-  unused), SC-017 (full keyboard path), or a single-session spike.
+- **SC-024**: **Run clarity** — After each integrated session a tester
+  can state pass/fail, the usability sweep, and the primary mapping
+  metrics without reading verbose logs. The FR-041 provenance fields
+  are present on the run record.
+- **SC-025**: **Principle XI vs official UI** — GazeKey does not host
+  a metric-heavy calibration surface. Official GazeFollower UI is
+  used as-is; any Principle XI conflict is recorded in the plan
+  rather than “fixed” by restyling upstream.
+- **SC-026**: **No product-above-gaze regression** — Existing dwell,
+  OS typing, editing, predictive text, three suggestion slots, and
+  autocomplete remain the Feature 003 / Feature 004 closeout
+  behaviors except for the gaze/calibration source, unless a
+  documented backend-interface requirement forced a minimal change.
 
 ## MVP Scope *(mandatory for GazeKey)*
 
 **In scope**:
 
-- Isolated GazeFollower research/evaluation backend (Stage 1) as an
-  **independent** official pipeline, not a wrapper around PCA4/Ridge
-- Stage 1 product typing unchanged for a fair comparison
-- Planning-time production prediction contract (screen position plus
-  any justified official semantics); not permanently `(x, y)`-only
-- Dependency audit and, where practical, import isolation tests
-- Gaze-backend handoff to backend-agnostic GazeKey pieces only, with
-  an audited shared screen/DPI/window geometry contract
+- Official GazeFollower as the production gaze-estimation and
+  calibration subsystem, via a thin GazeKey adapter around the
+  official library
+- Official Preview UI, Calibration UI, result/accept/recalibrate
+  behavior, native calibration/personalization, validity, and
+  filtering
+- Sequential pygame Preview/Calibration then PySide6 keyboard
+  ownership, including recalibration and clean shutdown
+- Backend-agnostic GazeSample contract defined in planning from
+  official GazeInfo
+- Keyboard gaze handoff with temporary debug gaze dot to prove
+  standalone mapping survived integration
+- Restore existing dwell, key selection, OS typing, editing,
+  predictive text, three suggestion slots, and autocomplete
+- Strict production-path isolation from PCA/PCA4/Ridge/handcrafted
+  u/v and other forbidden legacy gaze modules
+- Filter/smoothing audit (no accidental double filtering; prefer
+  official filtered gaze)
+- Audited shared screen/DPI/window/QRect geometry contract; no
+  learned remapping
 - One pinned official/native GazeFollower calibration protocol
-  (chosen in planning from upstream 5 / 9 / 13); not an assumed
-  `keyboard15` copy
-- Product-condition multi-session evaluation vs Feature 004
-  `eval_before`, using **live runtime layout** hitboxes, including Y
-  behavior, full-control reachability, stability, timestamps, and
-  latency
-- Independent calibration vs benchmark target sets
-- Candidate calibration validity from the candidate backend (no
-  PCA4/`pca_vL` 0.15 accept/reject)
-- Filter/smoothing audit (no accidental double filtering)
+  (chosen in planning from upstream 5 / 9 / 13 and the tested
+  standalone flow); not an assumed `keyboard15` copy
+- Product-condition multi-session **integrated** acceptance on the
+  real keyboard and real OS typing path
+- Independent mapping metrics where the existing benchmark can be
+  reused without legacy estimator dependencies
 - Per-run provenance and local gitignored replay captures
-- Written Stage 1 decision (candidate / fail / inconclusive) and
-  mandatory review stop before migration
-- After approval only: production switch + rollback checkpoint +
-  production-level mapping metrics **and** full interactive-control
-  sweep **before** targeted removal of obsolete current-estimator
-  product code
+- Git rollback checkpoint before cleanup
+- After integrated acceptance only: inventory-based removal of
+  obsolete legacy gaze runtime
 - Session/user-specific calibration data; optional second-user smoke
-  test before final migration
+  test before cleanup
 - Preservation of Feature 004 historical artifacts
 
 **Out of scope**:
 
+- Building GazeFollower only as a long-lived isolated research
+  backend while PCA4 remains the normal application path
+- Delaying integration until Feature 004 T060 percentage/noise
+  formulas are beaten
+- Making GazeKey host a candidate calibration fixation UI or
+  recreating official Preview/Calibration in Qt
+- Forcing production architecture to preserve the old estimator
+  comparison contract
 - Resuming or rewriting Feature 004's paused A–F task sequence
 - Inventing a new gaze estimator or approximating GazeFollower from
   the paper
+- Copying upstream into unrelated GazeKey modules and modifying it
+  until it resembles the old architecture
 - Using the historical estimator as a blueprint or routing
-  GazeFollower through PCA4 / Ridge / handcrafted u/v
-- Introducing any additional backend besides current vs GazeFollower
-- Stage 1 downstream smoothing/validity/dwell changes to inflate
-  candidate scores
-- Permanently locking production to an `(x, y)`-only contract before
-  inspecting official GazeFollower outputs
+  GazeFollower through PCA4 / Ridge / handcrafted u/v / any legacy
+  mapper
+- Introducing EyeTheia, a third estimator, an ensemble, or a gaze
+  fallback cascade
+- Maintaining two blended live gaze pipelines for safety
+- Adding extra smoothing or dwell/prediction retunes to inflate
+  acceptance
 - Silently falling back to GazeKey `keyboard15` without an upstream
   conflict report
 - Copying unproven upstream camera/screen physical constants
 - Baking this developer's anatomy or calibration into shared code
-- Changing dwell timing, suggestion ranking, keyboard visual design,
-  blink policy, or OS injection to compensate for mapping error
+- New keyboard visual redesign, new prediction algorithm, new dwell
+  algorithm, or unrelated Feature 002/003 behavior changes
 - Saved multi-user profiles / language switching / multi-monitor as
   product features (session-specific calibration is in scope)
 - Making evaluation part of product enablement
-- Deleting Feature 004 specs, runs, or tags
-- Removing the current estimator before the Stage 1 gate, review, and
-  pre-cleanup production validation
-- Treating historical 67% / 55 px / 80% as an automatic migrate
-- Treating regional reachability or average correlations as
-  production-ready
-- Silently redesigning GazeFollower to fit the historical estimator,
-  or routing it through that estimator, instead of adapting GazeKey
-  around GazeFollower
+- Deleting Feature 004 specs, runs, commits, or tags
+- Removing legacy gaze runtime before integrated acceptance, review
+  of the acceptance record, and the pre-cleanup Git checkpoint
+- Treating standalone official Preview success, historical 67% /
+  55 px / 80%, T060 beat-formulas, regional reachability, or average
+  correlations as cleanup-ready
 
 ## Assumptions
 
-- **Product baseline**: Feature 003 remains the user-facing product.
-  Feature 004 closeout (`004-pca4-investigation-closeout-20260820`) is
-  the current estimator and the mapping-evidence baseline. Feature 004
-  is paused/historical, not an input backlog of unfinished patches.
+- **Product baseline**: Feature 003 remains the user-facing keyboard,
+  dwell, OS typing, and predictive-text product. Feature 004 closeout
+  (`004-pca4-investigation-closeout-20260820`) is historical mapping
+  evidence and the pre-integration estimator. Feature 004 is
+  paused/historical, not an input backlog of unfinished patches.
 - **Why this feature exists**: Repeated Feature 004 evidence showed
   the current handcrafted vertical-feature + existing mapping stack
   ignores most of the vertical range under the product condition.
-  Isolated feature tweaks (T020 A/B/C) did not yield a keepable Y
-  signal. The next mapping-foundation step is a different estimator,
-  not another one-change iteration inside that stack.
+  Isolated feature tweaks did not yield a keepable Y signal. Official
+  GazeFollower has now been run standalone on the target Windows
+  machine with Python 3.11: Preview worked, native calibration
+  completed, and the official pygame live-gaze example produced
+  visually strong real-time screen mapping. The next mapping-
+  foundation step is to integrate that official pipeline as the
+  production gaze/calibration subsystem, then remove the obsolete
+  legacy gaze runtime only after integrated acceptance.
+- **Discovery vs acceptance**: Standalone official-repository success
+  is necessary discovery evidence to start integration. It is not
+  sufficient evidence to delete the old pipeline.
 - **Official GazeFollower**: Primary technical reference is
   https://github.com/GanchengZhu/GazeFollower/tree/main
-  The candidate **is** that system, handed off to GazeKey, not a
-  GazeKey reimplementation and not a PCA4 add-on. Exact commit/version
-  is pinned before the candidate is evaluated.
+  The production gaze/calibration subsystem **is** that system,
+  handed off to GazeKey, not a GazeKey reimplementation and not a
+  PCA4 add-on. Exact commit/version is pinned in planning before
+  implementation.
 - **Historical estimator is baseline only**: Feature 004 closeout
-  mapping is the comparison product, not a library for the candidate.
-- **Stage 1 vs production contract**: Stage 1 keeps downstream stable
-  for fairness. After a win, production architecture follows
-  GazeFollower. Planning inspects official outputs and may keep more
-  than `(x, y)`. Constitution “mapped gaze” still means independently
-  measured screen mapping; it does not require Ridge/PCA4 to remain
-  the production implementation. Planning MUST record this
+  mapping is comparison/reference evidence, not a library for the
+  production path.
+- **Constitution check (planning)**: Constitution v1.3.0 still names
+  PCA4 as the mapping-foundation implementation. This spec treats
+  independently measured screen mapping as the sealed *measurement*
+  upstream and selects GazeFollower as the production implementation
+  of gaze/calibration. Downstream still consumes mapped gaze and MUST
+  NOT compensate via mapping tweaks. `/speckit.plan` MUST record this
   constitution check.
 - **Allowed GazeKey reuse**: live keyboard geometry, independent
-  benchmark scoring, product interaction, generic camera/display that
-  does not change GazeFollower preprocessing.
-- **Forbidden GazeKey reuse in the candidate**: FeatureExtractor gaze
-  semantics, PCA/PCA4, Ridge, `pca_vL`/`pca_vR`, 0.15 and other
+  benchmark scoring that does not require the legacy estimator,
+  product interaction, generic camera/display that does not change
+  GazeFollower preprocessing.
+- **Forbidden GazeKey reuse on the production path**: FeatureExtractor
+  gaze semantics, PCA/PCA4, Ridge, `pca_vL`/`pca_vR`, 0.15 and other
   PCA-specific gates, legacy aggregation/clamps/outliers/vertical
-  normalization, legacy estimator calibration constants.
+  normalization, legacy estimator calibration constants, any mapper
+  after GazeFollower screen coordinates.
 - **Calibration protocol is official/native, not `keyboard15`**:
-  Planning inspects GazeFollower's 5 / 9 / 13-point modes, default,
-  placement, timing/sampling, and model, then pins **one** protocol
-  for Stage 1. That protocol must cover full product Y. GazeKey
-  `keyboard15` is not assumed appropriate. If native calibration
-  cannot satisfy coverage, benchmark independence, Principle XI, or
-  the Windows setup, planning reports the conflict.
+  Planning inspects the tested standalone protocol and upstream
+  5 / 9 / 13-point modes, then records the protocol used by the
+  product. GazeKey does not host calibration targets.
 - **Calibration ⊥ benchmark**: Training targets and evaluation
   targets are logically independent. Calibration-location
   repeatability MAY be reported; it MUST NOT be the primary mapped-key
@@ -942,39 +1174,39 @@ recorded on the production path (FR-029).
 - **Live layout is the geometry source**: Hitboxes for letters,
   editing controls, and all three suggestion slots are read from the
   runtime layout of that session.
-- **T060 comparison slices stay fair**: Stage 1 primary mapped-key
-  (SC-001) remains letter + editing so it can be compared to Feature
-  004. Suggestion slots are required reachability (Stage 1) and
-  required sweep members (Stage 2), not a substitute primary rate.
-- **T060 envelope is the noise bar**: mapped-key 6 pp, median 2.8 px,
-  row 4 pp, `hadar` 1 letter. Stage 1 must beat that envelope, not
-  land inside it.
-- **Y slope −0.80**: Reuses Feature 004's last operational definition
-  of “mapper starts using Y.” A backend that leaves slope near −0.9
-  has not solved the problem this feature exists to solve.
+- **T060 comparison is historical only**: Feature 004 free-head A/B
+  (`14938da0bdf0`, `34fb259ccdfd`) and product-condition T060
+  (`689c8a8ce90c`, `4f665467b260`) remain `eval_before` citations.
+  Their percentage/noise formulas are not an integration-start gate
+  and not an automatic cleanup trigger.
 - **Three sessions minimum**: Matches constitution repeatability
   intent; one calibration is forbidden as a keep.
-- **`hadar` is a development word** (SC-006 in Feature 004): reported
-  in Stage 1; does not alone migrate or replace SC-017.
-- **Single monitor, Windows desktop**, webcam already used by GazeKey.
-  Primary validation may use the current developer; architecture must
-  still be user-independent. Second-user smoke test before final
-  migration if practical.
+- **`hadar` is a development word**: recorded with suggestions
+  unused; does not alone accept cleanup or replace the full keyboard
+  path.
+- **Single monitor, Windows desktop**, webcam already used by GazeKey
+  and by the standalone GazeFollower discovery run. Primary validation
+  may use the current developer; architecture must still be
+  user-independent.
 - **Replay includes timestamps and live layout** and stays gitignored;
   live sessions remain valid if replay is incomplete, provided that
   incompleteness is recorded.
-- **No third backend**: If GazeFollower is the wrong family of
-  solution, outcome B is document-and-keep-current, not “try another
-  model in this feature.”
+- **No third backend**: If integrated GazeFollower is the wrong
+  family of solution, outcome is document-and-rollback-via-Git, not
+  “try another model in this feature.”
 - **Cleanup is inventory-first and task-gated**: no mass delete; not
-  before FR-029 production validation.
-- **KEEP/FAIL/INCONCLUSIVE still apply** to Stage 1 as a whole, not
-  to stacked internal GazeFollower tweaks. Tuning GazeFollower against
-  GazeKey MUST still be one logical change per measured iteration if
-  planning finds configuration choices (including a later change of
-  5 vs 9 vs 13); unproven candidate tweaks are not stacked.
-- **Which of 5 / 9 / 13 is pinned** is a **planning** outcome after
-  inspecting the official repository, not a specify guess.
+  before Stage F integrated acceptance and the pre-cleanup checkpoint.
+- **KEEP/FAIL/INCONCLUSIVE apply** to integrated acceptance as a
+  whole. Tuning GazeFollower against GazeKey MUST still be one
+  logical change per measured iteration if planning finds
+  configuration choices (including a later change of 5 vs 9 vs 13);
+  unproven candidate tweaks are not stacked.
+- **Which of 5 / 9 / 13 is pinned**, the exact GazeSample field set,
+  the exact filter-policy exception if any, and the pygame/Qt
+  lifecycle mechanism are **planning** outcomes after inspecting the
+  official repository and the already-tested standalone flow, not
+  specify guesses.
 - **Platform Python/Windows constraints** of the current app remain;
-  if official GazeFollower cannot run in that environment, that is a
-  planning conflict, not a silent rewrite.
+  the standalone Python 3.11 discovery run is evidence that official
+  GazeFollower can run on the target machine, not a substitute for
+  the integrated lifecycle design.
