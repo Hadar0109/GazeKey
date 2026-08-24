@@ -31,6 +31,19 @@ DEFAULT_FIDELITY_NOTES = (
     "mapped-key accept."
 )
 
+GF_EVAL_FIDELITY_NOTES = (
+    "eval consumes GazeSample screen points + live layout QRects; "
+    "no FeatureExtractor / Ridge / MapperRuntime.key_accuracy_predict_screen_xy; "
+    "hit-test = hit_test_layout_keys; inside_tight uses tight rect; "
+    "HeuristicFilter look-ahead 3; cali_mode=13; camera 0/640x480/30; "
+    "geometry identity|origin|origin+dpr only; license CC BY-NC-SA 4.0."
+)
+
+FEATURE_004_EVAL_BEFORE = (
+    "Feature 004 A/B 14938da0bdf0, 34fb259ccdfd; "
+    "Feature 004 T060 689c8a8ce90c, 4f665467b260 (eval_before only)"
+)
+
 
 def classify_quality_gate_kind(quality: Any) -> QualityGateKind:
     """Map ``evaluate_calibration_quality`` output to a diagnostic kind.

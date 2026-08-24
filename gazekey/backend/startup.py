@@ -44,6 +44,12 @@ def run_official_startup(lifecycle: GazeFollowerLifecycle) -> None:
     lifecycle.preview()
     lifecycle.calibrate()
     _capture(lifecycle, PHASE_AFTER_CALIBRATE)
+    if not lifecycle.calibration_accepted():
+        lifecycle._cleanup_after_failure()
+        lifecycle._fail_closed(
+            "calibrate() (not accepted)",
+            RuntimeError("official calibration was not accepted"),
+        )
     lifecycle.quit_pygame()
     _capture(lifecycle, PHASE_AFTER_PYGAME_QUIT)
     lifecycle.start_sampling()
@@ -80,7 +86,13 @@ def record_dpi_probe(lifecycle: GazeFollowerLifecycle, path: Any = None) -> Any:
 
 
 def wire_debug_gaze_dot(lifecycle: GazeFollowerLifecycle, keyboard: Any) -> Any:
-    """Stage C debug overlay: GREEN origin+dpr vs MAGENTA identity, same sample."""
+    """Stage C debug overlay: GREEN official-style origin+dpr ring."""
+    existing = getattr(keyboard, "_gf_debug_overlay", None)
+    if existing is not None:
+        try:
+            existing.hide()
+        except Exception:
+            pass
     geom = getattr(lifecycle, "geometry", None)
     dpr = float(geom.dpr) if geom is not None else 1.0
     overlay = DebugGazeOverlay(keyboard, dpr=dpr)
@@ -89,3 +101,73 @@ def wire_debug_gaze_dot(lifecycle: GazeFollowerLifecycle, keyboard: Any) -> Any:
     bridge.start()
     keyboard._gf_sample_bridge = bridge
     return bridge
+
+
+def wire_official_gaze_typing(lifecycle: GazeFollowerLifecycle, keyboard: Any) -> Any:
+    """Stage D: GazeSample queue → MappedGazePoint → existing dwell / OS typing."""
+    keyboard._gf_lifecycle = lifecycle
+    keyboard._official_gaze_ready = True
+    ensure = getattr(keyboard, "_ensure_typing_auto_started", None)
+    if callable(ensure):
+        ensure()
+    bridge = lifecycle.attach_qt_bridge(parent=keyboard)
+    loop = getattr(keyboard, "_gaze_loop", None)
+    if loop is not None and hasattr(bridge, "sample_ready"):
+        bridge.sample_ready.connect(loop.on_gaze_sample)
+    bridge.start()
+    keyboard._gf_typing_bridge = bridge
+    return bridge
+
+
+def run_official_recalibrate(lifecycle: GazeFollowerLifecycle, keyboard: Any) -> bool:
+    """Hide Qt, official Preview+Calibration, resume sampling. Keep prior model if unaccepted."""
+    from PySide6.QtWidgets import QApplication
+
+    from gazekey.backend.lifecycle import GazeFollowerLifecycleError
+
+    runtime = getattr(keyboard, "_typing_runtime", None)
+    had_accepted = bool(getattr(keyboard, "_official_gaze_ready", False))
+    if runtime is not None:
+        runtime.set_os_inject_enabled(False)
+        runtime.dwell.cancel_progress()
+    lifecycle.stop_qt_bridge()
+    hide = getattr(keyboard, "hide", None)
+    if callable(hide):
+        hide()
+    app = QApplication.instance()
+    if app is not None:
+        app.processEvents()
+
+    accepted = False
+    try:
+        lifecycle.stop_sampling()
+        lifecycle.preview()
+        lifecycle.calibrate()
+        accepted = lifecycle.calibration_accepted()
+        lifecycle.quit_pygame()
+        lifecycle.start_sampling()
+    except GazeFollowerLifecycleError:
+        show = getattr(keyboard, "show", None)
+        if callable(show):
+            show()
+        raise
+
+    show = getattr(keyboard, "show", None)
+    if callable(show):
+        show()
+    raise_ = getattr(keyboard, "raise_", None)
+    if callable(raise_):
+        raise_()
+    activate = getattr(keyboard, "activateWindow", None)
+    if callable(activate):
+        activate()
+
+    wire_debug_gaze_dot(lifecycle, keyboard)
+    if accepted or had_accepted:
+        wire_official_gaze_typing(lifecycle, keyboard)
+    elif runtime is not None:
+        lifecycle._fail_closed(
+            "recalibrate (not accepted, no prior model)",
+            RuntimeError("official calibration was not accepted"),
+        )
+    return accepted

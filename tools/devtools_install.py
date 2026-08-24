@@ -43,6 +43,10 @@ class DevToolsBundle:
         if self._benchmark is not None:
             self._benchmark.process_eye_data(eye_data)
 
+    def process_benchmark_gaze_sample(self, sample: Any) -> None:
+        if self._benchmark is not None:
+            self._benchmark.process_gaze_sample(sample)
+
     def update_benchmark_banner_geometry(self) -> None:
         if self._benchmark is not None:
             self._benchmark.update_banner_geometry()

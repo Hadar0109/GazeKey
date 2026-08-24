@@ -19,6 +19,7 @@ from gazekey.backend.startup import (
     record_live_geometry,
     run_official_startup,
     wire_debug_gaze_dot,
+    wire_official_gaze_typing,
 )
 
 
@@ -50,11 +51,12 @@ def main(argv: list[str] | None = None) -> int:
     record_live_geometry(lifecycle, keyboard)
     probe_path = record_dpi_probe(lifecycle)
     wire_debug_gaze_dot(lifecycle, keyboard)
+    wire_official_gaze_typing(lifecycle, keyboard)
     app.aboutToQuit.connect(lifecycle.release)
 
     print("GazeKey started (GazeFollower backend)!")
-    print("- GREEN = origin+dpr   MAGENTA = identity (no /DPR)")
-    print("- Same gf.get_gaze_info() sample. Hold-last is debug-only. Dwell stays off.")
+    print("- GREEN ring = official filtered gaze (origin+dpr)")
+    print("- Dwell/OS typing consume GazeSample. Invalid gaze cancels dwell.")
     if probe_path is not None:
         print(f"- DPI probe: {probe_path}")
     print("- Close the window to exit")

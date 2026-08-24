@@ -11,6 +11,11 @@ from tools.evaluation.session_paths import artifact_path, ensure_session_dir, fo
 EXPERIMENT_RECORD_FILE = "experiment_record.md"
 HADAR_WRONG_FOCUS_FILE = "hadar_wrong_focus.md"
 
+FEATURE_004_EVAL_BEFORE = (
+    "Feature 004 A/B 14938da0bdf0, 34fb259ccdfd; "
+    "Feature 004 T060 689c8a8ce90c, 4f665467b260 (eval_before only)"
+)
+
 EXPERIMENT_RECORD_TEMPLATE = """# ExperimentRecord
 
 - hypothesis: {hypothesis}

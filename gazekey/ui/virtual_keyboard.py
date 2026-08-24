@@ -164,6 +164,8 @@ class VirtualKeyboard(QWidget):
         self._keyboard_layout_builder.schedule_layout_export()
         self._gf_debug_overlay = None
         self._gf_sample_bridge = None
+        self._gf_lifecycle = None
+        self._official_gaze_ready = False
         self._init_calibration_on_startup()
 
     def init_ui(self):
@@ -186,6 +188,8 @@ class VirtualKeyboard(QWidget):
             runtime.model = value
 
     def _calibration_usable(self) -> bool:
+        if bool(getattr(self, "_official_gaze_ready", False)):
+            return True
         runtime = getattr(self, "_mapper_runtime", None)
         if runtime is None:
             return self.__dict__.get("_gaze_mapper") is not None
@@ -367,16 +371,22 @@ class VirtualKeyboard(QWidget):
         self._log_verbose(f"Key ignored (non-OS or typing inactive): {key}")
     
     def on_calibrate_clicked(self):
-        """Calibrate control. Official GazeFollower recalibrate is Stage E (T042).
+        """Calibrate control → official GazeFollower Preview + Calibration (T042).
 
         Do not start TrackingManager or the legacy CalibrationOverlay.
         """
-        self._reset_typing_for_recalibration()
         self._reset_calibrate_button_style()
-        self._log_verbose(
-            "[calib] Calibrate requested; legacy overlay is disabled on the "
-            "GazeFollower production path (Stage E rewires this to official UI)"
-        )
+        lifecycle = getattr(self, "_gf_lifecycle", None)
+        if lifecycle is None:
+            self._reset_typing_for_recalibration()
+            self._log_verbose(
+                "[calib] Calibrate requested without GazeFollower lifecycle; "
+                "legacy overlay is not started."
+            )
+            return
+        from gazekey.backend.startup import run_official_recalibrate
+
+        run_official_recalibrate(lifecycle, self)
 
     def _reset_calibrate_button_style(self) -> None:
         self.calibrate_btn.setText("👁 CALIBRATE")
@@ -717,15 +727,22 @@ class VirtualKeyboard(QWidget):
             runtime.session.on_tracking_terminated()
             runtime.dwell.reset()
             runtime.set_os_inject_enabled(False)
-        
+
+        lifecycle = getattr(self, "_gf_lifecycle", None)
+        if lifecycle is not None:
+            try:
+                lifecycle.release()
+            except Exception as exc:
+                self._log_verbose(f"[shutdown] GazeFollower.release() failed: {exc}")
+
         # Cleanup tracking system if active
         if self.tracking_manager:
             self.tracking_manager.cleanup()
-        
+
         # Close camera preview window
         if self.camera_preview_window:
             self.camera_preview_window.close()
-        
+
         QApplication.quit()
 
     def _ensure_camera_preview(self, *, show: bool = False) -> None:

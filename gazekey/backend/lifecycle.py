@@ -46,6 +46,7 @@ class GazeFollowerLifecycle:
         self.gf_screen_size: tuple[int, int] | None = None
         self._sample_queue: queue.Queue[Any] = queue.Queue(maxsize=1)
         self._qt_bridge: Any = None
+        self._qt_consumers: list[Any] = []
         self._released = False
 
     @property
@@ -149,6 +150,16 @@ class GazeFollowerLifecycle:
             self._cleanup_after_failure()
             self._fail_closed("calibrate()", exc)
 
+    def calibration_accepted(self) -> bool:
+        """True when official ``cali_available`` is set after Space accept."""
+        gf = self._gf
+        if gf is None:
+            return False
+        controller = getattr(gf, "_calibration_controller", None)
+        if controller is None:
+            return False
+        return bool(getattr(controller, "cali_available", False))
+
     def quit_pygame(self) -> None:
         self._pygame_win = None
         try:
@@ -198,12 +209,10 @@ class GazeFollowerLifecycle:
                 break
         return sample
 
-    def debug_filtered_pair(
-        self,
-    ) -> tuple[tuple[float, float], tuple[float, float]] | None:
-        """One get_gaze_info() sample: (origin+dpr xy, identity xy).
+    def debug_filtered_qt_xy(self) -> tuple[float, float] | None:
+        """One gf.get_gaze_info() sample mapped with lifecycle.geometry (origin+dpr).
 
-        Identity is raw GF pixels as Qt global. Does not change lifecycle.geometry.
+        Does not change lifecycle.geometry. Does not apply identity/no-DPR.
         """
         gf = self._gf
         if gf is None:
@@ -221,14 +230,7 @@ class GazeFollowerLifecycle:
             return None
         if not math.isfinite(x) or not math.isfinite(y):
             return None
-        transformed = apply_geometry(x, y, self.geometry)
-        identity_xy = apply_geometry(x, y, GeometryConfig(transform="identity"))
-        return transformed, identity_xy
-
-    def debug_filtered_qt_xy(self) -> tuple[float, float] | None:
-        """origin+dpr half of debug_filtered_pair (Step B helper)."""
-        pair = self.debug_filtered_pair()
-        return None if pair is None else pair[0]
+        return apply_geometry(x, y, self.geometry)
 
     def attach_qt_bridge(self, parent: Any = None) -> Any:
         """Qt-thread-safe consumer: timer on the Qt thread drains the camera queue.
@@ -260,11 +262,10 @@ class GazeFollowerLifecycle:
                 if sample is not None:
                     self.sample_ready.emit(sample)
 
-        self._qt_bridge = GazeSampleBridge()
-        return self._qt_bridge
+        return self._register_qt_consumer(GazeSampleBridge())
 
     def attach_debug_get_gaze_info_bridge(self, overlay: Any, parent: Any = None) -> Any:
-        """Poll official ``gf.get_gaze_info()`` once per tick for the dual overlay.
+        """Poll official ``gf.get_gaze_info()`` once per tick for the GREEN overlay.
 
         Does not drain the T010 subscriber queue. Stopped by ``stop_qt_bridge``.
         """
@@ -286,12 +287,11 @@ class GazeFollowerLifecycle:
                 self._timer.stop()
 
             def _poll(self) -> None:
-                pair = lifecycle.debug_filtered_pair()
-                if pair is not None:
-                    overlay.update_pair(pair[0], pair[1])
+                xy = lifecycle.debug_filtered_qt_xy()
+                if xy is not None:
+                    overlay.update_xy(xy[0], xy[1])
 
-        self._qt_bridge = DebugGetGazeInfoBridge()
-        return self._qt_bridge
+        return self._register_qt_consumer(DebugGetGazeInfoBridge())
 
     def release(self) -> None:
         self.stop_qt_bridge()
@@ -305,13 +305,22 @@ class GazeFollowerLifecycle:
         self._released = True
         self._gf = None
 
+    def _register_qt_consumer(self, bridge: Any) -> Any:
+        consumers = getattr(self, "_qt_consumers", None)
+        if consumers is None:
+            consumers = []
+            self._qt_consumers = consumers
+        consumers.append(bridge)
+        self._qt_bridge = bridge
+        return bridge
+
     def stop_qt_bridge(self) -> None:
-        bridge = self._qt_bridge
-        if bridge is not None:
+        for bridge in list(getattr(self, "_qt_consumers", None) or []):
             try:
                 bridge.stop()
             except Exception:
                 pass
+        self._qt_consumers = []
         self._qt_bridge = None
 
     def _on_camera_sample(self, face_info: Any, gaze_info: Any, *args: Any, **kwargs: Any) -> None:

@@ -12,6 +12,7 @@ _PRODUCT_ROOTS = (
     _REPO / "gazekey" / "runtime",
     _REPO / "gazekey" / "calibration",
     _REPO / "gazekey" / "mapping",
+    _REPO / "gazekey" / "backend",
 )
 _PRODUCT_FILES = [_REPO / "main.py"]
 

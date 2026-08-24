@@ -16,6 +16,7 @@ from tools.evaluation.benchmark_runner import (
     unique_evaluation_labels,
 )
 from tools.evaluation.benchmark_session import BenchmarkEvalSession, resolve_sample_keys
+from tools.evaluation.gazesample_scoring import GazeSampleEvalSession
 from tools.evaluation.clamp_diagnostic import clip_bounds_of, make_eval_predict_fns
 from tools.evaluation.experiment_record import (
     ExperimentRecord,
@@ -84,6 +85,34 @@ class BenchmarkController:
         self._host._log_verbose(
             "[benchmark] started — tools evaluation (repeatability + held-out letters + editing/control)"
         )
+
+    def process_gaze_sample(self, sample) -> None:
+        h = self._host
+        session = self._session
+        if session is None or not hasattr(session, "tick_sample"):
+            return
+        now_ms = int(time.time() * 1000)
+        if bool(getattr(sample, "valid", False)):
+            h._update_gaze_preview_dot(float(sample.x), float(sample.y))
+        else:
+            h._hide_preview_dot()
+        completed = session.tick_sample(now_ms, sample)
+        if completed is not None:
+            h._log_verbose(
+                f"[benchmark] {completed.target_key}: "
+                f"pred=({completed.predicted_x:.1f},{completed.predicted_y:.1f}) "
+                f"key={completed.predicted_key} err={completed.error_px:.1f}px "
+                f"correct={completed.is_correct}"
+            )
+        if session.finished:
+            self._finish_session()
+            return
+        cur = session.current_sample()
+        if cur is not None:
+            _label, row = cur
+            self._highlight_target(row.button)
+        banner = session.instruction_text().replace("Look at key:", "Benchmark — look at:")
+        self._update_banner(banner)
 
     def process_eye_data(self, eye_data) -> None:
         h = self._host
@@ -176,7 +205,8 @@ class BenchmarkController:
 
     def _begin_session(self) -> bool:
         h = self._host
-        if h._gaze_mapper is None:
+        gf_path = bool(getattr(h, "_official_gaze_ready", False))
+        if not gf_path and h._gaze_mapper is None:
             h._log_verbose("[benchmark] skipped: no mapper loaded")
             return False
         h._export_keyboard_layout()
@@ -206,21 +236,29 @@ class BenchmarkController:
             h.preview_btn.style().unpolish(h.preview_btn)
             h.preview_btn.style().polish(h.preview_btn)
             h.preview_btn.update()
-        def _reset_benchmark_smoothers() -> None:
-            h._gaze_smoother.reset()
-            h._feature_smoother.reset()
-
-        clamped_fn, unclamped_fn = make_eval_predict_fns(h)
         self._eval_calib_labels = calib_labels
-        self._session = BenchmarkEvalSession(
-            resolved,
-            keys_for_hit_test=h._layout_keys,
-            predict_screen_xy=clamped_fn,
-            on_key_begin=_reset_benchmark_smoothers,
-            predict_unclamped_screen_xy=unclamped_fn,
-            clip_bounds=clip_bounds_of(h._gaze_mapper),
-            calibration_labels=calib_labels,
-        )
+        self._gf_eval = gf_path
+        if gf_path:
+            self._session = GazeSampleEvalSession(
+                resolved,
+                keys_for_hit_test=h._layout_keys,
+                calibration_labels=calib_labels,
+            )
+        else:
+            def _reset_benchmark_smoothers() -> None:
+                h._gaze_smoother.reset()
+                h._feature_smoother.reset()
+
+            clamped_fn, unclamped_fn = make_eval_predict_fns(h)
+            self._session = BenchmarkEvalSession(
+                resolved,
+                keys_for_hit_test=h._layout_keys,
+                predict_screen_xy=clamped_fn,
+                on_key_begin=_reset_benchmark_smoothers,
+                predict_unclamped_screen_xy=unclamped_fn,
+                clip_bounds=clip_bounds_of(h._gaze_mapper),
+                calibration_labels=calib_labels,
+            )
         now_ms = int(time.time() * 1000)
         self._session.begin(now_ms)
         cur = self._session.current_sample()
@@ -231,15 +269,21 @@ class BenchmarkController:
         return True
 
     def _finish_session(self) -> None:
+        from gazekey.backend.provenance import provenance_record
         from tools.evaluation.benchmark_diagnostics import (
             build_benchmark_diagnostics,
             write_benchmark_diagnostics,
+        )
+        from tools.evaluation.run_summary import (
+            FEATURE_004_EVAL_BEFORE,
+            GF_EVAL_FIDELITY_NOTES,
         )
 
         h = self._host
         session = self._session
         if session is None:
             return
+        gf_eval = bool(getattr(self, "_gf_eval", False))
         rows = session.results
         run = build_benchmark_run(rows)
         passed, reason = evaluate_benchmark_pass(run.metrics)
@@ -257,31 +301,58 @@ class BenchmarkController:
             failure_analysis=analysis,
             location_results_text=format_location_results(rows),
             quality_gate_kind=gate,
+            fidelity_notes=GF_EVAL_FIDELITY_NOTES if gf_eval else None,
         )
         try:
+            notes = (
+                GF_EVAL_FIDELITY_NOTES
+                if gf_eval
+                else (
+                    "Label this session CurrentStateBaseline A or B. "
+                    "USER GATE: type hadar with suggestions unused; fill "
+                    "hadar_wrong_focus.md (wrong focus on H/A/D/R)."
+                )
+            )
+            eval_before = (
+                FEATURE_004_EVAL_BEFORE
+                if gf_eval
+                else "n/a (this run is a baseline capture)"
+            )
             write_experiment_record(
                 session_id,
                 ExperimentRecord(
                     hypothesis=(
-                        "Current-state baseline after evaluation fidelity (Phase A). "
-                        "No mapping/collection product change."
+                        "GazeFollower integrated evaluation (Feature 005)."
+                        if gf_eval
+                        else (
+                            "Current-state baseline after evaluation fidelity (Phase A). "
+                            "No mapping/collection product change."
+                        )
                     ),
                     logical_area="eval",
-                    change="none (current-state baseline)",
-                    eval_before="n/a (this run is a baseline capture)",
+                    change=(
+                        "GazeSample + live QRects; no FeatureExtractor/Ridge predict"
+                        if gf_eval
+                        else "none (current-state baseline)"
+                    ),
+                    eval_before=eval_before,
                     eval_after=folder_session_id(session_id),
                     decision="pending",
-                    notes=(
-                        "Label this session CurrentStateBaseline A or B. "
-                        "USER GATE: type hadar with suggestions unused; fill "
-                        "hadar_wrong_focus.md (wrong focus on H/A/D/R)."
-                    ),
+                    notes=f"{notes}; provenance={provenance_record()}",
                 ),
                 runs_dir=h._run_summary_writer.runs_dir,
             )
             write_hadar_wrong_focus(session_id, runs_dir=h._run_summary_writer.runs_dir)
         except Exception as e:
             h._log_verbose(f"[benchmark] experiment_record write failed: {e}")
+        if gf_eval:
+            self._session = None
+            self._clear_highlight()
+            self._hide_banner()
+            h._reset_preview_overlay()
+            h._preview_mode = True
+            h._set_post_calibration_controls(True)
+            return
         try:
             cal_targets = h._calibration_session.targets if h._calibration_session else None
             diagnostics = build_benchmark_diagnostics(

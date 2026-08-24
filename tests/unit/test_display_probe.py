@@ -205,7 +205,9 @@ def test_startup_source_keeps_quit_then_sample_and_get_gaze_info_overlay():
         "lifecycle.start_sampling()"
     )
     assert "attach_debug_get_gaze_info_bridge" in startup
-    assert "sample_ready" not in startup
+    assert "sample_ready" not in body
+    assert "wire_official_gaze_typing" in startup
+    assert "sample_ready" in startup
     assert "record_dpi_probe" in main
     assert "QApplication" in main
     assert main.index("run_official_startup") < main.index("QApplication")

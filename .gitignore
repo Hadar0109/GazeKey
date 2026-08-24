@@ -43,3 +43,7 @@ htmlcov/
 .pytest_cache/
 
 .cursor/
+
+# GazeSample replay captures (T053) — no webcam/face/eye frames
+runs/_replay/
+*.gaze_replay.jsonl

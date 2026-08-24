@@ -36,6 +36,7 @@ class FakeGazeFollower:
         self.calibrate_calls = 0
         self.sampling_calls = 0
         self.release_calls = 0
+        self._calibration_controller = SimpleNamespace(cali_available=True)
 
     def preview(self, win=None) -> None:
         self.preview_calls += 1
@@ -138,7 +139,7 @@ def test_camera_thread_queue_not_raw_get_gaze_info(monkeypatch):
     assert life.take_latest_sample() is None
 
 
-def test_debug_filtered_pair_same_sample_origin_dpr_and_identity(monkeypatch):
+def test_debug_filtered_qt_xy_uses_one_get_gaze_info_and_origin_dpr(monkeypatch):
     _patch_official(monkeypatch)
     geom = GeometryConfig(transform="origin+dpr", dpr=1.5, origin_offset=(0.0, 0.0))
     life = GazeFollowerLifecycle(gf_factory=FakeGazeFollower, geometry=geom)
@@ -156,20 +157,36 @@ def test_debug_filtered_pair_same_sample_origin_dpr_and_identity(monkeypatch):
         filtered_gaze_coordinates=(960.0, 540.0),
     )
     geom_before = life.geometry
-    pair = life.debug_filtered_pair()
-    assert pair == ((640.0, 360.0), (960.0, 540.0))
+    xy = life.debug_filtered_qt_xy()
+    assert xy == (640.0, 360.0)
     assert len(calls) == 1
     assert life.geometry is geom_before
     assert life.geometry.transform == "origin+dpr"
-    assert life.debug_filtered_qt_xy() == (640.0, 360.0)
     life.gf._gaze_info = SimpleNamespace(
         status=False,
         filtered_gaze_coordinates=(960.0, 540.0),
     )
-    assert life.debug_filtered_pair() is None
     assert life.debug_filtered_qt_xy() is None
     sample = life.take_latest_sample()
     assert sample is None
+
+
+def test_unaccepted_calibration_fails_closed(monkeypatch):
+    from gazekey.backend.startup import run_official_startup
+
+    class Rejecting(FakeGazeFollower):
+        def __init__(self, config=None) -> None:
+            super().__init__(config)
+            self._calibration_controller.cali_available = False
+
+    _patch_official(monkeypatch)
+    life = GazeFollowerLifecycle(gf_factory=Rejecting)
+    monkeypatch.setattr(life, "_ensure_pygame_window", lambda: "win")
+    with pytest.raises(GazeFollowerLifecycleError, match="Failing closed") as err:
+        run_official_startup(life)
+    assert "not accepted" in str(err.value)
+    assert "PCA4" in str(err.value)
+    assert "TrackingManager" in str(err.value)
 
 
 def test_official_startup_preview_calibrate_then_sampling(monkeypatch):

@@ -19,6 +19,8 @@ class DevToolsProtocol(Protocol):
 
     def process_benchmark_eye_data(self, eye_data: Any) -> None: ...
 
+    def process_benchmark_gaze_sample(self, sample: Any) -> None: ...
+
     def update_benchmark_banner_geometry(self) -> None: ...
 
     def maybe_start_dev_benchmark(self) -> None: ...
@@ -64,6 +66,9 @@ class NullDevTools:
         return False
 
     def process_benchmark_eye_data(self, eye_data: Any) -> None:
+        return None
+
+    def process_benchmark_gaze_sample(self, sample: Any) -> None:
         return None
 
     def update_benchmark_banner_geometry(self) -> None:

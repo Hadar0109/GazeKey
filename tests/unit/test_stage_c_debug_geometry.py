@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 from gazekey.backend.debug_gaze_dot import (
     DebugGazeOverlay,
-    HUD_TEXT,
+    ORIGIN_DPR_RING_COLOR,
     overlay_ring_metrics,
 )
 from gazekey.backend.gaze_sample import GazeSample
@@ -194,34 +194,39 @@ def test_debug_dot_paint_does_not_apply_dpr_again():
     assert "/ dpr" not in debug_dot
 
 
-def test_overlay_pair_stores_two_distinct_locals_and_hud(qapp):
+def test_overlay_stores_single_origin_dpr_local_and_no_magenta_hud(qapp):
     vk = VirtualKeyboard()
     vk.show()
     qapp.processEvents()
     overlay = DebugGazeOverlay(vk.keyboard_widget, dpr=1.5)
-    overlay.update_pair((640.0, 360.0), (960.0, 540.0))
+    overlay.update_xy(640.0, 360.0)
     qapp.processEvents()
     assert overlay._dot._dpr_pos is not None
-    assert overlay._dot._identity_pos is not None
-    assert overlay._dot._dpr_pos != overlay._dot._identity_pos
+    assert not hasattr(overlay._dot, "_identity_pos")
     assert overlay._dot._radius == overlay_ring_metrics(1.5)[0]
-    assert "GREEN" in HUD_TEXT
-    assert "MAGENTA" in HUD_TEXT
-    assert "origin+dpr" in HUD_TEXT
-    assert "identity" in HUD_TEXT
+    assert ORIGIN_DPR_RING_COLOR.green() == 255
+    assert ORIGIN_DPR_RING_COLOR.red() == 0
+    assert not hasattr(overlay, "update_pair")
 
 
-def test_step_c_source_mentions_green_vs_magenta():
+def test_step_c_source_keeps_green_origin_dpr_without_magenta():
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[2]
     debug = (root / "gazekey/backend/debug_gaze_dot.py").read_text(encoding="utf-8")
     startup = (root / "gazekey/backend/startup.py").read_text(encoding="utf-8")
     main = (root / "main.py").read_text(encoding="utf-8")
-    assert "GREEN" in debug and "MAGENTA" in debug
-    assert "GREEN" in HUD_TEXT and "MAGENTA" in HUD_TEXT
-    assert "GREEN" in startup and "MAGENTA" in startup
-    assert "GREEN" in main and "MAGENTA" in main
+    life = (root / "gazekey/backend/lifecycle.py").read_text(encoding="utf-8")
+    assert "GREEN" in debug
+    assert "MAGENTA" not in debug
+    assert "HUD_TEXT" not in debug
+    assert "identity (no" not in debug
+    assert "update_pair" not in debug
+    assert "MAGENTA" not in startup
+    assert "MAGENTA" not in main
+    assert "debug_filtered_pair" not in life
+    assert "GREEN" in main
+    assert "origin+dpr" in main
 
 
 def test_step_c_diagnostic_does_not_call_choose_allowed_transform():
@@ -230,12 +235,13 @@ def test_step_c_diagnostic_does_not_call_choose_allowed_transform():
     root = Path(__file__).resolve().parents[2]
     debug = (root / "gazekey/backend/debug_gaze_dot.py").read_text(encoding="utf-8")
     life = (root / "gazekey/backend/lifecycle.py").read_text(encoding="utf-8")
-    pair = life.split("def debug_filtered_pair", 1)[1].split(
-        "def debug_filtered_qt_xy", 1
+    qt_xy = life.split("def debug_filtered_qt_xy", 1)[1].split(
+        "def attach_qt_bridge", 1
     )[0]
     bridge = life.split("def attach_debug_get_gaze_info_bridge", 1)[1].split(
         "def release", 1
     )[0]
     assert "choose_allowed_transform" not in debug
-    assert "choose_allowed_transform" not in pair
+    assert "choose_allowed_transform" not in qt_xy
     assert "choose_allowed_transform" not in bridge
+    assert "GeometryConfig(transform=\"identity\")" not in qt_xy

@@ -29,11 +29,26 @@ from gazekey.typing.typing_session import TypingSession, TypingSessionState
 
 @dataclass(frozen=True)
 class MappedGazePoint:
-    """Mapped screen gaze after predict + smooth (data-model)."""
+    """Mapped screen gaze from GazeSample x/y/valid only (no mapper predict)."""
 
     x: float
     y: float
     valid: bool
+
+    @staticmethod
+    def from_gaze_sample(sample: object) -> "MappedGazePoint":
+        """GazeSample → MappedGazePoint using x, y, valid only.
+
+        Invalid samples (including openness at or below the official blink
+        threshold) are valid=False with x=y=0. Does not hold-last.
+        """
+        if not bool(getattr(sample, "valid", False)):
+            return MappedGazePoint(x=0.0, y=0.0, valid=False)
+        return MappedGazePoint(
+            x=float(getattr(sample, "x", 0.0)),
+            y=float(getattr(sample, "y", 0.0)),
+            valid=True,
+        )
 
 
 @dataclass(frozen=True)
