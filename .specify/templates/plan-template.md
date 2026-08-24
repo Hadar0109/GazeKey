@@ -40,7 +40,7 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-Reference: `.specify/memory/constitution.md` (GazeKey v1.3.0)
+Reference: `.specify/memory/constitution.md` (GazeKey v1.4.0)
 
 | Gate | Requirement | Pass? |
 |------|-------------|-------|
@@ -54,7 +54,7 @@ Reference: `.specify/memory/constitution.md` (GazeKey v1.3.0)
 | Documentation Hierarchy | Spec Kit docs are source of truth for this phase; PDF is long-term vision only | ☐ |
 | Targeted Cleanup | Active path unambiguous; inventory-first deletions via approved tasks | ☐ |
 | Simple Logging | Readable logs; quiet normal runs; optional verbose flag — no multi-mode logging framework | ☐ |
-| Minimal Calibration UI | Fixation screen shows only dot + optional progress; detail off-screen; pass/fail only after session ends | ☐ |
+| Minimal Calibration UI | GazeKey-owned fixation UI shows only dot + optional progress; detail off-screen. An approved upstream backend MAY use its official Preview/Calibration/result UI unmodified; GazeKey MUST NOT recreate a metric-heavy equivalent | ☐ |
 
 If any gate fails, STOP and revise the spec/plan or document a justified violation in Complexity Tracking below.
 

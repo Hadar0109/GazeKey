@@ -1,28 +1,36 @@
 <!--
 Sync Impact Report
-Version change: 1.2.0 → 1.3.0
+Version change: 1.3.0 → 1.4.0
 Modified principles:
-  - Project Context → post-mapping product stage (mapping remains foundation)
-  - I Accuracy First → keep non-negotiable mapping reliability; allow later
-    specified features to consume mapped gaze (dwell/typing/OS) without treating
-    them as permanently out of scope; forbid downstream compensation of mapping
-  - II Measurable Progress → mapping metrics remain independent; other features
-    use their own acceptance criteria from their specs
-  - III Simple Pipeline → sealed upstream through mapped gaze; optional
-    specified downstream stages; no mapping compensations without benchmark proof
-  - V MVP Scope Control → rename emphasis to Feature Scope Control: mapping
-    foundation vs advanced/post-mapping features that require their own specs
-  - VI Testable Architecture → include typing/OS boundaries when those features
-    exist; keep calibration/mapping separable
-  - VIII Documentation Hierarchy → post-mapping features reconcile via new specs
-    (clarified)
+  - Project Context → mapping foundation is the sealed screen-space
+    measurement boundary; production implementation may be replaced when
+    specified and independently validated; Feature 005 GazeFollower is the
+    approved production gaze-estimation/calibration implementation; PCA4 is
+    historical evidence, not a permanent constitutional requirement
+  - I Accuracy First → keep non-negotiable independently measured mapping
+    reliability and no downstream compensation; do not permanently require
+    PCA4; replacement backends must not be silently combined with the
+    previous estimator
+  - II Measurable Progress → keep independent mapping metrics; name
+    intended-key/focus, row, pixel error, repeatability, reachability,
+    latency, and practical interaction tests as applicable
+  - III Simple Pipeline → sealed upstream is screen-space mapped gaze from
+    the approved backend; no ad-hoc post-backend mapping corrections
+  - V Feature Scope Control → mapping foundation = approved gaze backend +
+    independent screen-space mapping benchmark (not PCA4-as-implementation)
+  - XI Minimal Visual Distraction During Calibration → keep GazeKey-owned
+    fixation UI minimal; add explicit exception for an approved upstream
+    backend's official Preview/Calibration/result UI used unmodified
+    (Feature 005 GazeFollower UI allowed as-is)
 Added sections: (none)
 Removed sections: (none)
 Templates requiring updates:
   - .specify/templates/plan-template.md ✅ updated
   - .specify/templates/spec-template.md ✅ updated
-  - .specify/templates/tasks-template.md ✅ reviewed (no constitution-gate wording change required)
-Follow-up TODOs: None
+  - .specify/templates/tasks-template.md ✅ updated
+Follow-up TODOs: None. Feature 004 specs/runs/tags are historical and MUST
+NOT be rewritten to match this amendment. Feature 005 spec/plan/tasks keep
+their planning-time constitution-check notes as historical record.
 -->
 
 # GazeKey Constitution
@@ -34,17 +42,27 @@ product vision includes webcam eye tracking, a virtual keyboard overlay,
 calibration, gaze-to-key mapping, dwell-time selection, OS-level typing
 integration, Hebrew/English support, and predictive text.
 
-**Calibration and PCA4 gaze-to-key mapping** remain an **independently validated
-foundation**. Mapped gaze is the sealed upstream product of that foundation.
+**Independently validated screen-space gaze mapping** remains the **sealed
+measurement foundation**. Mapped gaze (screen-space point + validity) is the
+sealed upstream product of that foundation. The production
+gaze-estimation/calibration **implementation** MAY be replaced when a feature
+specification names the backend, independently validates it, and preserves this
+screen-space boundary.
+
+For Feature 005, **official GazeFollower** is the approved production
+gaze-estimation and calibration implementation. **PCA4** remains historical
+implementation and evidence (including Feature 004). It is **not** a permanent
+constitutional requirement that PCA4 stay the production mapping implementation.
+
 Later Spec Kit features MAY consume mapped gaze to add dwell interaction,
 typing, OS integration, and other product capabilities — each with its own
 specification and acceptance criteria.
 
 Downstream typing and interaction MUST NOT modify, retune, or compensate for
-calibration/mapping behavior to “fix” typing. Mapping accuracy MUST continue
-to be evaluated independently through its own key-hit (and related) benchmarks.
-Instrumentation, logging, and cleanup MUST stay light and practical — enough to
-judge progress, not a project of their own.
+gaze estimation/mapping behavior to “fix” typing. Mapping accuracy MUST continue
+to be evaluated independently through meaningful external metrics (Principle
+II). Instrumentation, logging, and cleanup MUST stay light and practical —
+enough to judge progress, not a project of their own.
 
 ## Core Principles
 
@@ -54,40 +72,61 @@ Gaze-to-key mapping reliability remains the foundation of GazeKey. No change to
 calibration or mapping is considered successful unless mapping quality is
 measured with objective end-to-end metrics (Principle II).
 
+This principle protects the **measurement boundary**, not a permanently named
+estimator. A different production gaze-estimation/mapping backend MAY replace
+the previous one only when that replacement is specified, independently
+validated, and still emits sealed screen-space mapped gaze.
+
 Later-specified features (including dwell selection, typing, and OS integration)
 MAY build on **mapped gaze** once specified. They MUST:
 
 - **consume** mapped gaze as an input, and
-- **NOT** alter calibration sample collection, mapper fitting, quality gates, or
-  predict behavior to compensate for typing/interaction issues.
+- **NOT** alter the approved backend's calibration/estimation, quality gates, or
+  predict behavior to compensate for typing/interaction issues, and
+- **NOT** add ad-hoc mapping corrections, learned remaps, bias, affine fits, or
+  extra smoothing after the approved backend in order to hide poor gaze
+  estimation.
 
-Improving typing UX MUST NOT become a reason to patch the mapper without a
+A replacement backend MUST NOT be silently combined, averaged, or used as a
+fallback cascade with the previous estimator unless a future specification
+explicitly approves that architecture.
+
+Improving typing UX MUST NOT become a reason to patch mapping without a
 mapping-focused benchmark justification (Principle III). Advanced capabilities
 such as predictive text, language switching, personalization, multi-monitor
 support, and accessibility polish still require their own specifications — they
 are not implied by enabling dwell/OS typing.
 
 **Rationale**: Prior work layered runtime compensations atop an unstable mapping
-foundation. Downstream features must not recreate that failure mode.
+foundation. Downstream features must not recreate that failure mode. Naming one
+historical implementation (PCA4) as permanently required would block a specified,
+independently validated replacement.
 
 ### II. Measurable Progress Only (NON-NEGOTIABLE)
 
-Every calibration or mapping change MUST be evaluated using objective metrics:
+Every calibration or mapping change MUST be evaluated using objective external
+metrics, as applicable to the feature:
 
-- **key-hit accuracy** (primary acceptance metric for mapping)
+- **intended-key / focus accuracy** (primary acceptance metric for mapping;
+  historically recorded as key-hit accuracy)
 - **pixel error**
 - **row accuracy**
 - **repeatability across sessions**
+- **reachability** of required live controls when the product surface requires it
+- **latency / update rate** when pointing must remain interactive
+- **practical interaction tests** defined by the feature spec (for example dwell
+  typing into an external application)
 
-Subjective feel, anecdotal demos, and internal-only model metrics (e.g., LOOCV,
-RMS) MUST NOT be the sole acceptance criteria for mapping. They may supplement
-but not replace end-to-end key-hit benchmarks.
+Subjective feel, anecdotal demos, vendor/demo scores, and internal-only model
+metrics (e.g., LOOCV, RMS, training loss) MUST NOT be the sole acceptance
+criteria for mapping. They may supplement but not replace independent
+screen-space mapping evidence.
 
 Features that do not change calibration/mapping (for example dwell typing or OS
 injection) MUST define measurable acceptance criteria in **their own** feature
 spec. Those criteria MUST NOT replace or weaken independent mapping benchmarks.
 
-**Rationale**: Quality gates that do not correlate with real key-hit accuracy
+**Rationale**: Quality gates that do not correlate with real on-keyboard mapping
 have masked regressions; mapping and typing progress must stay measurable and
 separable.
 
@@ -95,14 +134,20 @@ separable.
 
 Prefer a clear, testable pipeline whose sealed upstream is:
 
-`tracking → feature extraction → calibration → mapping → mapped gaze`
+`approved gaze backend → screen-space mapped gaze`
+
+The historical PCA4 path was `tracking → feature extraction → calibration →
+mapping → mapped gaze`. A specified replacement (including official
+GazeFollower) MAY own tracking, calibration, inference, and filtering internally,
+provided GazeKey still consumes only sealed screen-space mapped gaze.
 
 Specified downstream stages (for example dwell selection → key action → OS
 input) MAY follow mapped gaze when an approved feature spec defines them.
-Correction layers, fallback models, heuristic patches, and per-region
-compensations on the **mapping** path MUST NOT be added unless a controlled
-**mapping** benchmark demonstrates improved key-hit accuracy over the simpler
-baseline.
+Correction layers, fallback models, heuristic patches, per-region compensations,
+and silent ensembles with a previous estimator on the **mapping** path MUST NOT
+be added unless a controlled **mapping** benchmark demonstrates improved
+intended-key accuracy over the simpler baseline **and** a feature spec
+explicitly approves that architecture.
 
 **Rationale**: Additional mapping complexity must earn its place with evidence;
 downstream stages must not smuggle mapping compensations.
@@ -124,15 +169,17 @@ and untestable changes.
 
 Each active feature spec defines what is in scope for that work.
 
-The **mapping foundation** (calibration + PCA4 mapping + independent mapping
-benchmark) remains mandatory infrastructure. It MUST stay isolated and
-independently testable regardless of which post-mapping features are active.
+The **mapping foundation** (approved gaze-estimation/calibration backend +
+independent screen-space mapping benchmark) remains mandatory infrastructure.
+It MUST stay isolated and independently testable regardless of which
+post-mapping features are active. It MUST NOT be defined as “whatever PCA4
+currently does.”
 
 Post-mapping product capabilities — including dwell interaction, typing, and OS
 integration — are **not permanently forbidden**. They MAY be implemented when an
 approved feature specification defines requirements, architecture boundaries,
 and acceptance criteria. They MUST consume mapped gaze only and MUST NOT rewrite
-the mapping foundation “for typing.”
+or compensate the mapping foundation “for typing.”
 
 Capabilities that remain advanced relative to core typing still require their
 own specs when undertaken, including (non-exhaustively):
@@ -143,19 +190,21 @@ own specs when undertaken, including (non-exhaustively):
 - multi-monitor support
 - advanced accessibility polish
 
-**Rationale**: Scope discipline protects the mapping foundation while allowing
-specified product stages beyond mapping-only MVP work.
+**Rationale**: Scope discipline protects the mapping measurement boundary while
+allowing specified product stages and specified backend replacement.
 
 ### VI. Testable Architecture
 
 Code MUST be organized so tracking, calibration, mapping, evaluation/benchmark
 for mapping, UI feedback, and (when present) typing/OS boundaries can be tested
-independently. Monolithic modules that mix UI, calibration, mapping, runtime
-selection, and debug behavior MUST be split or bounded behind clear interfaces
-as part of approved redesign tasks.
+independently. When an upstream backend owns tracking/calibration/inference,
+GazeKey MUST still keep a testable handoff (screen-space mapped gaze), live
+geometry/hit-testing, and typing/OS boundaries. Monolithic modules that mix UI,
+calibration, mapping, runtime selection, and debug behavior MUST be split or
+bounded behind clear interfaces as part of approved redesign tasks.
 
 Downstream typing/interaction modules MUST NOT fold selection or OS injection
-into mapper fit/predict.
+into mapper fit/predict or into post-backend mapping corrections.
 
 **Rationale**: Tangled calibration/mapping/typing paths impede isolated
 diagnosis and invite compensation layers.
@@ -189,11 +238,15 @@ later advanced capabilities) MUST be introduced through **new or updated feature
 specs** that explicitly reconcile with this constitution and, where relevant,
 the PDF vision.
 
+Historical feature records (including Feature 004 specs, runs, tags, and
+commits) remain evidence of the implementation and investigations of that
+time. They MUST NOT be rewritten to match a later constitution amendment.
+
 ### IX. Targeted Codebase Cleanup
 
 Clarify the **active path** carefully — not as an unplanned full rewrite. Keep
-one unambiguous calibration/mapping flow. When product packaging splits (for
-example runtime product vs developer tooling), cleanup MUST be driven by an
+one unambiguous production gaze/calibration flow. When product packaging splits
+(for example runtime product vs developer tooling), cleanup MUST be driven by an
 approved feature `tasks.md` with inventory-first deletions.
 
 Code MUST be distinguishable as:
@@ -233,12 +286,12 @@ time that should go to product reliability.
 
 ### XI. Minimal Visual Distraction During Calibration (NON-NEGOTIABLE)
 
-Calibration UI MUST keep the user focused on the target point. Long
-explanations, detailed metrics, sample counts, debug text, and noisy on-screen
-feedback MUST NOT appear on the calibration screen while the user is expected to
-fixate on a target dot.
+**GazeKey-owned** calibration UI MUST keep the user focused on the target point.
+Long explanations, detailed metrics, sample counts, debug text, and noisy
+on-screen feedback MUST NOT appear on a GazeKey-hosted calibration screen while
+the user is expected to fixate on a target dot.
 
-Permitted on-screen calibration feedback:
+Permitted on-screen feedback for GazeKey-owned calibration:
 
 - target dot
 - simple progress indicator (if needed)
@@ -247,8 +300,20 @@ Permitted on-screen calibration feedback:
 Detailed status, quality metrics, sample counts, and failure reasons MUST go to
 the run log or verbose output — not displayed as text during target fixation.
 
-**Rationale**: Reading on-screen text during calibration shifts gaze away from
-the target and corrupts collected samples.
+**Upstream-owned calibration exception:** When an approved external/upstream
+gaze backend owns calibration, GazeKey MAY use that backend's official Preview,
+Calibration, progress, result, accept, and retry UI **unmodified**. GazeKey MUST
+NOT recreate a metric-heavy equivalent in GazeKey UI merely to imitate the
+upstream experience. This exception does NOT permit unrelated GazeKey debug
+metrics or experimental overlays during calibration.
+
+For Feature 005, the official GazeFollower Preview/Calibration/result UI is
+therefore constitutionally allowed as-is.
+
+**Rationale**: Reading GazeKey-hosted on-screen text during calibration shifts
+gaze away from the target and corrupts collected samples. Stripping or restyling
+an upstream backend's official calibration UI would change the specified
+estimator rather than keep GazeKey's own fixation surface minimal.
 
 ## Development Workflow
 
@@ -290,4 +355,4 @@ Each deletion or archive operation MUST be its own approved task.
 - **Runtime guidance**: `docs/current-status.md` for repository evidence; active
   feature specs under `specs/` for scoped work.
 
-**Version**: 1.3.0 | **Ratified**: 2026-06-09 | **Last Amended**: 2026-08-08
+**Version**: 1.4.0 | **Ratified**: 2026-06-09 | **Last Amended**: 2026-08-24

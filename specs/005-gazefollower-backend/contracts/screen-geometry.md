@@ -12,9 +12,14 @@
 3. **Qt global** — `mapToGlobal` / `QScreen.geometry()`; may be
    logical pixels when `devicePixelRatio` ≠ 1.
 
-## Hard gate (Stage A/C)
+## Hard gate (Stage A policy, Stage C live proof)
 
-Before treating Stage C as mapping proof, **record**:
+Stage A (`tasks.md` T011/T012) is schema, helper, and STOP **policy**
+infrastructure only (identity / origin / DPR). It MUST NOT be treated
+as live keyboard geometry proof.
+
+Before treating Stage C as mapping proof, **record live values**
+(T028/T029/T030):
 
 - actual `screeninfo` size
 - pygame mode size

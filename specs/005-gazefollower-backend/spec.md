@@ -6,7 +6,7 @@
 
 **Updated**: 2026-08-24
 
-**Status**: Draft
+**Status**: Ready for implementation
 
 **Input**: User description: "Substantially rewrite Feature 005 in place.
 The purpose is no longer to keep GazeFollower as a long-lived isolated
@@ -35,18 +35,18 @@ the cleanup gate. Feature 004 T060 numerical thresholds are historical
 reference only and MUST NOT gate whether integration may begin. Feature
 004 remains closed historical evidence."
 
-**Guidance**: GazeKey Constitution v1.3.0 (binding). This is a
-**mapping-foundation replacement**: the production gaze and calibration
-subsystem becomes official GazeFollower, while independently measured
-screen mapping remains the sealed **measurement** upstream for
+**Guidance**: GazeKey Constitution **v1.4.0** (binding; amended 2026-08-24).
+This is a **mapping-foundation replacement**: the production gaze and
+calibration subsystem becomes official GazeFollower, while independently
+measured screen mapping remains the sealed **measurement** upstream for
 downstream typing. Downstream keyboard, dwell, OS typing, and
 predictive-text behavior MUST consume that screen gaze and MUST NOT
 retune or compensate mapping to “fix” typing. Feature 004 is a
 **closed historical record** (paused, not completed); this feature
-MUST NOT delete, renumber, resume, or rewrite it. Constitution text
-that still names PCA4 as the runtime foundation is a **planning
-constitution check**, not a reason to keep PCA4 on the new production
-path.
+MUST NOT delete, renumber, resume, or rewrite it. The former v1.3.0
+letter-conflicts (PCA4 named as the mapping implementation; Principle XI
+vs official GazeFollower UI) were **resolved by Constitution v1.4.0** on
+2026-08-24. They are historical planning notes, not active exceptions.
 
 ## Clarifications
 
@@ -82,7 +82,7 @@ evaluation backend, and forbade application integration until Feature
   and pygame live-gaze success on the target Windows / Python 3.11
   machine justifies proceeding to integration. Integrated product
   acceptance is still required before destructive cleanup.
-- **T060 is not an integration-start gate**: Feature 004 T060
+- **Feature 004 T060 is not an integration-start gate**: Feature 004 T060
   numerical thresholds MUST NOT decide whether integration may begin.
   Feature 004 results remain historical/reference evidence and
   `eval_before` citation for mapping experiments.
@@ -286,11 +286,11 @@ strong standalone mapping is preserved after the handoff. This story
 proves coordinate compatibility and live geometry before reconnecting
 dwell and typing.
 
-**Independent Test**: After official calibration, open the existing
-keyboard, display the debug gaze dot from official GazeFollower
-output, look around the live layout with the chin/head support, and
-confirm the dot tracks the intended screen regions without a
-post-GazeFollower mapper.
+**Independent Test**: After official calibration, on the existing
+keyboard already shown after sampling, display the debug gaze dot from
+official GazeFollower output, look around the live layout with the
+chin/head support, and confirm the dot tracks the intended screen
+regions without a post-GazeFollower mapper.
 
 **Acceptance Scenarios**:
 
@@ -522,12 +522,12 @@ the pre-cleanup product.
   do not rewrite them to look completed.
 - Two estimators MUST NOT be blended in one live predict (no averaging
   with PCA4, no fallback cascade).
-- Official GazeFollower UI contains more on-screen content than
-  Constitution Principle XI would allow for a GazeKey-hosted
-  calibration surface: **do not restyle or replace the official UI**.
-  Planning records the Principle XI conflict. Principle XI continues
-  to forbid GazeKey from hosting its own metric-heavy calibration
-  surface.
+- Official GazeFollower UI contains more on-screen content than a
+  GazeKey-hosted calibration surface may show: **do not restyle or
+  replace the official UI**. Constitution v1.4.0 (2026-08-24) allows
+  an approved upstream backend's official Preview/Calibration/result
+  UI unmodified. Principle XI still forbids GazeKey from hosting its
+  own metric-heavy calibration surface.
 - Standalone official Preview success is treated as permission to
   delete the old pipeline before integrated acceptance: **forbidden**.
 
@@ -703,18 +703,28 @@ the pre-cleanup product.
 - **FR-027**: The feature MUST be implemented in the following stages.
   Later stages MUST NOT skip a prior stage's required proof.
 
-  - **Stage A — upstream pin and architecture**: Record upstream
-    provenance, dependency approach, GazeInfo contract, lifecycle,
-    geometry, filtering, and dependency-isolation audit. No product
-    code until this planning work exists.
+  - **Stage A — planning (completed) vs first implementation
+    increment**: The original Stage A **planning** obligation —
+    record upstream provenance, dependency approach, GazeInfo
+    contract, lifecycle, geometry, filtering, and
+    dependency-isolation audit — is **complete** in `plan.md`,
+    `research.md`, `data-model.md`, `contracts/`, and
+    `quickstart.md`. Product code was forbidden until that planning
+    existed; it now exists. `tasks.md` Stage A (T001–T017) is the
+    first **implementation** increment after that planning (Python
+    3.11 env, pin, thin adapter, isolation tests, geometry STOP
+    **policy**). It is not the same planning Stage A. Do not skip
+    T001–T017 and do not reorder them.
   - **Stage B — official GazeFollower startup flow**: Normal Feature
     005 branch execution uses official Preview + Calibration +
-    start sampling. No legacy calibration/mapping participates.
-  - **Stage C — keyboard gaze handoff**: Open the existing GazeKey
-    keyboard after calibration and display a temporary
-    developer/debug gaze dot from the official GazeFollower output.
-    Use this stage to prove that the strong standalone mapping is
-    preserved after integration. No extra remapping.
+    start sampling, then constructs and shows the existing GazeKey
+    keyboard. No legacy calibration/mapping participates.
+  - **Stage C — keyboard gaze handoff**: Use the existing GazeKey
+    keyboard already shown in Stage B (do not open a second keyboard).
+    Display a temporary developer/debug gaze dot from the official
+    GazeFollower output and prove live geometry. Use this stage to
+    prove that the strong standalone mapping is preserved after
+    integration. No extra remapping.
   - **Stage D — restore full interaction path**: Use live Qt geometry
     for focus and reconnect existing dwell, key selection, OS typing,
     editing, predictive text, three suggestion slots, and
@@ -727,6 +737,12 @@ the pre-cleanup product.
     head/chin-support product-condition sessions on the integrated
     product before legacy cleanup. Acceptance MUST cover the real
     keyboard and real OS typing path, not only an isolated benchmark.
+    Recalibration is implemented and proven in Stage E. The integrated
+    acceptance record MUST cite that Stage E evidence for SC-012.
+    At least **one** Stage F session MUST reconfirm that the
+    already-implemented official Preview + Calibration recalibration
+    flow still returns to the keyboard and resumes usable sampling.
+    Recalibration is **not** required in every Stage F session.
   - **Stage G — cleanup**: Only after integrated acceptance passes,
     remove obsolete legacy gaze runtime code/dependencies/
     configuration/tests in explicit inventory-based tasks. Preserve
@@ -756,8 +772,11 @@ the pre-cleanup product.
   MUST include all letter keys, Space, Backspace, Enter / Shift and
   other active editing controls, and all three suggestion slots.
 - **FR-032**: Before destructive cleanup, a Git checkpoint/tag MUST
-  exist that restores the pre-cleanup product. The feature branch
-  itself provides isolation while the new production path is built.
+  exist that restores the pre-cleanup product. The Stage G pre-cleanup
+  tag name is `005-pre-cleanup-YYYYMMDD`, using the actual
+  implementation date when that checkpoint is created. The feature
+  branch itself provides isolation while the new production path is
+  built.
 - **FR-033**: After successful integrated acceptance, obsolete legacy
   gaze runtime, configuration, flags, tests, and dependencies that are
   no longer needed MUST be removed so one production gaze pipeline
@@ -963,8 +982,12 @@ treated as integrated product acceptance.
   work. Gaze-selection of suggestions works. Accepting a suggestion
   types the expected suffix + Space.
 - **SC-012**: **Recalibration** — Recalibration uses the official
-  GazeFollower flow and returns to a usable keyboard.
-- **SC-013**: **Independent mapping metrics (evidence, not T060
+  GazeFollower flow and returns to a usable keyboard. Implementation
+  proof is Stage E. The Stage F acceptance record MUST cite that
+  Stage E evidence and at least one Stage F session MUST reconfirm
+  the live recalibration flow. Recalibration is not required in all
+  three Stage F sessions.
+- **SC-013**: **Independent mapping metrics (evidence, not Feature 004 T060
   gate)** — Mapped-key, row, and pixel-error metrics are recorded on
   the integrated path where the existing benchmark can be reused
   without legacy estimator dependencies. Feature 004 T060 / A/B
@@ -1031,8 +1054,9 @@ integrated production path (FR-029, FR-033).
   are present on the run record.
 - **SC-025**: **Principle XI vs official UI** — GazeKey does not host
   a metric-heavy calibration surface. Official GazeFollower UI is
-  used as-is; any Principle XI conflict is recorded in the plan
-  rather than “fixed” by restyling upstream.
+  used as-is under the Constitution v1.4.0 upstream-owned calibration
+  exception (resolved 2026-08-24). Do not “fix” this by restyling
+  upstream.
 - **SC-026**: **No product-above-gaze regression** — Existing dwell,
   OS typing, editing, predictive text, three suggestion slots, and
   autocomplete remain the Feature 003 / Feature 004 closeout
@@ -1114,7 +1138,7 @@ integrated production path (FR-029, FR-033).
 - Removing legacy gaze runtime before integrated acceptance, review
   of the acceptance record, and the pre-cleanup Git checkpoint
 - Treating standalone official Preview success, historical 67% /
-  55 px / 80%, T060 beat-formulas, regional reachability, or average
+  55 px / 80%, Feature 004 T060 beat-formulas, regional reachability, or average
   correlations as cleanup-ready
 
 ## Assumptions
@@ -1147,13 +1171,15 @@ integrated production path (FR-029, FR-033).
 - **Historical estimator is baseline only**: Feature 004 closeout
   mapping is comparison/reference evidence, not a library for the
   production path.
-- **Constitution check (planning)**: Constitution v1.3.0 still names
-  PCA4 as the mapping-foundation implementation. This spec treats
-  independently measured screen mapping as the sealed *measurement*
-  upstream and selects GazeFollower as the production implementation
-  of gaze/calibration. Downstream still consumes mapped gaze and MUST
-  NOT compensate via mapping tweaks. `/speckit.plan` MUST record this
-  constitution check.
+- **Constitution check**: Planning under v1.3.0 recorded two
+  letter-conflicts (PCA4 named as mapping implementation; Principle XI
+  vs official GazeFollower UI). Constitution **v1.4.0** (2026-08-24)
+  resolved both. Independently measured screen mapping remains the
+  sealed *measurement* upstream; GazeFollower is the approved
+  production gaze/calibration implementation; official Preview/
+  Calibration UI is allowed unmodified. Downstream still consumes
+  mapped gaze and MUST NOT compensate via mapping tweaks. Those v1.3.0
+  notes are historical, not active exceptions.
 - **Allowed GazeKey reuse**: live keyboard geometry, independent
   benchmark scoring that does not require the legacy estimator,
   product interaction, generic camera/display that does not change
@@ -1174,8 +1200,8 @@ integrated production path (FR-029, FR-033).
 - **Live layout is the geometry source**: Hitboxes for letters,
   editing controls, and all three suggestion slots are read from the
   runtime layout of that session.
-- **T060 comparison is historical only**: Feature 004 free-head A/B
-  (`14938da0bdf0`, `34fb259ccdfd`) and product-condition T060
+- **Feature 004 T060 comparison is historical only**: Feature 004 free-head A/B
+  (`14938da0bdf0`, `34fb259ccdfd`) and product-condition Feature 004 T060
   (`689c8a8ce90c`, `4f665467b260`) remain `eval_before` citations.
   Their percentage/noise formulas are not an integration-start gate
   and not an automatic cleanup trigger.

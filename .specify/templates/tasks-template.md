@@ -21,7 +21,9 @@ flow). Clean only what causes confusion. Each deletion or archive = separate
 approved task.
 
 **Logging & calibration UI** (Principles X & XI): Quiet normal runs; optional
-verbose when needed. Fixation UI = dot + optional progress only.
+verbose when needed. GazeKey-owned fixation UI = dot + optional progress only.
+An approved upstream backend may use its official calibration UI unmodified;
+do not recreate a metric-heavy GazeKey copy.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 

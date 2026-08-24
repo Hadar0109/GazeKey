@@ -95,7 +95,7 @@
 
 *GazeKey calibration/mapping features — constitution-aligned examples:*
 
-- **FR-00X**: Calibration fixation UI MUST show only target dot and optional simple progress; no metrics or debug text during fixation (Principle XI)
+- **FR-00X**: GazeKey-owned calibration fixation UI MUST show only target dot and optional simple progress; no metrics or debug text during fixation. An approved upstream backend MAY use its official Preview/Calibration/result UI unmodified; GazeKey MUST NOT recreate a metric-heavy copy (Principle XI)
 - **FR-00X**: Each calibration/benchmark run MUST produce a simple pass/fail summary with primary metrics (Principles VII & X)
 - **FR-00X**: Normal runs MUST keep terminal output minimal; optional verbose flag for investigation — no logging framework (Principle X)
 - **FR-00X**: First MVP MUST clarify the active path; targeted cleanup only where legacy, experimental, or placeholder code causes confusion (Principle IX)
@@ -156,6 +156,6 @@ unspecified advanced capabilities]
 -->
 
 - [Assumption about target users, e.g., "Single monitor, fixed keyboard layout"]
-- [Assumption about scope boundaries, e.g., "Consumes mapped gaze only; does not retune PCA4 fit"]
+- [Assumption about scope boundaries, e.g., "Consumes mapped gaze only; does not add post-backend mapping corrections"]
 - [Assumption about data/environment, e.g., "Webcam at 640×480; existing MediaPipe pipeline"]
 - [Dependency on existing system/service, e.g., "Reuses gazekey/ tracking and calibration modules"]

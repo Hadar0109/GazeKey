@@ -23,8 +23,8 @@
 1. `python main.py` (3.11 env)
 2. Official GazeFollower Preview (pygame)
 3. Official Calibration (13-point default); Space accept or R retry
-4. Existing GazeKey keyboard
-5. Stage C: debug gaze dot from official filtered gaze
+4. Stage B: existing GazeKey keyboard (shown once after sampling)
+5. Stage C: debug gaze dot from official filtered gaze on that same keyboard
 6. Stage D: dwell → OS typing → suggestions
 7. Recalibrate from the keyboard Calibrate control: same official flow
 8. Close window: `stop_sampling` + `release`

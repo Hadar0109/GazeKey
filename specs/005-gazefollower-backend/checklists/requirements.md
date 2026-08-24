@@ -68,16 +68,18 @@ Content Quality items remain because `spec.md` names required architecture
       openness values > 10; no TrackingManager/EyeDetector; no hold-last
 - [x] License of record CC BY-NC-SA 4.0; `version.py` CC BY 4.0 is
       upstream inconsistency; commercial use out of Feature 005
-- [x] Official Preview/Calibration/result UI as-is (Principle XI)
-- [x] Stage A/C geometry audit is a hard STOP gate; identity/origin/DPR
+- [x] Official Preview/Calibration/result UI as-is (Principle XI;
+      Constitution v1.4.0 exception, resolved 2026-08-24)
+- [x] Geometry STOP policy is Stage A (T011 schema/helper, T012 policy);
+      live keyboard values and proof are T028/T029/T030; identity/origin/DPR
       only; do not change `generate_points` preemptively
 - [x] Invalid sample → `MappedGazePoint.valid=False`; Stage F natural
       blink coverage
 
 ## Notes
 
-- **Ready for**: `/speckit.tasks`. **Not ready for**: `/speckit.implement`
-  until `tasks.md` exists.
+- **Ready for**: `/speckit.analyze` re-check, then `/speckit.implement`.
+  `tasks.md` exists.
 - **Estimator naming**: GazeFollower is named because it is the *specified
   production gaze/calibration subsystem*, not because the spec chooses a
   language, package layout, or wrapper module.
@@ -92,7 +94,7 @@ Content Quality items remain because `spec.md` names required architecture
   longer continues on PCA4 throughout a long research trial;
   GazeFollower is no longer required to exist only as a separate
   evaluation backend; migration/integration is no longer blocked until
-  T060 percentage/noise formulas are beaten; GazeKey no longer hosts
+  Feature 004 T060 percentage/noise formulas are beaten; GazeKey no longer hosts
   candidate calibration fixation UI; production architecture is no
   longer forced to preserve the old estimator comparison contract.
 - **Numeric gates**: Feature 004 T060 figures remain reference evidence
@@ -105,10 +107,17 @@ Content Quality items remain because `spec.md` names required architecture
   hold-last.
 - **Constitution**: Independently measured screen mapping remains the
   sealed *measurement* upstream; production implementation is
-  GazeFollower. Recorded in `plan.md` Complexity Tracking.
-- **No product-scope or planning-review items pending.** Next command:
-  `/speckit.tasks`.
+  GazeFollower. Former v1.3.0 C1/C2 letter-conflicts were **resolved by
+  Constitution v1.4.0 on 2026-08-24** (historical notes in `plan.md`
+  Complexity Tracking, not active exceptions).
+- **No product-scope or planning-review items pending.** Spec status is
+  Ready for implementation. Next command: `/speckit.analyze` (re-check)
+  or `/speckit.implement` after that review.
 - Validation iteration 1 (2026-08-24 rewrite): Stage 1 research-trial spec
   replaced.
 - Validation iteration 2 (2026-08-24 plan + review): planning obligations
   and six review conflicts closed in plan/research/data-model/contracts.
+- Validation iteration 3 (2026-08-24 constitution + analyze remediation):
+  Constitution v1.4.0; Stage A naming; SC-012 Stage E cite + one Stage F
+  recalibration reconfirm; spec Ready for implementation; T053/T064/T011/
+  T024/T047 wording.

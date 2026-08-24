@@ -279,13 +279,15 @@ Forbidden: Ridge/PCA, affine “fit,” hand-tuned offsets, GazeKey
 `_gaze_bias_x/y`, `clamp_xy` mapper clip bounds, copying
 `camera_position` cm constants.
 
-Stage A/C runtime geometry audit is a **hard gate**. First record
-actual screeninfo size, pygame mode, Qt global geometry, DPR, monitor
-origin, and keyboard origin. Then apply identity, origin offset, and/or
-DPR only. If those cannot align official filtered gaze with live key
-QRects, **STOP and report** — do not add a mapper, bias, or affine
-correction. Do **not** change upstream `generate_points` behavior
-preemptively (including its 1920×1080 hard-coded margins).
+Geometry is a **hard gate**. Implementation Stage A (T011/T012) is
+schema/helper and STOP **policy** only. Live keyboard values and proof
+are Stage C (T028/T029/T030): record actual screeninfo size, pygame
+mode, Qt global geometry, DPR, monitor origin, and keyboard origin,
+then apply identity, origin offset, and/or DPR only. If those cannot
+align official filtered gaze with live key QRects, **STOP and report**
+— do not add a mapper, bias, or affine correction. Do **not** change
+upstream `generate_points` behavior preemptively (including its
+1920×1080 hard-coded margins).
 
 **Rationale**: Spec allows only legitimate coordinate-space/window
 transforms.
@@ -381,19 +383,19 @@ Official GazeFollower:
 
 ## R11. Constitution check (planning obligation 8)
 
-Constitution v1.3.0 names **PCA4** as the mapping-foundation
-implementation. This feature replaces that **implementation** with
-official GazeFollower while keeping independently measured screen mapping
-as the sealed **measurement** upstream. Downstream still MUST NOT retune
-mapping to fix typing. Justified in plan Complexity Tracking.
+Planning under Constitution v1.3.0 recorded two letter-conflicts: PCA4
+named as the mapping-foundation implementation, and Principle XI vs
+official GazeFollower Calibration UI. Both were **resolved by
+Constitution v1.4.0 on 2026-08-24**. Independently measured screen mapping
+remains the sealed **measurement** upstream; official GazeFollower is the
+approved production gaze/calibration implementation. Downstream still MUST
+NOT retune mapping to fix typing.
 
-Principle XI vs official Calibration UI: GazeFollower draws instruction
-text, progress **percentage on the target**, beep, and a result screen
-with “Calibration succeed/failed”, red/green dots, and
-“Press Space … OR R”. **Approved 2026-08-24 as planned:** use official
-Preview/Calibration/result UI as-is. Do not recreate or restyle it in
-Qt. Principle XI continues to forbid a GazeKey-hosted metric-heavy
-overlay.
+Official GazeFollower Preview/Calibration/result UI (instruction text,
+progress percentage on the target, beep, result screen, Space accept /
+R retry) is used unmodified under the v1.4.0 upstream-owned calibration
+exception. Do not recreate or restyle it in Qt. Principle XI still forbids
+a GazeKey-hosted metric-heavy overlay.
 
 ---
 

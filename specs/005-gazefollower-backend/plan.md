@@ -4,7 +4,7 @@
 
 **Input**: Feature specification from `/specs/005-gazefollower-backend/spec.md`
 
-**Note**: This template is filled in by the `/speckit-plan` command. See `.specify/templates/plan-template.md` for the execution workflow. **`tasks.md` is not created by this command.**
+**Note**: This template is filled in by the `/speckit-plan` command. See `.specify/templates/plan-template.md` for the execution workflow. **`tasks.md` is not created by this command.** `tasks.md` now exists as a later `/speckit.tasks` artifact.
 
 ## Summary
 
@@ -24,15 +24,20 @@ Stage G deletion of legacy gaze runtime.
 
 ## Technical approach
 
-1. **Stage A (this plan)** — pin upstream, GazeSample, filter, 13-point
-   protocol, pygame/Qt lifecycle, geometry, isolation, blink validity.
-   Implementation tasks MUST rebuild the GazeKey environment on Python
-   3.11 and verify retained GazeKey dependencies there.
+1. **Planning Stage A (this plan — complete)** — pin upstream, GazeSample,
+   filter, 13-point protocol, pygame/Qt lifecycle, geometry, isolation,
+   blink validity. That planning obligation is satisfied by this file plus
+   `research.md`, `data-model.md`, `contracts/`, and `quickstart.md`.
+   **Implementation Stage A** is `tasks.md` T001–T017 (Python 3.11 env,
+   pin, thin adapter, isolation tests, geometry STOP policy). Those tasks
+   are the first implementation increment after planning, not a second
+   copy of this planning Stage A.
 2. **Stage B** — `main.py` runs official `preview()` + `calibrate()` +
-   `start_sampling()` before the Qt keyboard; no legacy overlay.
-3. **Stage C** — existing keyboard + temporary debug gaze dot from
-   official filtered gaze; prove mapping survived the handoff; no extra
-   remap.
+   `start_sampling()`, then constructs and shows the existing Qt keyboard;
+   no legacy overlay.
+3. **Stage C** — use that same existing keyboard (do not open a second
+   one); add a temporary debug gaze dot from official filtered gaze;
+   prove mapping survived the handoff; no extra remap.
 4. **Stage D** — `GazeSample` → `MappedGazePoint` → live hit-test →
    existing dwell / ActionDispatcher / OS / suggestions.
 5. **Stage E** — Calibrate control invokes official Preview+Calibration;
@@ -41,7 +46,8 @@ Stage G deletion of legacy gaze runtime.
    natural-blink coverage (invalid samples cancel dwell; no OS typing).
 7. **Stage G** — inventory-based deletion only after F + Git checkpoint.
 
-Do not implement in this command. Do not create `tasks.md`. Do not
+Do not implement in `/speckit.plan`. That command does not create
+`tasks.md` (`tasks.md` was created later by `/speckit.tasks`). Do not
 modify Feature 004. Do not route GazeFollower through Ridge/PCA4. Do not
 recreate Preview/Calibration in Qt.
 
@@ -91,27 +97,29 @@ library; preserve Feature 002/003 product above the handoff.
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-Reference: `.specify/memory/constitution.md` (GazeKey v1.3.0)
+Reference: `.specify/memory/constitution.md` (GazeKey **v1.4.0**, amended 2026-08-24)
 
 | Gate | Requirement | Pass? |
 |------|-------------|-------|
 | Accuracy First | Mapping remains independently validated; downstream consumes mapped gaze only and MUST NOT compensate via mapping changes | ✅ (screen mapping measured independently via SC-013; implementation is GazeFollower not PCA4 — see Complexity Tracking) |
 | Measurable Progress | Mapping changes use key-hit / pixel / row / repeatability; other features use their own spec acceptance | ✅ (SC-013 metrics without legacy estimator; SC-001–SC-012 product usability) |
 | Simple Pipeline | Sealed upstream through mapped gaze; new mapping layers justified | ✅ (`GF filtered screen gaze → live geometry → focus/dwell`; no post-GF mapper) |
-| Spec Before Code | `spec.md`, clarifications, `plan.md`, and `tasks.md` approved before implementation | ✅ (`tasks.md` next; no implementation now) |
+| Spec Before Code | `spec.md`, clarifications, `plan.md`, and `tasks.md` approved before implementation | ✅ (`tasks.md` exists; product implementation has not started) |
 | Feature Scope Control | Scope matches the active feature spec | ✅ (no EyeTheia, no dwell/prediction redesign) |
 | Testable Architecture | Tracking, calibration, mapping, evaluation, UI, typing/OS separable | ✅ (official GF owns gaze; adapter; existing typing package) |
 | Run Clarity | Each mapping run answers pass/fail + key metrics via simple summary | ✅ (FR-037) |
 | Documentation Hierarchy | Spec Kit docs are source of truth for this phase | ✅ |
 | Targeted Cleanup | Active path unambiguous; inventory-first deletions via approved tasks | ✅ (Stage G deferred) |
 | Simple Logging | Readable logs; quiet normal runs; optional verbose | ✅ |
-| Minimal Calibration UI | Fixation screen shows only dot + optional progress | ⚠️ justified — official GazeFollower UI is used as-is (progress %, instructions, result screen). GazeKey will not host a substitute overlay. |
+| Minimal Calibration UI | GazeKey-owned fixation UI is dot + optional progress; approved upstream official Preview/Calibration/result UI may be used unmodified (Constitution v1.4.0) | ✅ official GazeFollower UI as-is; GazeKey will not host a substitute overlay |
 
-**Post-design re-check**: Same. 2026-08-24 review session closed Python
-3.11, GazeSample validity (status + SUCCESS + finite filtered xy +
-openness > 10), CC BY-NC-SA 4.0, official UI as-is, geometry STOP gate,
-and no hold-last. Principle XI remains a justified violation: official
-Preview/Calibration/result UI used unmodified.
+**Post-design re-check**: Same product decisions. 2026-08-24 review closed
+Python 3.11, GazeSample validity, CC BY-NC-SA 4.0, official UI as-is,
+geometry STOP gate, and no hold-last. The two v1.3.0 letter-conflicts
+(PCA4 named as mapping implementation; Principle XI vs official
+GazeFollower UI) were **resolved by Constitution v1.4.0 on 2026-08-24**.
+They are historical notes, not active exceptions. Official
+Preview/Calibration/result UI remains unmodified.
 
 ## Project Structure
 
@@ -128,7 +136,7 @@ specs/005-gazefollower-backend/
 │   ├── lifecycle.md
 │   ├── dependency-isolation.md
 │   └── screen-geometry.md
-└── tasks.md             # NOT created by /speckit-plan
+└── tasks.md             # created later by /speckit.tasks; not by /speckit.plan
 ```
 
 ### Source Code (repository root)
@@ -167,8 +175,8 @@ remain in tree until Stage G.
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
-| Constitution names PCA4 as mapping-foundation **implementation** | Spec replaces that implementation with official GazeFollower; independently measured screen mapping remains the sealed measurement upstream | Keeping PCA4 as production path contradicts the rewritten spec and the standalone discovery evidence |
-| Principle XI vs official Calibration UI (text, % progress on target, result screen) | Spec requires official Preview/Calibration UI unmodified | Restyling in Qt or stripping official chrome would violate FR-003 |
+| Historical v1.3.0 named PCA4 as mapping-foundation **implementation** | **Resolved 2026-08-24 by Constitution v1.4.0.** Independently measured screen mapping remains the sealed measurement; GazeFollower is the approved production implementation. PCA4 is historical evidence. | Keeping PCA4 as production path contradicted the rewritten spec and standalone discovery evidence |
+| Historical v1.3.0 Principle XI vs official Calibration UI | **Resolved 2026-08-24 by Constitution v1.4.0** upstream-owned official UI exception. Spec still requires official Preview/Calibration UI unmodified. | Restyling in Qt or stripping official chrome would violate FR-003 |
 | Two UI toolkits (pygame then Qt) | Upstream Preview/Calibration are pygame; keyboard is PySide6 | Recreating GF UI in Qt is forbidden |
 | Blink behavior cannot stay GazeKey EAR without a second camera | **Approved 2026-08-24**: `GazeSample.valid` uses official status/SUCCESS/finite filtered xy and openness > 10; no TrackingManager/EyeDetector; not a new blink-selection feature | Second webcam pipeline forbidden; hold-last `filter_or_reject` rejected |
 
@@ -181,9 +189,9 @@ remain in tree until Stage G.
 | 3. Filter policy | R3 — official HeuristicFilter; disable GazeKey screen + feature EMA |
 | 4. Native protocol | R4 — **13-point** official default; Space/R result UI |
 | 5. pygame vs Qt lifecycle | R5 / `contracts/lifecycle.md` |
-| 6. Geometry | R7 — Stage A/C hard STOP gate; identity/origin/DPR only |
+| 6. Geometry | R7 — Stage A T011/T012 schema + STOP policy; live proof T028–T030; identity/origin/DPR only |
 | 7. Isolation audit | R8 / `contracts/dependency-isolation.md` |
-| 8. Constitution check | this plan + Complexity Tracking |
+| 8. Constitution check | this plan + Complexity Tracking; C1/C2 **resolved** by Constitution v1.4.0 (2026-08-24) |
 | 9. Stage G inventory | below; delete only after Stage F |
 
 ## Architecture before vs after
@@ -229,9 +237,10 @@ Forbidden: `GazeFollower → PCA/Ridge → keyboard` and
    opens then closes.
 5. `pygame.quit()`.
 6. `start_sampling()`.
-7. `QApplication` + `VirtualKeyboard` without legacy calibration overlay
-   and without GazeKey camera.
-8. Stage C debug dot, then Stage D typing.
+7. Stage B: `QApplication` + existing `VirtualKeyboard` without legacy
+   calibration overlay and without GazeKey camera.
+8. Stage C: debug dot on that same keyboard (do not construct a second
+   keyboard), then Stage D typing.
 
 Matches standalone `example/pygame_example.py` plus Qt after sampling
 starts. 2026-08-24 logs show the same camera open/close/open pattern.
@@ -285,12 +294,13 @@ retune look-ahead to dress Stage F.
 
 See [contracts/screen-geometry.md](./contracts/screen-geometry.md).
 
-Stage A/C runtime geometry audit is a **hard gate**. First record
-actual screeninfo size, pygame mode, Qt global geometry, DPR, monitor
-origin, and keyboard origin. Then identity/origin/DPR only. If those
-cannot align official gaze with live QRects, **STOP and report** — no
-mapper, bias, or affine correction. Do not change upstream
-`generate_points` preemptively.
+Geometry is a **hard gate**. Implementation Stage A (T011/T012) is
+schema/helper and STOP **policy** only (identity/origin/DPR). Live
+keyboard values and proof are Stage C (T028 record, T029 USER GATE,
+T030 invoke STOP if needed). If identity/origin/DPR cannot align
+official gaze with live QRects, **STOP and report** — no mapper, bias,
+or affine correction. Do not change upstream `generate_points`
+preemptively.
 
 ## Camera / UI ownership model
 
@@ -358,8 +368,9 @@ then code may remain on disk but MUST NOT run on the production path.
   deps (GF still uses its own mediapipe internally)
 - `app_config --calib-mode` keyboard15 override as a product flag
 
-**Tests** that exist only to pin PCA4/u/v/fixation-gate/ridge — rewrite
-or drop in inventory tasks; keep typing/prediction/layout tests.
+**Tests** that exist only to pin PCA4/u/v/ridge, fixation-gate, or
+calibration-only behavior — rewrite or drop in separate Stage G inventory
+tasks (T076 / T077 / T078); keep typing/prediction/layout tests.
 
 **Preserve**: `specs/004-*`, `runs/` Feature 004 artifacts, tags
 `004-pca4-investigation-closeout-20260820` and
@@ -386,8 +397,9 @@ All six planning-review items are **closed**. No blocker remains before
    string in `version.py` is upstream metadata inconsistency only. Do
    not reinterpret as CC BY 4.0. Commercial use is outside Feature 005
    and would need a separate licensing review/permission.
-4. **Principle XI — APPROVED as planned.** Official GazeFollower
-   Preview/Calibration/result UI as-is. Do not recreate or restyle in Qt.
+4. **Principle XI — APPROVED and constitutionally allowed (v1.4.0).**
+   Official GazeFollower Preview/Calibration/result UI as-is. Do not
+   recreate or restyle in Qt. Historical v1.3.0 conflict is closed.
 5. **Screen geometry — APPROVED as a hard gate.** Record actual
    screeninfo, pygame mode, Qt global geometry, DPR, monitor origin,
    keyboard origin first. Identity/origin/DPR only. If those cannot

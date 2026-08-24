@@ -13,8 +13,10 @@
 | Recalibrate | pygame (Qt hidden) | CLOSING then PREVIEWING/CALIBRATING | pygame |
 | Shutdown | none | `stop_sampling` + `release` | Qt then process exit |
 
-GazeKey MUST NOT create a Qt Preview or Calibration UI (Principle XI
-**approved 2026-08-24**: official Preview/Calibration/result UI as-is).
+GazeKey MUST NOT create a Qt Preview or Calibration UI. Constitution
+**v1.4.0** (2026-08-24) allows an approved upstream backend's official
+Preview/Calibration/result UI unmodified. Principle XI still forbids a
+GazeKey-hosted metric-heavy calibration surface.
 Product runtime is **Python 3.11**. Do not start `TrackingManager` /
 `EyeDetector` for blink or any other reason.
 
@@ -28,9 +30,10 @@ Product runtime is **Python 3.11**. Do not start `TrackingManager` /
    pygame `win` as in `example/pygame_example.py`).
 4. Leave pygame (`pygame.quit()`).
 5. `start_sampling()`.
-6. `QApplication` + existing `VirtualKeyboard` with tracking/calibration
+6. Stage B: `QApplication` + existing `VirtualKeyboard` with tracking/calibration
    overlay **disabled**.
-7. Stage C: debug dot from `GazeSample`. Stage D: reconnect dwell/typing.
+7. Stage C: debug dot from `GazeSample` on that same keyboard (do not open a
+   second keyboard). Stage D: reconnect dwell/typing.
 
 ## Recalibration sequence (required)
 
@@ -52,5 +55,11 @@ Must `stop_sampling` before preview/calibrate or official `Camera` raises
 
 ## Fail closed
 
-Missing model, camera open failure, or unaccepted calibration: report and
-**do not** start `TrackingManager` / PCA4.
+Missing model, camera open failure, `preview()` / `calibrate()` /
+`start_sampling()` failure, or unaccepted calibration: report and
+**do not** start `TrackingManager` / PCA4 / Ridge as recovery.
+
+Abnormal process exit or failure **during official pygame Preview or
+Calibration** MUST still attempt `GazeFollower.release()` / camera
+cleanup where technically possible. It MUST NOT start
+TrackingManager/PCA4/Ridge as recovery.
