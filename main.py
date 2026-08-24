@@ -1,38 +1,63 @@
 """
 GazeKey - Main entry point
+
+Feature 005 production path: official GazeFollower Preview + Calibration,
+then sampling, then the existing Qt keyboard. GazeKey camera capture is unused.
 """
+
+from __future__ import annotations
 
 import sys
 
-from PySide6.QtWidgets import QApplication
-
 from gazekey.app_config import apply_config, parse_product_args
-from gazekey.ui.virtual_keyboard import VirtualKeyboard
+from gazekey.backend.lifecycle import (
+    GazeFollowerLifecycle,
+    GazeFollowerLifecycleError,
+)
+from gazekey.backend.startup import (
+    record_live_geometry,
+    run_official_startup,
+    wire_debug_gaze_dot,
+)
 
 
-def main(argv: list[str] | None = None) -> None:
-    """Initialize and run the application."""
+def main(argv: list[str] | None = None) -> int:
+    """Official GazeFollower pygame UI, then the existing GazeKey keyboard."""
     apply_config(parse_product_args(argv))
 
-    app = QApplication(sys.argv)
+    lifecycle = GazeFollowerLifecycle()
+    try:
+        run_official_startup(lifecycle)
+    except GazeFollowerLifecycleError:
+        try:
+            lifecycle.release()
+        except Exception:
+            pass
+        return 1
 
-    # Set application metadata
+    from PySide6.QtWidgets import QApplication
+
+    from gazekey.ui.virtual_keyboard import VirtualKeyboard
+
+    app = QApplication(sys.argv)
     app.setApplicationName("GazeKey")
     app.setOrganizationName("GazeKey")
 
-    # Create and show virtual keyboard
     keyboard = VirtualKeyboard()
     keyboard.show()
     keyboard.on_app_started()
+    record_live_geometry(lifecycle, keyboard)
+    wire_debug_gaze_dot(lifecycle, keyboard)
+    app.aboutToQuit.connect(lifecycle.release)
 
-    print("GazeKey started!")
-    print("- Gaze-dwell or click keys to type into the focused external app")
+    print("GazeKey started (GazeFollower backend)!")
+    print("- Official Preview/Calibration completed; sampling is running")
+    print("- Debug gaze dot is official filtered gaze (dwell is not connected yet)")
     print("- Drag the window to reposition")
-    print("- Press minimize to hide")
     print("- Close the window to exit")
 
-    sys.exit(app.exec())
+    return int(app.exec())
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

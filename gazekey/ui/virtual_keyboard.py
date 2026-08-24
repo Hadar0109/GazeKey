@@ -162,6 +162,8 @@ class VirtualKeyboard(QWidget):
         self.init_ui()
         self._dwell_overlay = DwellProgressOverlay(self.main_content_widget)
         self._keyboard_layout_builder.schedule_layout_export()
+        self._gf_debug_overlay = None
+        self._gf_sample_bridge = None
         self._init_calibration_on_startup()
 
     def init_ui(self):
@@ -365,16 +367,16 @@ class VirtualKeyboard(QWidget):
         self._log_verbose(f"Key ignored (non-OS or typing inactive): {key}")
     
     def on_calibrate_clicked(self):
-        """Rerun full calibration v2 from scratch."""
+        """Calibrate control. Official GazeFollower recalibrate is Stage E (T042).
+
+        Do not start TrackingManager or the legacy CalibrationOverlay.
+        """
         self._reset_typing_for_recalibration()
-        self._gaze_mapper = None
-        self._calibration_session = None
-        self._calibration_controller.reset()
-        self._set_post_calibration_controls(False)
         self._reset_calibrate_button_style()
-        if not self._ensure_tracking_started():
-            return
-        self._start_calibration()
+        self._log_verbose(
+            "[calib] Calibrate requested; legacy overlay is disabled on the "
+            "GazeFollower production path (Stage E rewires this to official UI)"
+        )
 
     def _reset_calibrate_button_style(self) -> None:
         self.calibrate_btn.setText("👁 CALIBRATE")
@@ -417,19 +419,23 @@ class VirtualKeyboard(QWidget):
         self._keyboard_layout_builder.update_responsive_sizes()
         self._devtools.resize_gaze_preview()
         self._devtools.update_benchmark_banner_geometry()
+        overlay = getattr(self, "_gf_debug_overlay", None)
+        if overlay is not None:
+            overlay.resize_to_keyboard()
         self._keyboard_layout_builder.schedule_layout_export()
 
     def _init_calibration_on_startup(self) -> None:
-        """Always calibrate on launch; mapper snapshot is saved under runs/<session_id>/ only."""
-        self._needs_first_calibration = True
-        self._log_verbose("[calib] calibration on launch (session artifacts are not loaded on startup).")
+        """Legacy overlay is not used on the GazeFollower production path."""
+        self._needs_first_calibration = False
+        self._log_verbose(
+            "[calib] official GazeFollower Preview/Calibration already ran; "
+            "legacy CalibrationOverlay is disabled."
+        )
 
     def _start_calibration_if_needed(self) -> None:
-        if self._gaze_mapper is not None or self._is_calibrating:
-            return
-        if not self._ensure_tracking_started():
-            return
-        self._start_calibration()
+        """No-op: production path does not start TrackingManager or the overlay."""
+        self._log_verbose("[calib] skipping legacy _start_calibration_if_needed")
+        return
 
     def _ensure_tracking_started(self) -> bool:
         return self._tracking_controller.ensure_started()
@@ -441,6 +447,8 @@ class VirtualKeyboard(QWidget):
         return self._tracking_controller.lock_frame_size_for_calibration()
 
     def _start_calibration(self) -> None:
+        # Legacy overlay remains callable for tools/tests until Stage G deletion.
+        # Production startup and Calibrate do not invoke this method (T023).
         # During calibration we want ONLY the calibration overlay visible (no runtime preview dot).
         self._reset_typing_for_recalibration()
         self._preview_mode = False
