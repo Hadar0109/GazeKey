@@ -38,3 +38,13 @@ secondary).
 - No PCA/Ridge, affine, bias, extra smoothing, or mapper
 - No change to the approved DPR/geometry transform, calibration protocol,
   HeuristicFilter, camera lifecycle, or dwell
+
+---
+
+## Closeout pointer (2026-08-24)
+
+This file remains historical FAIL evidence (BLUE/GREEN, pre-Qt protocol).
+It is **not** a PASS. The parity ladder was later closed as **USER-ACCEPTED
+CONTINUATION** with a known 0–1 adjacent-key residual. See
+**`T029_parity_audit.md`** section 8. Do not rewrite this diagnosis into a
+PASS.

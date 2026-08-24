@@ -1,0 +1,201 @@
+{
+  "recorded_at": "2026-08-24T14:58:55.174837+00:00",
+  "notes": "Read-only display/DPI probe. Never re-inits pygame. Does not change origin+dpr, camera order, or overlay. Compare screeninfo / Win32 / gf.screen_size / DPI awareness across after_calibrate, after_pygame_quit, after_start_sampling, and after_qt_keyboard.",
+  "phases": [
+    {
+      "phase": "after_calibrate",
+      "pygame": {
+        "pygame_init": true,
+        "display_init": true,
+        "display_info": {
+          "current_w": 1920,
+          "current_h": 1080
+        }
+      },
+      "screeninfo": {
+        "width": 1920,
+        "height": 1080,
+        "x": 0,
+        "y": 0
+      },
+      "win32": {
+        "SM_CXSCREEN": 1920,
+        "SM_CYSCREEN": 1080,
+        "dpi_awareness": -1,
+        "dpi_awareness_name": "-1",
+        "dpi_for_system": 144,
+        "monitor_effective_dpi": {
+          "x": 144,
+          "y": 144
+        }
+      },
+      "qt": null,
+      "lifecycle_gf_screen_size": [
+        1920,
+        1080
+      ],
+      "lifecycle_pygame_mode": [
+        1920,
+        1080
+      ],
+      "gf_screen_size": [
+        1920,
+        1080
+      ],
+      "config_screen_size": [
+        1920,
+        1080
+      ],
+      "geometry_transform": "identity",
+      "geometry_dpr": 1.0
+    },
+    {
+      "phase": "after_pygame_quit",
+      "pygame": {
+        "pygame_init": false,
+        "display_init": false,
+        "display_info": null
+      },
+      "screeninfo": {
+        "width": 1920,
+        "height": 1080,
+        "x": 0,
+        "y": 0
+      },
+      "win32": {
+        "SM_CXSCREEN": 1920,
+        "SM_CYSCREEN": 1080,
+        "dpi_awareness": -1,
+        "dpi_awareness_name": "-1",
+        "dpi_for_system": 144,
+        "monitor_effective_dpi": {
+          "x": 144,
+          "y": 144
+        }
+      },
+      "qt": null,
+      "lifecycle_gf_screen_size": [
+        1920,
+        1080
+      ],
+      "lifecycle_pygame_mode": [
+        1920,
+        1080
+      ],
+      "gf_screen_size": [
+        1920,
+        1080
+      ],
+      "config_screen_size": [
+        1920,
+        1080
+      ],
+      "geometry_transform": "identity",
+      "geometry_dpr": 1.0
+    },
+    {
+      "phase": "after_start_sampling",
+      "pygame": {
+        "pygame_init": false,
+        "display_init": false,
+        "display_info": null
+      },
+      "screeninfo": {
+        "width": 1920,
+        "height": 1080,
+        "x": 0,
+        "y": 0
+      },
+      "win32": {
+        "SM_CXSCREEN": 1920,
+        "SM_CYSCREEN": 1080,
+        "dpi_awareness": -1,
+        "dpi_awareness_name": "-1",
+        "dpi_for_system": 144,
+        "monitor_effective_dpi": {
+          "x": 144,
+          "y": 144
+        }
+      },
+      "qt": null,
+      "lifecycle_gf_screen_size": [
+        1920,
+        1080
+      ],
+      "lifecycle_pygame_mode": [
+        1920,
+        1080
+      ],
+      "gf_screen_size": [
+        1920,
+        1080
+      ],
+      "config_screen_size": [
+        1920,
+        1080
+      ],
+      "geometry_transform": "identity",
+      "geometry_dpr": 1.0
+    },
+    {
+      "phase": "after_qt_keyboard",
+      "pygame": {
+        "pygame_init": false,
+        "display_init": false,
+        "display_info": null
+      },
+      "screeninfo": {
+        "width": 1920,
+        "height": 1080,
+        "x": 0,
+        "y": 0
+      },
+      "win32": {
+        "SM_CXSCREEN": 1920,
+        "SM_CYSCREEN": 1080,
+        "dpi_awareness": -1,
+        "dpi_awareness_name": "-1",
+        "dpi_for_system": 144,
+        "monitor_effective_dpi": {
+          "x": 144,
+          "y": 144
+        }
+      },
+      "qt": {
+        "geometry": [
+          0,
+          0,
+          1280,
+          720
+        ],
+        "available_geometry": [
+          0,
+          0,
+          1280,
+          672
+        ],
+        "device_pixel_ratio": 1.5,
+        "logical_dpi": 96.0,
+        "physical_dpi": 105.46390556896195
+      },
+      "lifecycle_gf_screen_size": [
+        1920,
+        1080
+      ],
+      "lifecycle_pygame_mode": [
+        1920,
+        1080
+      ],
+      "gf_screen_size": [
+        1920,
+        1080
+      ],
+      "config_screen_size": [
+        1920,
+        1080
+      ],
+      "geometry_transform": "origin+dpr",
+      "geometry_dpr": 1.5
+    }
+  ]
+}

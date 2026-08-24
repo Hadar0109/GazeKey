@@ -24,7 +24,8 @@ gates, and repeatability runs.
 - Do not add learned mapping, bias, affine correction, PCA, Ridge, or extra
   smoothing after GazeFollower.
 - Do not modify Feature 004 specs, runs, tags, or commits.
-- Do not reconnect dwell before the Stage C USER GATE **T029** passes.
+- Do not reconnect dwell before the Stage C USER GATE **T029** PASS **or
+  USER-ACCEPTED CONTINUATION** (`runs/_feature005/T029_parity_audit.md`).
 - This file's **T060** is the Feature 005 suggestion USER GATE. Always write
   **Feature 004 T060** when referring to the historical Feature 004 experiment.
 - Stage G may begin at T064 only after T062 PASS **and** T063 cleanup-hold
@@ -147,11 +148,11 @@ post-GazeFollower mapper.
 - [X] T026 [US2] Continue on the existing keyboard already constructed and shown in Stage B (`gazekey/ui/virtual_keyboard.py` / `gazekey/ui/keyboard_layout.py`). Do **not** construct or open a second keyboard. Do not redesign visuals and do not start legacy calibration.
 - [X] T027 [US2] Add a temporary debug gaze dot driven **only** by official filtered `GazeSample.x/y` (reuse `tools/preview/gaze_preview.py` overlay or an equivalent developer overlay on the keyboard). Do **not** call `GazeTypingRuntime.on_mapped_gaze`, `DwellEngine`, or `ActionDispatcher` yet
 - [X] T028 [US2] **Live geometry record**: fill the T011 audit from the live session (screeninfo, pygame mode, Qt geometry, DPR, monitor origin, keyboard origin / live key and suggestion QRects) and apply **only** the T007 identity/origin/DPR transform. This is the first time real keyboard geometry can be proven.
-- [ ] T029 [US2] **USER GATE**: with chin/head support, verify gaze alignment over the **real live keyboard** (letter rows, bottom editing controls, and the live rectangles of **all three suggestion slots** even if prediction text is not yet populated). Confirm the official gaze spans the required interaction area and does not systematically collapse vertically. Record the result under `runs/` (pass/fail + geometry audit). **Do not reconnect prediction or dwell early just to populate suggestion text.** **Dwell stays disconnected until this gate passes.**
-- [ ] T030 [US2] If T028/T029 show that identity/origin/DPR cannot align official filtered gaze with live QRects, **invoke the T012 STOP path**: STOP and report; do not add mapper, bias, affine, extra smoothing, or `generate_points` changes to “make it look calibrated”
+- [ ] T029 [US2] **USER GATE — not PASS**. **USER-ACCEPTED CONTINUATION** 2026-08-24: with chin/head support, integrated GF is close to the official reference; remaining settled error is usually the intended key or one adjacent key. User accepts that residual for downstream integration. Formal T029 is **not** checked PASS. Record: `runs/_feature005/T029_parity_audit.md` (plus geometry audit / probe JSON). **Do not reconnect prediction or dwell early just to populate suggestion text.** Dwell stays disconnected until T031 then T032+. Stage D is authorized by this continuation, not by a falsified PASS.
+- [X] T030 [US2] T012 STOP **not invoked**. T028/T029 did **not** show that identity/origin/DPR cannot align official filtered gaze with live QRects: Step C PASS kept `origin+dpr`; residual 0–1 adjacent key is accepted. Do not add mapper, bias, affine, extra smoothing, or `generate_points` changes to “make it look calibrated”
 - [ ] T031 [P] [US2] Confirm the Stage C pointing path does not stack `GazeSmoother` or `PcaFeatureSmoother` on official HeuristicFilter output (audit `gazekey/ui/virtual_keyboard.py`, `gazekey/runtime/gaze_loop.py`, `gazekey/typing/gaze_smoother.py`, `gazekey/features/feature_smoother.py`)
 
-**Checkpoint**: USER GATE T029 passed; dwell still off. **Do not start Stage D until T029 passes.**
+**Checkpoint**: T029 **USER-ACCEPTED CONTINUATION** (not PASS); T030 STOP not invoked; dwell still off. **Do not start Stage D until T029 PASS or USER-ACCEPTED CONTINUATION.** Next: T031, then T032–T041.
 
 ---
 
@@ -167,7 +168,7 @@ smoothing.
 into an external app, confirm three suggestions, gaze-select a suggestion,
 suffix + Space. Interaction matches Feature 003 / 004 closeout except gaze source.
 
-**Depends on**: Stage C USER GATE T029 pass
+**Depends on**: Stage C USER GATE T029 PASS **or USER-ACCEPTED CONTINUATION**
 
 - [ ] T032 [US3] Wire `GazeSample` → existing `MappedGazePoint` in `gazekey/runtime/gaze_loop.py` (and `gazekey/typing/gaze_typing_runtime.py`) using `x`, `y`, `valid` only; do not call `MapperRuntime.key_accuracy_predict_screen_xy`, Ridge, or FeatureExtractor
 - [ ] T033 [US3] Keep focus resolution on live layout QRects via existing `gazekey/typing/key_hit_tester.py` (`hit_test_layout_keys`) and `gazekey/layout/`; do not introduce a duplicated coordinate table
@@ -285,8 +286,8 @@ only GazeFollower production gaze remains; `specs/004-gaze-mapping-accuracy/`,
 ```text
 A (T001–T017; T012 = STOP mechanism/policy implemented+tested, not live-geometry PASS)
   → B (T018–T025)   # depends on T012 implemented/tested, not a live-coordinate PASS
-  → C (T026–T031; T028 live record, USER GATE T029, T030 invokes T012 STOP if needed; dwell still off)
-  → D (T032–T041)   # blocked until T029 PASS
+  → C (T026–T031; T028 live record, USER GATE T029 not PASS / USER-ACCEPTED CONTINUATION, T030 STOP not invoked; dwell still off until T031 then T032+)
+  → D (T032–T041)   # blocked until T029 PASS or USER-ACCEPTED CONTINUATION
   → E (T042–T048)
   → F (T049–T063; USER GATEs T054–T060; T062 PASS → T063 hold released)
   → G starts at T064 after T062 PASS + T063 release
@@ -311,7 +312,7 @@ A (T001–T017; T012 = STOP mechanism/policy implemented+tested, not live-geomet
 
 - **US1 (Stage B)**: after Stage A, including T012 **implemented and tested** (not a live-keyboard geometry PASS)
 - **US2 (Stage C)**: after US1; live geometry proof is T028/T029/T030
-- **US3 (Stage D)**: after US2 USER GATE **T029 PASS** (strict)
+- **US3 (Stage D)**: after US2 USER GATE **T029 PASS or USER-ACCEPTED CONTINUATION**
 - **US4 (Stage E)**: after US3
 - **US5 acceptance (Stage F)**: after US4; ends at T062 PASS → T063 hold released
 - **US5 cleanup (Stage G)**: may **begin at T064** after T062 PASS **and** T063 hold released. T064 is the first G task, not a prerequisite for entering G. Deletions T066–T078 additionally require T064 checkpoint **and** T065 inventory freeze. Then T079, then T080.
@@ -358,7 +359,7 @@ Do **not** parallelize Stage G with Stage F. Do **not** delete Feature 004.
 1. Stage A env + adapter + isolation + geometry STOP
 2. Stage B official Preview/Calibration/sampling and show the existing keyboard
 3. Stage C debug dot + geometry USER GATE on that same keyboard (do not open a second keyboard)
-4. **STOP and VALIDATE T029** before dwell
+4. **STOP and VALIDATE T029** before dwell (PASS **or USER-ACCEPTED CONTINUATION**; 2026-08-24 continuation recorded, residual 0–1 adjacent key)
 
 ### Incremental delivery
 
@@ -369,9 +370,10 @@ Do **not** parallelize Stage G with Stage F. Do **not** delete Feature 004.
 
 ### Suggested MVP scope
 
-Stages A–C through USER GATE T029. That proves official GazeFollower is the
-startup path and that standalone mapping survived the keyboard handoff. Typing
-(D) is the next increment, not part of the first validation stop.
+Stages A–C through USER GATE T029 (**USER-ACCEPTED CONTINUATION**, not PASS).
+That proves official GazeFollower is the startup path and that standalone
+mapping survived the keyboard handoff with a known 0–1 adjacent-key residual.
+Typing (D) is the next increment after T031.
 
 ---
 

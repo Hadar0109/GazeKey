@@ -138,20 +138,35 @@ def test_camera_thread_queue_not_raw_get_gaze_info(monkeypatch):
     assert life.take_latest_sample() is None
 
 
-def test_debug_filtered_qt_xy_uses_get_gaze_info_and_origin_dpr(monkeypatch):
+def test_debug_filtered_pair_same_sample_origin_dpr_and_identity(monkeypatch):
     _patch_official(monkeypatch)
     geom = GeometryConfig(transform="origin+dpr", dpr=1.5, origin_offset=(0.0, 0.0))
     life = GazeFollowerLifecycle(gf_factory=FakeGazeFollower, geometry=geom)
     life.construct()
+    calls = []
+    orig = life.gf.get_gaze_info
+
+    def counted():
+        calls.append(1)
+        return orig()
+
+    life.gf.get_gaze_info = counted
     life.gf._gaze_info = SimpleNamespace(
         status=True,
         filtered_gaze_coordinates=(960.0, 540.0),
     )
+    geom_before = life.geometry
+    pair = life.debug_filtered_pair()
+    assert pair == ((640.0, 360.0), (960.0, 540.0))
+    assert len(calls) == 1
+    assert life.geometry is geom_before
+    assert life.geometry.transform == "origin+dpr"
     assert life.debug_filtered_qt_xy() == (640.0, 360.0)
     life.gf._gaze_info = SimpleNamespace(
         status=False,
         filtered_gaze_coordinates=(960.0, 540.0),
     )
+    assert life.debug_filtered_pair() is None
     assert life.debug_filtered_qt_xy() is None
     sample = life.take_latest_sample()
     assert sample is None

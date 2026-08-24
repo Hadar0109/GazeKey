@@ -198,12 +198,12 @@ class GazeFollowerLifecycle:
                 break
         return sample
 
-    def debug_filtered_qt_xy(self) -> tuple[float, float] | None:
-        """Step B debug ring: pygame-style ``gf.get_gaze_info()`` plus current geometry.
+    def debug_filtered_pair(
+        self,
+    ) -> tuple[tuple[float, float], tuple[float, float]] | None:
+        """One get_gaze_info() sample: (origin+dpr xy, identity xy).
 
-        Updates only when ``status`` is True and filtered xy is finite (official
-        pygame_example). T010 queue remains the product path. This read matches
-        pygame's unlocked ``_gaze_info`` access and is debug-only.
+        Identity is raw GF pixels as Qt global. Does not change lifecycle.geometry.
         """
         gf = self._gf
         if gf is None:
@@ -221,7 +221,14 @@ class GazeFollowerLifecycle:
             return None
         if not math.isfinite(x) or not math.isfinite(y):
             return None
-        return apply_geometry(x, y, self.geometry)
+        transformed = apply_geometry(x, y, self.geometry)
+        identity_xy = apply_geometry(x, y, GeometryConfig(transform="identity"))
+        return transformed, identity_xy
+
+    def debug_filtered_qt_xy(self) -> tuple[float, float] | None:
+        """origin+dpr half of debug_filtered_pair (Step B helper)."""
+        pair = self.debug_filtered_pair()
+        return None if pair is None else pair[0]
 
     def attach_qt_bridge(self, parent: Any = None) -> Any:
         """Qt-thread-safe consumer: timer on the Qt thread drains the camera queue.
@@ -257,7 +264,7 @@ class GazeFollowerLifecycle:
         return self._qt_bridge
 
     def attach_debug_get_gaze_info_bridge(self, overlay: Any, parent: Any = None) -> Any:
-        """Step B: poll official ``gf.get_gaze_info()`` for the debug ring only.
+        """Poll official ``gf.get_gaze_info()`` once per tick for the dual overlay.
 
         Does not drain the T010 subscriber queue. Stopped by ``stop_qt_bridge``.
         """
@@ -279,9 +286,9 @@ class GazeFollowerLifecycle:
                 self._timer.stop()
 
             def _poll(self) -> None:
-                xy = lifecycle.debug_filtered_qt_xy()
-                if xy is not None:
-                    overlay.update_xy(xy[0], xy[1])
+                pair = lifecycle.debug_filtered_pair()
+                if pair is not None:
+                    overlay.update_pair(pair[0], pair[1])
 
         self._qt_bridge = DebugGetGazeInfoBridge()
         return self._qt_bridge

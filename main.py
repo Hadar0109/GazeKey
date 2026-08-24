@@ -15,6 +15,7 @@ from gazekey.backend.lifecycle import (
     GazeFollowerLifecycleError,
 )
 from gazekey.backend.startup import (
+    record_dpi_probe,
     record_live_geometry,
     run_official_startup,
     wire_debug_gaze_dot,
@@ -47,12 +48,15 @@ def main(argv: list[str] | None = None) -> int:
     keyboard.show()
     keyboard.on_app_started()
     record_live_geometry(lifecycle, keyboard)
+    probe_path = record_dpi_probe(lifecycle)
     wire_debug_gaze_dot(lifecycle, keyboard)
     app.aboutToQuit.connect(lifecycle.release)
 
     print("GazeKey started (GazeFollower backend)!")
-    print("- GREEN ring = gf.get_gaze_info() filtered xy after origin+dpr")
-    print("- Hold-last is debug-only. Dwell stays off.")
+    print("- GREEN = origin+dpr   MAGENTA = identity (no /DPR)")
+    print("- Same gf.get_gaze_info() sample. Hold-last is debug-only. Dwell stays off.")
+    if probe_path is not None:
+        print(f"- DPI probe: {probe_path}")
     print("- Close the window to exit")
 
     return int(app.exec())

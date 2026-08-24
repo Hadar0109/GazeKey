@@ -1,7 +1,11 @@
 # T029 parity audit: official pygame_example vs GazeKey integration
 
 **Date**: 2026-08-24  
-**Status**: USER GATE **FAIL**. Stage D / dwell / OS typing **not** started.  
+**Status**: USER GATE **not PASS**. **USER-ACCEPTED CONTINUATION** with known
+residual spatial error (typically the intended key or one adjacent key).
+Parity ladder **closed**. Feature Stage D is authorized; dwell / OS typing
+are still off until T031 then T032+.
+
 **Reference**: official `example/pygame_example.py` at GazeFollower
 `553920edcb7998c029828677f50f6d8eb4a16249` (v1.0.2), run by the user with a
 GazeKey keyboard screenshot as the pygame background. In that run the GREEN
@@ -230,26 +234,106 @@ keyboard-screenshot reference **remains**. T029 stays FAIL.
 
 **B is the next isolation step.** C / D are not started.
 
-## 5. Step B implemented — live verdict pending
+## 5. Step B live result — PARTIAL PASS
 
-Debug ring polls official `gf.get_gaze_info()` like pygame_example (unlocked
-`_gaze_info` read). Updates when `status` is True and filtered xy is finite,
-then applies the **current** `origin+dpr` transform. Otherwise hold-last.
+Using `gf.get_gaze_info()` directly made the GREEN ring noticeably more
+stable than Step A.
 
-The T010 subscriber + maxsize-1 queue remains for the future product stream
-and is **not** connected to the debug ring.
+Settled spatial accuracy vs Step A is **inconclusive**: the two results came
+from **separate calibration sessions**. Do not treat B as having reduced
+accuracy.
 
-**Live gate:** chin/head support vs the official screenshot reference.
+- Stability: **improved**
+- Settled spatial accuracy effect: **inconclusive**
+- T029 stays FAIL
+- Subscriber/queue still unused by the debug ring; `origin+dpr` unchanged
 
-- Match → stop; cause was subscriber/queue consumption.
-- Settled miss remains → B FAIL; then C (identity vs origin+dpr A/B) only.
+**C is the next isolation step** (same session, both transforms). D is not started.
+
+## 6. Step C live result — PASS
+
+Same calibration/session, same `gf.get_gaze_info()` sample:
+
+- **GREEN** (`origin+dpr`) was consistently much closer to the looked-at key
+- **MAGENTA** (identity / no `/DPR`) was clearly worse
+
+Keep production `choose_allowed_transform` / **`origin+dpr`**. Do not switch
+to identity. The remaining mismatch with official pygame_example is **not
+primarily caused by the DPR transform**.
+
+T029 stays FAIL (settled miss vs the official screenshot reference remains).
+Feature Stage D (dwell / OS typing) is not started.
+
+**D is the next isolation step** (`pygame.quit()` → Qt display / DPI).
+
+## 7. Step D live result — no meaningful DPI / screen-size jump
+
+Read-only four-phase display/DPI probe. Does not skip `pygame.quit()`, does
+not overlap pygame and Qt, does not change `origin+dpr`. Record:
+`runs/_feature005/pygame_qt_dpi_probe.json`.
+
+Across `after_calibrate` → `after_pygame_quit` → `after_start_sampling` →
+`after_qt_keyboard`:
+
+- `screeninfo` 1920×1080, Win32 `SM_CXSCREEN/SM_CYSCREEN` 1920×1080,
+  `gf.screen_size` 1920×1080, `dpi_for_system` 144, and monitor effective
+  DPI 144 are **unchanged**
+- pygame display is alive only in phase 1 (expected after quit)
+- Qt appears only in phase 4: 1280×720, DPR 1.5 (the space `origin+dpr`
+  already maps)
+- `geometry_transform` is `identity` in phases 1–3 (lifecycle default
+  **before** T028) and `origin+dpr` / dpr 1.5 in phase 4 **after**
+  `record_live_geometry` — not a quit-induced pixel-space change
+
+`pygame.quit()` did not change GazeFollower’s pixel space. The remaining
+settled miss is not a DPI/screen-size handoff.
+
+## 8. Parity ladder closed — USER-ACCEPTED CONTINUATION (not PASS)
+
+The user is satisfied with the current T029 investigation and accepts the
+residual error for downstream product integration. Perfect gaze accuracy is
+**not** required before continuing Feature 005.
+
+User assessment (chin/head support):
+
+- Integrated GazeFollower accuracy is now close to the official reference
+- Remaining settled error is usually small: often the intended key or
+  approximately one adjacent key
+- Step A improved perceived stability (official-sized GREEN ring + hold-last
+  visualization)
+- Step B `gf.get_gaze_info()` polling improved stability
+- Step C **PASS**: `origin+dpr` is clearly better than identity
+- Step D: no meaningful screen-size / DPI / `gf.screen_size` change across
+  `pygame.quit()` → `start_sampling()` → Qt
+
+Keep production **`origin+dpr`**. GREEN hold-last remains **visualization
+only**; invalid production gaze must still cancel dwell. T012/T030 STOP was
+**not invoked**: identity/origin/DPR can align well enough; the residual is
+accepted, not “cannot align.”
+
+T029 is **not** marked PASS. Formal alignment still has a known 0–1 key
+residual. Stage D is authorized by this USER-ACCEPTED CONTINUATION.
+
+Deferred until after the complete integrated product is tested (not now):
+
+- **A.** Evaluate a GazeFollower model trained on 32M images when available
+- **B.** Enlarge/rebalance keyboard key hit areas/layout so a small residual
+  is less likely to select an adjacent key
+
+Do not resize keys or add gaze correction in Stage D–F.
+
+Parity ladder ends. Next Feature 005 work is T031 (isolation audit), then
+T032–T041 (dwell / OS typing / suggestions). Dual-ring debug overlay and
+legacy packages stay on disk until Stage F/G.
 
 ---
 
-## Explicitly not done
+## Explicitly not done in this closeout
 
-- No Stage D, dwell, or OS typing
-- No change to DPR transform, calibration, HeuristicFilter, or camera
-  lifecycle
+- No Feature Stage D implementation yet (dwell / OS typing still off)
+- No change to the production DPR transform, calibration, HeuristicFilter, or
+  camera lifecycle (`quit_pygame` still before `start_sampling`)
 - No PCA/Ridge/affine/bias/extra smoothing
-- No Step C identity A/B overlay, no Step D pygame.quit DPI probe
+- No key resize or gaze-correction layer
+- No skipping `pygame.quit()` / overlapping pygame and Qt
+- T031–T041 not started

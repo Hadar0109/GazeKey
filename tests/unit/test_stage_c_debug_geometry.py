@@ -6,7 +6,11 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock
 
-from gazekey.backend.debug_gaze_dot import DebugGazeOverlay, overlay_ring_metrics
+from gazekey.backend.debug_gaze_dot import (
+    DebugGazeOverlay,
+    HUD_TEXT,
+    overlay_ring_metrics,
+)
 from gazekey.backend.gaze_sample import GazeSample
 from gazekey.backend.geometry import GeometryConfig
 from gazekey.backend.geometry_audit import build_live_audit, write_geometry_audit
@@ -40,7 +44,7 @@ def test_debug_dot_uses_gazesample_only_not_dwell(qapp, monkeypatch):
     qapp.processEvents()
     runtime.on_mapped_gaze.assert_not_called()
     assert overlay._dot.isVisible()
-    assert overlay._dot._pos is not None
+    assert overlay._dot._dpr_pos is not None
 
 
 def test_invalid_sample_holds_last_debug_only(qapp):
@@ -50,7 +54,7 @@ def test_invalid_sample_holds_last_debug_only(qapp):
     overlay = DebugGazeOverlay(vk.keyboard_widget)
     overlay.update_sample(_valid_sample(80.0, 90.0))
     qapp.processEvents()
-    held = overlay._dot._pos
+    held = overlay._dot._dpr_pos
     assert held is not None
     invalid = GazeSample(
         timestamp_ns=2,
@@ -65,7 +69,7 @@ def test_invalid_sample_holds_last_debug_only(qapp):
     )
     overlay.update_sample(invalid)
     qapp.processEvents()
-    assert overlay._dot._pos == held
+    assert overlay._dot._dpr_pos == held
 
 
 def test_overlay_ring_metrics_scale_official_pygame_size_by_dpr():
@@ -92,7 +96,7 @@ def test_first_invalid_sample_does_not_draw(qapp):
     )
     overlay.update_sample(invalid)
     qapp.processEvents()
-    assert overlay._dot._pos is None
+    assert overlay._dot._dpr_pos is None
 
 
 def test_live_geometry_audit_records_keyboard_qrects(qapp, tmp_path):
@@ -176,7 +180,7 @@ def test_wired_debug_dot_covers_full_keyboard_not_dwell(qapp, monkeypatch):
     overlay.update_xy(640.0, 360.0)
     qapp.processEvents()
     vk._typing_runtime.on_mapped_gaze.assert_not_called()
-    assert overlay._dot._pos is not None
+    assert overlay._dot._dpr_pos is not None
 
 
 def test_debug_dot_paint_does_not_apply_dpr_again():
@@ -188,3 +192,50 @@ def test_debug_dot_paint_does_not_apply_dpr_again():
     assert "devicePixelRatio" not in debug_dot
     assert "apply_geometry" not in debug_dot
     assert "/ dpr" not in debug_dot
+
+
+def test_overlay_pair_stores_two_distinct_locals_and_hud(qapp):
+    vk = VirtualKeyboard()
+    vk.show()
+    qapp.processEvents()
+    overlay = DebugGazeOverlay(vk.keyboard_widget, dpr=1.5)
+    overlay.update_pair((640.0, 360.0), (960.0, 540.0))
+    qapp.processEvents()
+    assert overlay._dot._dpr_pos is not None
+    assert overlay._dot._identity_pos is not None
+    assert overlay._dot._dpr_pos != overlay._dot._identity_pos
+    assert overlay._dot._radius == overlay_ring_metrics(1.5)[0]
+    assert "GREEN" in HUD_TEXT
+    assert "MAGENTA" in HUD_TEXT
+    assert "origin+dpr" in HUD_TEXT
+    assert "identity" in HUD_TEXT
+
+
+def test_step_c_source_mentions_green_vs_magenta():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    debug = (root / "gazekey/backend/debug_gaze_dot.py").read_text(encoding="utf-8")
+    startup = (root / "gazekey/backend/startup.py").read_text(encoding="utf-8")
+    main = (root / "main.py").read_text(encoding="utf-8")
+    assert "GREEN" in debug and "MAGENTA" in debug
+    assert "GREEN" in HUD_TEXT and "MAGENTA" in HUD_TEXT
+    assert "GREEN" in startup and "MAGENTA" in startup
+    assert "GREEN" in main and "MAGENTA" in main
+
+
+def test_step_c_diagnostic_does_not_call_choose_allowed_transform():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    debug = (root / "gazekey/backend/debug_gaze_dot.py").read_text(encoding="utf-8")
+    life = (root / "gazekey/backend/lifecycle.py").read_text(encoding="utf-8")
+    pair = life.split("def debug_filtered_pair", 1)[1].split(
+        "def debug_filtered_qt_xy", 1
+    )[0]
+    bridge = life.split("def attach_debug_get_gaze_info_bridge", 1)[1].split(
+        "def release", 1
+    )[0]
+    assert "choose_allowed_transform" not in debug
+    assert "choose_allowed_transform" not in pair
+    assert "choose_allowed_transform" not in bridge

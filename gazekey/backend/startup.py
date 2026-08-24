@@ -5,9 +5,33 @@ from __future__ import annotations
 from typing import Any
 
 from gazekey.backend.debug_gaze_dot import DebugGazeOverlay
+from gazekey.backend.display_probe import (
+    PHASE_AFTER_CALIBRATE,
+    PHASE_AFTER_PYGAME_QUIT,
+    PHASE_AFTER_QT_KEYBOARD,
+    PHASE_AFTER_START_SAMPLING,
+    DisplayProbe,
+)
 from gazekey.backend.geometry_audit import build_live_audit, write_geometry_audit
 from gazekey.backend.lifecycle import GazeFollowerLifecycle
 from gazekey.backend.provenance import product_interpreter_path, provenance_record
+
+
+def _probe_for(lifecycle: GazeFollowerLifecycle) -> DisplayProbe:
+    probe = getattr(lifecycle, "_display_probe", None)
+    if not isinstance(probe, DisplayProbe):
+        probe = DisplayProbe()
+        lifecycle._display_probe = probe
+    return probe
+
+
+def _capture(
+    lifecycle: GazeFollowerLifecycle, phase: str, *, include_qt: bool = False
+) -> None:
+    try:
+        _probe_for(lifecycle).capture(phase, lifecycle, include_qt=include_qt)
+    except Exception:
+        pass
 
 
 def run_official_startup(lifecycle: GazeFollowerLifecycle) -> None:
@@ -15,11 +39,15 @@ def run_official_startup(lifecycle: GazeFollowerLifecycle) -> None:
 
     Must run before QApplication / VirtualKeyboard construction.
     """
+    _probe_for(lifecycle)
     lifecycle.construct()
     lifecycle.preview()
     lifecycle.calibrate()
+    _capture(lifecycle, PHASE_AFTER_CALIBRATE)
     lifecycle.quit_pygame()
+    _capture(lifecycle, PHASE_AFTER_PYGAME_QUIT)
     lifecycle.start_sampling()
+    _capture(lifecycle, PHASE_AFTER_START_SAMPLING)
 
 
 def record_live_geometry(lifecycle: GazeFollowerLifecycle, keyboard: Any) -> Any:
@@ -42,8 +70,17 @@ def record_live_geometry(lifecycle: GazeFollowerLifecycle, keyboard: Any) -> Any
     )
 
 
+def record_dpi_probe(lifecycle: GazeFollowerLifecycle, path: Any = None) -> Any:
+    """Write the four-phase pygame.quit → Qt display/DPI probe. Best-effort."""
+    _capture(lifecycle, PHASE_AFTER_QT_KEYBOARD, include_qt=True)
+    try:
+        return _probe_for(lifecycle).write(path)
+    except Exception:
+        return None
+
+
 def wire_debug_gaze_dot(lifecycle: GazeFollowerLifecycle, keyboard: Any) -> Any:
-    """Stage C debug overlay: official-sized GREEN ring via gf.get_gaze_info()."""
+    """Stage C debug overlay: GREEN origin+dpr vs MAGENTA identity, same sample."""
     geom = getattr(lifecycle, "geometry", None)
     dpr = float(geom.dpr) if geom is not None else 1.0
     overlay = DebugGazeOverlay(keyboard, dpr=dpr)
