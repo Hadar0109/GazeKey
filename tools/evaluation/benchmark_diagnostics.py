@@ -168,19 +168,17 @@ def _mapper_metadata(model: Any) -> dict[str, Any]:
 
 
 def _config_metadata() -> dict[str, Any]:
-    """Frozen pca4_baseline config that explains experiment differences."""
-    from gazekey.mapping import config as tc
-
+    """GazeFollower evaluation metadata (PCA4 mapper config deleted in Stage G)."""
     return {
-        "typing_candidate_id": getattr(tc, "TYPING_CANDIDATE_ID", None),
-        "active_mapper": getattr(tc, "ACTIVE_MAPPER", None),
-        "calibration_mode": getattr(tc, "CALIBRATION_MODE", None),
-        "alpha_grid": _to_float_tuple(getattr(tc, "ALPHA_GRID", None)),
-        "min_alpha": _to_float(getattr(tc, "MIN_ALPHA", None)),
-        "apply_row_y_bias": bool(getattr(tc, "APPLY_ROW_Y_BIAS", False)),
-        "apply_local_y_correction": bool(getattr(tc, "APPLY_LOCAL_Y_CORRECTION", False)),
-        "feature_smoother_alpha_default": _to_float(getattr(tc, "FEATURE_SMOOTHER_ALPHA", None)),
-        "gaze_smoother_alpha_default": _to_float(getattr(tc, "GAZE_SMOOTHER_ALPHA", None)),
+        "typing_candidate_id": None,
+        "active_mapper": "gazefollower",
+        "calibration_mode": "official",
+        "alpha_grid": None,
+        "min_alpha": None,
+        "apply_row_y_bias": False,
+        "apply_local_y_correction": False,
+        "feature_smoother_alpha_default": None,
+        "gaze_smoother_alpha_default": None,
     }
 
 

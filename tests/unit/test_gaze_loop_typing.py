@@ -74,38 +74,26 @@ def test_os_inject_disabled_during_calibration_guard():
     assert runtime.on_mouse_key(key_id="key_a", action="a") is None
 
 
-def test_gaze_loop_typing_active_when_usable_mapper(qapp):
+def test_gaze_loop_typing_active_when_official_gaze_ready(qapp):
     vk = VirtualKeyboard()
     vk._is_calibrating = False
     vk.is_expanded = True
-    vk._gaze_mapper = MagicMock()
+    vk._official_gaze_ready = True
     vk._typing_runtime.session.activate()
     vk._typing_runtime.set_os_inject_enabled(True)
 
-    assert hasattr(vk._gaze_loop, "process_gaze_typing")
+    assert hasattr(vk._gaze_loop, "on_gaze_sample")
     assert vk._gaze_loop.gaze_typing_active() is True
 
 
-def test_gaze_loop_skips_typing_while_calibrating(qapp, monkeypatch):
+def test_gaze_loop_skips_typing_while_calibrating(qapp):
     vk = VirtualKeyboard()
     vk._is_calibrating = True
-    vk._calibration_overlay = MagicMock()
     vk.is_expanded = True
-    vk._gaze_mapper = MagicMock()
+    vk._official_gaze_ready = True
     vk._typing_runtime.session.activate()
+    vk._typing_runtime.set_os_inject_enabled(True)
 
-    calls = []
-    monkeypatch.setattr(vk._gaze_loop, "process_gaze_typing", lambda *a, **k: calls.append("typing"))
-    monkeypatch.setattr(vk._gaze_loop, "_process_calibration_eye_data", lambda *a, **k: calls.append("calib"))
-
-    eye = MagicMock()
-    eye.face_detected = False
-    eye.left_iris_center = None
-    eye.right_iris_center = None
-    vk.tracking_manager = None
-    vk._gaze_loop.on_eye_data_main_thread(eye)
-
-    assert calls == ["calib"]
     assert vk._gaze_loop.gaze_typing_active() is False
 
 

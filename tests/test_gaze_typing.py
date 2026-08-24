@@ -5,7 +5,6 @@ In-app TextBufferController removed in 002 T046 — OS is the typing destination
 
 from PySide6.QtCore import QRect
 
-from gazekey.typing.gaze_smoother import GazeSmoother
 from gazekey.typing.key_hit_tester import hit_test_rects
 from gazekey.typing.key_semantics import action_from_label
 
@@ -41,12 +40,3 @@ def test_hit_test_snap_to_nearest():
     regions = [(1, QRect(0, 0, 50, 50))]
     assert hit_test_rects(regions, 60, 25, snap_distance=30) is None
     assert hit_test_rects(regions, 60, 25, snap_distance=40) == 1
-
-
-def test_gaze_smoother_reduces_jitter():
-    smooth = GazeSmoother(alpha=0.5)
-    x1, y1 = smooth.filter(100.0, 200.0)
-    x2, y2 = smooth.filter(110.0, 190.0)
-    assert x1 == 100.0
-    assert 100.0 < x2 < 110.0
-    assert 190.0 < y2 < 200.0

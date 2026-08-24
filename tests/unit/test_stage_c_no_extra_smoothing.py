@@ -51,12 +51,10 @@ def test_stage_c_pointing_sources_do_not_name_extra_smoothers():
     )
 
 
-def test_debug_overlay_does_not_call_gaze_or_feature_smoother(qapp, monkeypatch):
+def test_debug_overlay_does_not_call_gaze_or_feature_smoother(qapp):
     vk = VirtualKeyboard()
     vk.show()
     qapp.processEvents()
-    monkeypatch.setattr(vk._gaze_smoother, "filter_or_reject", MagicMock())
-    monkeypatch.setattr(vk._feature_smoother, "smooth", MagicMock())
     overlay = DebugGazeOverlay(vk.keyboard_widget, dpr=1.5)
     overlay.update_xy(640.0, 360.0)
     overlay.update_sample(
@@ -73,5 +71,5 @@ def test_debug_overlay_does_not_call_gaze_or_feature_smoother(qapp, monkeypatch)
         )
     )
     qapp.processEvents()
-    vk._gaze_smoother.filter_or_reject.assert_not_called()
-    vk._feature_smoother.smooth.assert_not_called()
+    assert not hasattr(vk, "_gaze_smoother")
+    assert not hasattr(vk, "_feature_smoother")

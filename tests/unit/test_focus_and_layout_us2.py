@@ -5,13 +5,11 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QPushButton
 
-from gazekey.ui.calibration_overlay import CalibrationOverlay
 from gazekey.ui.virtual_keyboard import VirtualKeyboard
 
 
 def test_top_half_keyboard_geometry_preserved(qapp):
     vk = VirtualKeyboard()
-    vk._needs_first_calibration = False
     vk.show()
     qapp.processEvents()
     vk._keyboard_layout_builder.apply_full_keyboard_geometry()
@@ -26,20 +24,8 @@ def test_top_half_keyboard_geometry_preserved(qapp):
     assert abs(geo.height() - min(expected_h, screen.height())) <= 1
 
 
-def test_calibration_overlay_uses_fullscreen_primary_geometry():
-    """T051: calib presentation remains fullscreen primaryScreen().geometry()."""
-    import inspect
-
-    from gazekey.ui.calibration_overlay import CalibrationOverlay
-
-    src = inspect.getsource(CalibrationOverlay._setup_window)
-    assert "primaryScreen().geometry()" in src
-    assert "availableGeometry" not in src
-
-
 def test_keyboard_window_does_not_accept_focus(qapp):
     vk = VirtualKeyboard()
-    vk._needs_first_calibration = False
     flags = vk.windowFlags()
     assert flags & Qt.WindowType.WindowDoesNotAcceptFocus
     assert flags & Qt.WindowType.Tool
@@ -50,7 +36,6 @@ def test_keyboard_window_does_not_accept_focus(qapp):
 
 def test_key_and_chrome_widgets_use_no_focus(qapp):
     vk = VirtualKeyboard()
-    vk._needs_first_calibration = False
     qapp.processEvents()
     assert vk.calibrate_btn.focusPolicy() == Qt.FocusPolicy.NoFocus
     assert vk.minimize_btn.focusPolicy() == Qt.FocusPolicy.NoFocus
@@ -67,7 +52,6 @@ def test_key_and_chrome_widgets_use_no_focus(qapp):
 def test_removed_product_chrome_absent(qapp):
     """003 US3: Pause/Preview/lang/symbols/text_display/status chrome removed."""
     vk = VirtualKeyboard()
-    vk._needs_first_calibration = False
     qapp.processEvents()
     assert not hasattr(vk, "text_display")
     assert not hasattr(vk, "pause_resume_btn")

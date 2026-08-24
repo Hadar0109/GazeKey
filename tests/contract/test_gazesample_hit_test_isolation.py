@@ -58,16 +58,6 @@ def test_gazesample_mapped_point_hit_test_does_not_call_mapper(qapp, monkeypatch
     vk._keyboard_layout_builder.export_keyboard_layout()
     vk._official_gaze_ready = True
     vk._ensure_typing_auto_started()
-    monkeypatch.setattr(
-        "gazekey.features.FeatureExtractor.from_eye_data",
-        MagicMock(side_effect=AssertionError("FeatureExtractor")),
-    )
-    monkeypatch.setattr(
-        vk._mapper_runtime,
-        "key_accuracy_predict_screen_xy",
-        MagicMock(side_effect=AssertionError("MapperRuntime.predict")),
-    )
-    monkeypatch.setattr(vk._gaze_smoother, "filter_or_reject", MagicMock())
     sample = GazeSample(
         timestamp_ns=1,
         valid=True,
@@ -84,7 +74,7 @@ def test_gazesample_mapped_point_hit_test_does_not_call_mapper(qapp, monkeypatch
     assert (gaze.x, gaze.y) == (50.0, 60.0)
     hit_test_layout_keys(vk._layout_keys, gaze.x, gaze.y)
     vk._gaze_loop.on_gaze_sample(sample)
-    vk._gaze_smoother.filter_or_reject.assert_not_called()
+    assert not hasattr(vk, "_gaze_smoother")
 
 
 def test_invalid_sample_maps_to_zero_xy_not_hold_last():

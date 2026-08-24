@@ -4,14 +4,12 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
 from PySide6.QtCore import QPoint, QRect, Qt
 from PySide6.QtWidgets import QPushButton, QWidget
 
-from gazekey.calibration.targets import keyboard_geometry_targets
-from tools.debug.layout_geometry_check import format_geometry_report, verify_keyboard_geometry
 from gazekey.layout.layout_inspector import inspect_keyboard_layout
 from gazekey.typing.gaze_ui_mapper import letter_keys_region_rect
+from tools.debug.layout_geometry_check import format_geometry_report, verify_keyboard_geometry
 from tools.evaluation.benchmark_runner import predict_key_at
 from tools.evaluation.session_paths import ensure_session_dir, geometry_check_path
 from gazekey.typing.key_hit_tester import (
@@ -95,32 +93,11 @@ def test_benchmark_hit_test_matches_key_hit_tester(qapp):
         assert id(btn) == id(btn_by_id[id(btn)].button)
 
 
-def test_calibration_targets_use_layout_snapshot(qapp):
-    root = _build_test_keyboard(qapp)
-    layout_keys = inspect_keyboard_layout(root)
-    region = letter_keys_region_rect(root)
-    targets = keyboard_geometry_targets(
-        keys=layout_keys,
-        typing_region_rect=region,
-        mode="keyboard15",
-    )
-    assert len(targets) == 15
-    by_key_id = {k.key_id: k for k in layout_keys}
-    keyed_targets = [t for t in targets if t.key_id]
-    assert len(keyed_targets) == 15, "keyboard15 should use 15 real key centers"
-    for t in keyed_targets:
-        assert t.key_id in by_key_id
-        key = by_key_id[t.key_id]
-        assert t.screen_x == pytest.approx(key.center[0])
-        assert t.screen_y == pytest.approx(key.center[1])
-
-
 def test_product_keyboard_has_three_fixed_suggestion_slots(qapp):
     """003: suggestion:0..2 always exported; disabled slots not dwellable."""
     from gazekey.ui.virtual_keyboard import VirtualKeyboard
 
     vk = VirtualKeyboard()
-    vk._needs_first_calibration = False
     vk.show()
     qapp.processEvents()
     vk._keyboard_layout_builder.export_keyboard_layout()
@@ -161,7 +138,6 @@ def test_calibrate_is_large_bottom_row_recovery_target(qapp):
     from gazekey.ui.virtual_keyboard import VirtualKeyboard
 
     vk = VirtualKeyboard()
-    vk._needs_first_calibration = False
     vk.show()
     qapp.processEvents()
     vk._keyboard_layout_builder.update_responsive_sizes()
@@ -210,7 +186,6 @@ def test_typing_region_rect_includes_suggestion_row_and_gaze_targets(qapp):
     from gazekey.ui.virtual_keyboard import VirtualKeyboard
 
     vk = VirtualKeyboard()
-    vk._needs_first_calibration = False
     vk.show()
     qapp.processEvents()
     vk._keyboard_layout_builder.update_responsive_sizes()

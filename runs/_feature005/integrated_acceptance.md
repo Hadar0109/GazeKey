@@ -1,9 +1,8 @@
 # Feature 005 integrated acceptance (Stage F)
 
 **Date**: 2026-08-24  
-**Verdict**: **PASS**. Cleanup hold **released** (T063). Stage G may begin at
-T064 after this record is on the pre-cleanup checkpoint commit. Do not
-start deletions in T064.
+**Verdict**: **PASS** (Stage F) plus Stage G complete (T064–T080). Cleanup hold
+was released at T063. Pre-cleanup restore tag: `005-pre-cleanup-20260824`.
 
 This is not a Feature 004 T060 comparison and does not use those formulas as
 a cleanup trigger.
@@ -64,7 +63,7 @@ three recorded sessions do.
 | SC-019 | skip recorded | T061 explicit skip |
 | SC-020 | PASS | GazeSample contract as implemented |
 | SC-024 | this file | quiet summary below |
-| SC-021 / SC-022 | n/a | after Stage G only |
+| SC-021 / SC-022 | **PASS** | T080: one GazeFollower → GazeSample → origin+dpr → dwell → OS pipeline; no second live estimator. Record: `runs/_feature005/T080_one_pipeline.md` |
 
 ## Replay (T053)
 
@@ -91,5 +90,6 @@ and key resize were not reopened.
 
 ## Next
 
-T064: Git pre-cleanup checkpoint/tag `005-pre-cleanup-20260824` after these
-Stage F records are committed. Do not start deletions in T064.
+Feature 005 Stage G is complete. Restore the pre-G product with tag
+`005-pre-cleanup-20260824` if needed. Residual error stays accepted; do not
+reopen accuracy work or resize keys. T057 `hadar` remains deferred / not scored.

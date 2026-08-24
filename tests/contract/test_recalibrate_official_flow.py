@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock
 
 import pytest
 from PySide6.QtCore import QRect
@@ -23,28 +22,23 @@ def test_calibrate_clicked_calls_official_recalibrate_not_legacy(qapp, monkeypat
     qapp.processEvents()
     calls: list[str] = []
     monkeypatch.setattr(
-        vk,
-        "_start_calibration",
-        lambda: calls.append("legacy") or None,
-    )
-    monkeypatch.setattr(
         "gazekey.backend.startup.run_official_recalibrate",
         lambda lifecycle, keyboard: calls.append("official") or True,
     )
     vk._gf_lifecycle = SimpleNamespace()
     vk.on_calibrate_clicked()
     assert calls == ["official"]
-    assert vk._calibration_overlay is None
-    assert vk.tracking_manager is None
+    assert not hasattr(vk, "_start_calibration")
+    assert not hasattr(vk, "_calibration_overlay")
+    assert not hasattr(vk, "tracking_manager")
 
 
-def test_calibrate_without_lifecycle_does_not_start_overlay(qapp, monkeypatch):
+def test_calibrate_without_lifecycle_does_not_start_overlay(qapp):
     vk = VirtualKeyboard()
-    monkeypatch.setattr(vk, "_start_calibration", MagicMock())
     vk._gf_lifecycle = None
     vk.on_calibrate_clicked()
-    vk._start_calibration.assert_not_called()
-    assert vk._calibration_overlay is None
+    assert not hasattr(vk, "_start_calibration")
+    assert not hasattr(vk, "_calibration_overlay")
 
 
 def _stub_keyboard() -> SimpleNamespace:
@@ -271,9 +265,7 @@ def test_recalibrate_production_gaze_path_unchanged(qapp, monkeypatch):
     assert vk._dwell_engine.phase is DwellPhase.PROGRESSING
     vk._gaze_loop.on_gaze_sample(_invalid_sample())
     assert vk._dwell_engine.phase is DwellPhase.CANCELLED
-    vk._gaze_smoother.filter_or_reject = MagicMock()
-    vk._gaze_loop.on_gaze_sample(_invalid_sample())
-    vk._gaze_smoother.filter_or_reject.assert_not_called()
+    assert not hasattr(vk, "_gaze_smoother")
     src = (Path(__file__).resolve().parents[2] / "gazekey" / "backend" / "startup.py").read_text(
         encoding="utf-8"
     )

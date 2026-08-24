@@ -259,21 +259,21 @@ only GazeFollower production gaze remains; `specs/004-gaze-mapping-accuracy/`,
 
 **Destructive deletions T066–T078** — each is a separate reviewable task and **must explicitly depend on all four**: T062 PASS, T063 hold released, T064 checkpoint exists, T065 inventory freeze completed. Do not start any of these until those four are done. The four cleanup gates are unchanged.
 
-- [ ] T066 [US5] Delete or stop shipping `gazekey/tracking/` (`tracking_manager.py`, `video_capture.py`, `eye_detector.py`, `tracking_bridge.py`) from the production tree after confirming it is unused (**depends on T062 PASS, T063 hold released, T064 checkpoint, T065 inventory freeze**)
-- [ ] T067 [P] [US5] Delete `gazekey/features/` (`extractor.py`, `feature_types.py`, `feature_smoother.py`) from the production tree after confirming it is unused (**depends on T062 PASS, T063 hold released, T064 checkpoint, T065 inventory freeze**)
-- [ ] T068 [P] [US5] Delete `gazekey/mapping/` (`ridge.py`, `row_bias.py`, `base.py`, `config.py` PCA/keyboard15 constants) from the production tree after confirming it is unused (**depends on T062 PASS, T063 hold released, T064 checkpoint, T065 inventory freeze**)
-- [ ] T069 [P] [US5] Delete `gazekey/calibration/` (`session.py`, `targets.py`, `fixation_gate.py`, `quality.py`, `outliers.py`, `region_quality.py`) from the production tree after confirming it is unused (**depends on T062 PASS, T063 hold released, T064 checkpoint, T065 inventory freeze**)
-- [ ] T070 [P] [US5] Delete GazeKey calibration UI `gazekey/ui/calibration_overlay.py`, `gazekey/ui/calibration_controller.py`, `gazekey/ui/calibration_finish.py`, `gazekey/ui/camera_preview_window.py` after confirming official GF UI is the only calib path (**depends on T062 PASS, T063 hold released, T064 checkpoint, T065 inventory freeze**)
-- [ ] T071 [US5] Delete `gazekey/runtime/mapper_runtime.py` and `gazekey/runtime/tracking_controller.py` after rewiring `gazekey/runtime/gaze_loop.py` so it no longer references them (**depends on T062 PASS, T063 hold released, T064 checkpoint, T065 inventory freeze**)
-- [ ] T072 [US5] Remove `gazekey/typing/gaze_smoother.py` from the production path (delete only after confirming no tools still need it) (**depends on T062 PASS, T063 hold released, T064 checkpoint, T065 inventory freeze**)
-- [ ] T073 [US5] Remove legacy calib/mapper fields from `gazekey/ui/virtual_keyboard.py` (`_gaze_mapper`, `_gaze_bias_*`, `_feature_smoother`, `_init_calibration_on_startup` overlay path) (**depends on T062 PASS, T063 hold released, T064 checkpoint, T065 inventory freeze**)
-- [ ] T074 [US5] Remove GazeKey-owned `mediapipe` / `models/face_landmarker.task` tracking dependencies from `requirements.txt` and the tree (GazeFollower still uses its own mediapipe internally) (**depends on T062 PASS, T063 hold released, T064 checkpoint, T065 inventory freeze**)
-- [ ] T075 [US5] Remove product `--calib-mode` / `keyboard15` override as a product flag from `gazekey/app_config.py` (tools-only leftovers only if still required for historical Feature 004 replay, not product enablement) (**depends on T062 PASS, T063 hold released, T064 checkpoint, T065 inventory freeze**)
-- [ ] T076 [US5] Drop or rewrite PCA4 / u/v / ridge mapper tests (`tests/test_ridge_mapper_selection.py`, `tests/test_feature_smoother.py`, `tests/test_row_y_bias_path.py`); keep typing/prediction/layout tests (**depends on T062 PASS, T063 hold released, T064 checkpoint, T065 inventory freeze**)
-- [ ] T077 [US5] Drop or rewrite fixation-gate tests (`tests/test_fixation_head_gate.py`); keep typing/prediction/layout tests (**depends on T062 PASS, T063 hold released, T064 checkpoint, T065 inventory freeze**)
-- [ ] T078 [US5] Drop or rewrite calibration-only tests (`tests/test_calibration2_*.py`, `tests/unit/test_calibration_*.py`, `tests/test_region_quality.py`); keep typing/prediction/layout tests (**depends on T062 PASS, T063 hold released, T064 checkpoint, T065 inventory freeze**)
-- [ ] T079 [US5] **Preserve Feature 004** (after T066–T078): verify `specs/004-gaze-mapping-accuracy/`, `runs/_feature004/`, tags `004-pca4-investigation-closeout-20260820` and `004-pre-pivot-exact-20260820`, and cited commits remain intact; do not resume, delete, renumber, or rewrite Feature 004 tasks
-- [ ] T080 [US5] **Final one-pipeline verification** (after T079): verify one production gaze pipeline remains (`GazeFollower → GazeSample → live geometry → dwell → OS`) in `main.py` / `gazekey/backend/` / `gazekey/runtime/gaze_loop.py`, confirm no second live estimator can start, and record SC-021/SC-022 in `runs/_feature005/integrated_acceptance.md`
+- [X] T066 [US5] Deleted `gazekey/tracking/` after production path confirmed unused. 2026-08-24. Gates: T062 PASS, T063 released, T064, T065.
+- [X] T067 [P] [US5] Deleted `gazekey/features/`. 2026-08-24.
+- [X] T068 [P] [US5] Deleted `gazekey/mapping/`. 2026-08-24.
+- [X] T069 [P] [US5] Deleted `gazekey/calibration/`. 2026-08-24.
+- [X] T070 [P] [US5] Deleted GazeKey calibration UI (`calibration_overlay.py`, `calibration_controller.py`, `calibration_finish.py`, `camera_preview_window.py`). Official GF UI is the only calib path. 2026-08-24.
+- [X] T071 [US5] Deleted `mapper_runtime.py` and `tracking_controller.py`; `gaze_loop.py` is GazeSample-only. 2026-08-24.
+- [X] T072 [US5] Deleted `gazekey/typing/gaze_smoother.py`. Tools no longer call it. 2026-08-24.
+- [X] T073 [US5] Removed legacy calib/mapper fields from `virtual_keyboard.py`. 2026-08-24.
+- [X] T074 [US5] Removed GazeKey-owned `mediapipe==0.10.10` pin and `models/face_landmarker.task` tracking dep (file was already absent). GazeFollower still uses mediapipe internally. 2026-08-24.
+- [X] T075 [US5] Removed product `--calib-mode` / `keyboard15` override from `parse_product_args`. Tools may still accept `--calib-mode` as a historical label. 2026-08-24.
+- [X] T076 [US5] Dropped PCA4 / u/v / ridge mapper tests (`test_ridge_mapper_selection.py`, `test_feature_smoother.py`, `test_row_y_bias_path.py` and related mapper-only tests). Typing/prediction/layout tests kept. 2026-08-24.
+- [X] T077 [US5] Dropped `tests/test_fixation_head_gate.py`. 2026-08-24.
+- [X] T078 [US5] Dropped calibration-only tests (`test_calibration2_*.py`, `tests/unit/test_calibration_*.py`, `test_region_quality.py`). 2026-08-24.
+- [X] T079 [US5] Feature 004 preserve verified 2026-08-24: `specs/004-gaze-mapping-accuracy/`, `runs/_feature004/`, tags `004-pca4-investigation-closeout-20260820` and `004-pre-pivot-exact-20260820` intact. Not resumed, deleted, renumbered, or rewritten. Record: `runs/_feature005/T079_feature004_preserve.md`.
+- [X] T080 [US5] One production gaze pipeline verified 2026-08-24: GazeFollower → GazeSample → origin+dpr → dwell → OS in `main.py` / `gazekey/backend/` / `gazekey/runtime/gaze_loop.py`. No second live estimator. SC-021/SC-022 recorded in `runs/_feature005/integrated_acceptance.md`. Pytest 228 passed.
 
 **Checkpoint**: One production gaze pipeline; Feature 004 history intact; pre-cleanup tag can restore the pre-G product
 

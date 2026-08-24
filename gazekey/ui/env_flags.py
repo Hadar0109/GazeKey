@@ -18,16 +18,6 @@ def verbose() -> bool:
     return get_config().verbose
 
 
-def camera_preview_during_calib() -> bool:
-    """Allow the standard camera preview window during fixation (default off)."""
-    return get_config().camera_preview_during_calib
-
-
-def calib_mode_override() -> str:
-    """Optional layout override from ``--calib-mode`` (empty → mapping default)."""
-    return get_config().calib_mode
-
-
 def gaze_debug() -> bool:
     return get_config().gaze_debug
 

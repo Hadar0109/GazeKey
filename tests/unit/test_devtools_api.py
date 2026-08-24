@@ -31,9 +31,7 @@ def test_product_virtual_keyboard_has_no_tools_imports():
     import inspect
 
     import gazekey.ui.virtual_keyboard as vk_mod
-    import gazekey.ui.calibration_finish as finish_mod
 
-    for mod in (vk_mod, finish_mod):
-        src = inspect.getsource(mod)
-        assert "from tools" not in src
-        assert "import tools" not in src
+    src = inspect.getsource(vk_mod)
+    assert "from tools" not in src
+    assert "import tools" not in src

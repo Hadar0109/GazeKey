@@ -2,8 +2,6 @@
 # Do not install or run the product on the previous Python 3.14 venv.
 PySide6>=6.6.0
 opencv-python>=4.8.0
-# GazeFollower 1.0.2 uses the MediaPipe Solutions API (mp.solutions.face_mesh).
-mediapipe==0.10.10
 numpy>=1.24.0
 pynput>=1.7.6
 pygame>=2.5.0
@@ -15,4 +13,6 @@ MNN>=2.0.0
 # Upstream setup.py imports GazeFollower at build time, so install with:
 #   python -m pip install --no-build-isolation -r requirements.txt
 # Adapter code must `import gazefollower` and MUST NOT vendor upstream into gazekey/.
+# GazeFollower still uses mediapipe internally; do not add a GazeKey-owned
+# face_landmarker.task / MediaPipe Face Landmarker tracking pin.
 gazefollower @ git+https://github.com/GanchengZhu/GazeFollower.git@553920edcb7998c029828677f50f6d8eb4a16249

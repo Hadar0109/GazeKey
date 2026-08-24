@@ -46,9 +46,7 @@ def _bare_keyboard():
     from gazekey.ui.virtual_keyboard import VirtualKeyboard
 
     kb = VirtualKeyboard.__new__(VirtualKeyboard)
-    kb._mapper_runtime = MagicMock()
-    kb._mapper_runtime.model = None
-    kb._mapper_runtime.usable.return_value = False
+    kb._official_gaze_ready = False
     kb._devtools = NullDevTools()
     kb._benchmark_controller = None
     kb._is_calibrating = False
@@ -59,8 +57,8 @@ def _bare_keyboard():
 
 
 def _set_usable_mapper(kb, model=object()):
-    kb._mapper_runtime.model = model
-    kb._mapper_runtime.usable.return_value = model is not None
+    del model
+    kb._official_gaze_ready = True
 
 
 def test_benchmark_run_summary_includes_failure_analysis(tmp_path):
@@ -213,28 +211,7 @@ def _rect_key(label: str, x: int, y: int, w: int = 40, h: int = 40):
 
 
 def _feat_ts(ts: int = 0):
-    from gazekey.features.feature_types import FrameFeatures
-
-    return FrameFeatures(
-        timestamp_ms=ts,
-        face_detected=True,
-        blink=False,
-        confidence=1.0,
-        Lh=0.5,
-        Lv=0.5,
-        Rh=0.5,
-        Rv=0.5,
-        avg_h=0.5,
-        avg_v=0.5,
-        eye_box_w=1.0,
-        eye_box_h=1.0,
-        face_x=0.0,
-        face_y=0.0,
-        pca_uL=0.0,
-        pca_vL=0.0,
-        pca_uR=0.0,
-        pca_vR=0.0,
-    )
+    return object()
 
 
 def test_inside_tight_rect_is_primary_snap_is_not_success():

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from tools.evaluation.benchmark_runner import COLLECT_MS, SETTLE_MS
 from tools.evaluation.benchmark_session import BenchmarkEvalSession
-from gazekey.features.feature_types import FrameFeatures
 from gazekey.layout.layout_inspector import KeyGeometryRow
 
 
@@ -26,23 +26,8 @@ def _key(label: str, *, x: float = 100.0, y: float = 100.0) -> KeyGeometryRow:
     )
 
 
-def _feat(ts: int = 0) -> FrameFeatures:
-    return FrameFeatures(
-        timestamp_ms=ts,
-        face_detected=True,
-        blink=False,
-        confidence=1.0,
-        Lh=0.5,
-        Lv=0.5,
-        Rh=0.5,
-        Rv=0.5,
-        avg_h=0.5,
-        avg_v=0.5,
-        eye_box_w=1.0,
-        eye_box_h=1.0,
-        face_x=0.0,
-        face_y=0.0,
-    )
+def _feat(ts: int = 0) -> SimpleNamespace:
+    return SimpleNamespace(timestamp_ms=ts)
 
 
 def test_on_key_begin_called_at_session_start_and_after_each_key():

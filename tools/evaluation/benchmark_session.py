@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Callable, List, Optional, Sequence, Tuple
+from typing import Any, Callable, List, Optional, Sequence, Tuple
 
 from tools.evaluation.benchmark_runner import (
     COLLECT_MS,
@@ -11,7 +11,6 @@ from tools.evaluation.benchmark_runner import (
     evaluate_key_accuracy_from_frames,
     resolve_sample_keys,
 )
-from gazekey.features.feature_types import FrameFeatures
 from gazekey.layout.layout_inspector import KeyGeometryRow
 
 
@@ -23,12 +22,12 @@ class BenchmarkEvalSession:
         samples: Sequence[Tuple[str, KeyGeometryRow]],
         *,
         keys_for_hit_test: Sequence[KeyGeometryRow],
-        predict_screen_xy: Callable[[FrameFeatures], Optional[Tuple[float, float]]],
+        predict_screen_xy: Callable[[Any], Optional[Tuple[float, float]]],
         on_key_begin: Optional[Callable[[], None]] = None,
         settle_ms: int = SETTLE_MS,
         collect_ms: int = COLLECT_MS,
         predict_unclamped_screen_xy: Optional[
-            Callable[[FrameFeatures], Optional[Tuple[float, float]]]
+            Callable[[Any], Optional[Tuple[float, float]]]
         ] = None,
         clip_bounds: Optional[Tuple[float, float, float, float]] = None,
         calibration_labels: Optional[Sequence[str]] = None,
@@ -47,7 +46,7 @@ class BenchmarkEvalSession:
         self._index = 0
         self._phase = "settle"
         self._phase_start_ms = 0
-        self._collect_features: List[FrameFeatures] = []
+        self._collect_features: List[Any] = []
         self._results: List[KeyAccuracyResultRow] = []
 
     @property
@@ -87,7 +86,7 @@ class BenchmarkEvalSession:
     def tick(
         self,
         now_ms: int,
-        features: Optional[FrameFeatures] = None,
+        features: Optional[Any] = None,
     ) -> Optional[KeyAccuracyResultRow]:
         if self.finished:
             return None

@@ -15,10 +15,10 @@ class AppConfig:
     """Immutable snapshot of launch options."""
 
     verbose: bool = False
-    calib_mode: str = ""  # empty → mapping.config.CALIBRATION_MODE
+    calib_mode: str = ""  # tools-only leftover; not a product flag
     calib_debug: bool = False
     gaze_debug: bool = False
-    camera_preview_during_calib: bool = False
+    camera_preview_during_calib: bool = False  # unused on product; tools leftover
     calib_geom_debug: bool = False  # tools CLI only
     auto_benchmark: bool = False  # True only for ``python -m tools.evaluation``
 
@@ -57,30 +57,30 @@ def _add_shared_options(parser: argparse.ArgumentParser) -> None:
         help="Detailed calibration/runtime console logs",
     )
     parser.add_argument(
-        "--calib-mode",
-        metavar="MODE",
-        default="",
-        help="Calibration layout override (default: keyboard15 from mapping config)",
-    )
-    parser.add_argument(
         "--calib-debug",
         action="store_true",
-        help="Verbose calibration fixation UI",
+        help="Verbose official-calibration logs",
     )
     parser.add_argument(
         "--gaze-debug",
         action="store_true",
         help="Extra mapped-gaze debug labels on preview",
     )
-    parser.add_argument(
-        "--camera-preview-during-calib",
-        action="store_true",
-        help="Show camera PiP during fixation (default: off)",
-    )
 
 
 def _add_tools_options(parser: argparse.ArgumentParser) -> None:
     _add_shared_options(parser)
+    parser.add_argument(
+        "--calib-mode",
+        metavar="MODE",
+        default="",
+        help="Historical layout label for tools records (not a product mapper)",
+    )
+    parser.add_argument(
+        "--camera-preview-during-calib",
+        action="store_true",
+        help="Unused on the GazeFollower product path (tools leftover)",
+    )
     parser.add_argument(
         "--calib-geom-debug",
         action="store_true",
@@ -106,7 +106,7 @@ def parse_product_args(argv: list[str] | None = None) -> AppConfig:
     """CLI for ``python main.py``."""
     parser = argparse.ArgumentParser(
         prog="main.py",
-        description="GazeKey product: calibration → typing",
+        description="GazeKey product: official GazeFollower calibration → typing",
     )
     _add_shared_options(parser)
     ns = parser.parse_args(argv)

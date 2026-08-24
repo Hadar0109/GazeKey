@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import inspect
 from types import SimpleNamespace
 
 import pytest
@@ -86,9 +85,10 @@ class FakeGazeFollower:
 
 
 def _patch_official(monkeypatch) -> None:
-    mod = inspect.getmodule(GazeFollowerLifecycle)
-    monkeypatch.setattr(mod, "require_python_311", lambda: None)
-    monkeypatch.setattr(mod, "verify_base_mnn", lambda: "ok")
+    import gazekey.backend.lifecycle as life_mod
+
+    monkeypatch.setattr(life_mod, "require_python_311", lambda: None)
+    monkeypatch.setattr(life_mod, "verify_base_mnn", lambda: "ok")
     monkeypatch.setattr(
         GazeFollowerLifecycle,
         "_load_official",

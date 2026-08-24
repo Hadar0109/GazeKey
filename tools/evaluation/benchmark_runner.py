@@ -8,12 +8,11 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Callable, List, Optional, Sequence, Set, Tuple
+from typing import Any, Callable, List, Optional, Sequence, Set, Tuple
 
 import numpy as np
 from PySide6.QtCore import QPoint
 
-from gazekey.features.feature_types import FrameFeatures
 from gazekey.layout.layout_inspector import KeyGeometryRow
 from gazekey.typing.key_hit_tester import hit_test_layout_keys
 from gazekey.typing.key_semantics import SUGGESTION_KEY_ID_PREFIX, is_suggestion_action
@@ -63,7 +62,7 @@ EDITING_CONTROL_KEYS: Tuple[str, ...] = (
 SETTLE_MS = 1200
 COLLECT_MS = 2500
 
-PredictFn = Callable[[FrameFeatures], Optional[Tuple[float, float]]]
+PredictFn = Callable[[Any], Optional[Tuple[float, float]]]
 
 
 def _normalize_match_token(label: str) -> str:
@@ -396,7 +395,7 @@ def evaluate_key_accuracy_from_frames(
     *,
     target_label: str,
     target: KeyGeometryRow,
-    frames: Sequence[FrameFeatures],
+    frames: Sequence[Any],
     keys: Sequence[KeyGeometryRow],
     predict_screen_xy: PredictFn,
     predict_unclamped_screen_xy: Optional[PredictFn] = None,

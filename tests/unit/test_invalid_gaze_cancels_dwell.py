@@ -95,6 +95,3 @@ def test_invalid_openness_on_gaze_sample_cancels_keyboard_dwell(qapp, monkeypatc
     vk._gaze_loop.on_gaze_sample(_invalid())
     assert vk._dwell_engine.phase is DwellPhase.CANCELLED
     assert published == []
-    vk._gaze_smoother.filter_or_reject = MagicMock()
-    vk._gaze_loop.on_gaze_sample(_invalid())
-    vk._gaze_smoother.filter_or_reject.assert_not_called()
