@@ -255,7 +255,7 @@ only GazeFollower production gaze remains; `specs/004-gaze-mapping-accuracy/`,
 **Depends on (to enter Stage G / start T064)**: T062 `integrated_acceptance` **PASS** **and** T063 cleanup hold **released**. Entering Stage G does **not** depend on T064 (T064 is the first Stage G task).
 
 - [X] T064 [US5] Pre-cleanup Git checkpoint/tag of the post-F product **2026-08-24**: `005-pre-cleanup-20260824`. Record: `runs/_feature005/T064_pre_cleanup_checkpoint.md`. Depends on T062 PASS + T063 hold released. No deletions in this task.
-- [ ] T065 [US5] Freeze and verify the Stage G deletion inventory from `plan.md` against the tree (list each path; no deletions yet); confirm Feature 004 artifacts are marked preserve-only. Depends on T064 checkpoint existing
+- [X] T065 [US5] Stage G deletion inventory frozen 2026-08-24 against `plan.md` / tree. Record: `runs/_feature005/T065_inventory_freeze.md`. Feature 004 marked preserve-only. No deletions in this task. Depends on T064 `005-pre-cleanup-20260824`.
 
 **Destructive deletions T066–T078** — each is a separate reviewable task and **must explicitly depend on all four**: T062 PASS, T063 hold released, T064 checkpoint exists, T065 inventory freeze completed. Do not start any of these until those four are done. The four cleanup gates are unchanged.
 
