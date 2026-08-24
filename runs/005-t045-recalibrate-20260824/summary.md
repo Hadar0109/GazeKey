@@ -47,5 +47,4 @@ No GazeSample JSONL capture. Live session remains valid.
 ## Quiet summary (SC-024)
 
 - **Pass/fail**: PASS for live recalibration resume (SC-012).
-- **Next**: T056 third distinct chin/head-support control sweep.
-  Cleanup hold stays.
+- **Next**: T056 third distinct chin/head-support control sweep (now PASS).

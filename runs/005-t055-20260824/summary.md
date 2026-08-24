@@ -61,8 +61,8 @@ No GazeSample JSONL capture for this session. Live session remains valid.
 
 ## Quiet summary (SC-024)
 
-- **Pass/fail**: PASS for listed functional gates; SC-012 live PASS is T045, not this session’s first recalibrate. T056 and T057 not closed.
+- **Pass/fail**: PASS for listed functional gates; SC-012 live PASS is T045, not this session’s first recalibrate. T056 later PASS. T057 not scored.
 - **Usability**: letters, editing, suggestions, blink-cancel, OS inject,
   suggestion accept. Recalibration resume is T045.
 - **Metrics**: not used as cleanup or accuracy gate this session.
-- **Next**: T056 distinct session 3. Cleanup hold stays.
+- **Next**: T056 distinct session 3 (now PASS).

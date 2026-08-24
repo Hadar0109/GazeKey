@@ -8,4 +8,4 @@ gaze correction.
 
 T055 (distinct session 2) recorded the extra functional gates. SC-012 live
 PASS is T045 (`runs/005-t045-recalibrate-20260824/summary.md`). T056
-(session 3) remains required. Stage G stays blocked.
+(session 3) is **PASS** (`runs/005-t056-20260824/summary.md`).

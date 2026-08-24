@@ -21,9 +21,9 @@ affine, extra smoothing, or `generate_points` change.
 The live integrated keyboard test passed successfully. Residual pointing error
 is accepted for this stage. Accuracy work stays closed.
 
-This session does **not** by itself authorize Stage G cleanup. SC-001 still
-requires T056 as a third distinct session. T057 `hadar` is deferred and is
-not an accuracy metric.
+This session does **not** by itself authorize Stage G cleanup. SC-001 later
+required T056 as a third distinct session (now PASS). T057 `hadar` is
+deferred and is not an accuracy metric.
 
 ## Sweep (as reported)
 

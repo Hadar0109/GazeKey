@@ -10,4 +10,4 @@ T056 (session 3) remains required (SC-001). `hadar` (T057) is deferred and is
 not an accuracy metric in this record. Stage G stays blocked.
 
 SC-012 live PASS is T045 (`runs/005-t045-recalibrate-20260824/summary.md`),
-not this session’s first recalibrate attempt.
+not this session’s first recalibrate attempt. T056 session 3 is **PASS**.
