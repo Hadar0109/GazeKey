@@ -5,6 +5,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QPushButton
 
+from gazekey.ui.keyboard_layout import KEYBOARD_HEIGHT_RATIO
 from gazekey.ui.virtual_keyboard import VirtualKeyboard
 
 
@@ -17,7 +18,11 @@ def test_top_half_keyboard_geometry_preserved(qapp):
 
     screen = qapp.primaryScreen().availableGeometry()
     geo = vk.geometry()
-    expected_h = int(screen.height() * 0.70)
+    assert KEYBOARD_HEIGHT_RATIO == 0.70
+    width, height = vk._keyboard_layout_builder.full_keyboard_size()
+    assert width == screen.width()
+    assert height == int(screen.height() * KEYBOARD_HEIGHT_RATIO)
+    expected_h = height
     assert geo.x() == screen.x()
     assert geo.y() == screen.y()
     assert geo.width() == screen.width()

@@ -6,7 +6,7 @@ comparison. They are not a mapping run store and MUST NOT retune GazeFollower.
 | File | When | Keyboard |
 |------|------|----------|
 | `full-qwerty-intended-key.md` | T004 USER GATE **before** any production layout change | Current Feature 003 full QWERTY |
-| `paged-intended-key.md` | After paging (quickstart §C2) | Two-page large-target layout |
+| `paged-intended-key.md` | After paging (quickstart §C2) | Two-page large-target layout — **not recorded yet**; T036/T037 deferred by explicit user decision (see `USER_GATES_deferred.md`). Do not invent this file. |
 
 Both files use the **same** SC-006 sequence (research R10):
 

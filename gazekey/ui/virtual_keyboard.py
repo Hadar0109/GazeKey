@@ -527,8 +527,10 @@ class VirtualKeyboard(QWidget):
         """
         if page not in ("left", "right"):
             raise ValueError(f"invalid letter_page: {page!r}")
+        from_page = self.letter_page
         self.letter_page = page
         self._keyboard_layout_builder.rebuild_letter_area(page)
+        self._log_verbose(f"[page] switch {from_page} -> {page}")
 
     def on_page_switch_activated(self, checked: bool = False) -> None:
         """Dwell/mouse page-switch control: toggle letter page, never OS-type."""

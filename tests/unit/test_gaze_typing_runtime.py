@@ -140,3 +140,97 @@ def test_shift_survives_page_switch_then_letter_consumes():
     assert published.text == "H"
     assert runtime.session.shift_oneshot_armed is False
     assert adapter.injected[-1].text == "H"
+
+
+def test_in_progress_letter_dwell_cancelled_by_page_switch_does_not_publish():
+    """T034: completed arrow must not publish the previous letter (US4 scenario 4)."""
+    from gazekey.typing.dwell_engine import KEY_SWITCH_CONFIRM_SEC
+    from gazekey.typing.key_semantics import PAGE_RIGHT_KEY_ID
+
+    runtime, adapter, _keys = _runtime()
+    switches: list[str] = []
+    runtime._on_page_switch = lambda: switches.append("switch")
+    keys = [
+        _key("key_q", "q", QRect(0, 0, 40, 40)),
+        _key(PAGE_RIGHT_KEY_ID, PAGE_RIGHT_KEY_ID, QRect(100, 0, 80, 80)),
+    ]
+
+    mid = runtime.on_mapped_gaze(MappedGazePoint(20, 20, True), 0.5, keys)
+    assert mid.published is None
+    assert adapter.injected == []
+
+    switched = runtime.on_mapped_gaze(
+        MappedGazePoint(140, 40, True), KEY_SWITCH_CONFIRM_SEC, keys
+    )
+    assert switched.published is None
+    assert switched.dwell.target_key_id == PAGE_RIGHT_KEY_ID
+
+    result = runtime.on_mapped_gaze(MappedGazePoint(140, 40, True), DWELL_SEC, keys)
+    assert result.published is None
+    assert result.page_switch_requested is True
+    assert switches == ["switch"]
+    assert adapter.injected == []
+    assert runtime.dwell.progress_01 == 0.0
+
+
+def test_in_progress_suggestion_dwell_cancelled_by_page_switch_does_not_accept():
+    """T034: completed arrow must not accept a suggestion (US4 edge case)."""
+    from gazekey.typing.dwell_engine import KEY_SWITCH_CONFIRM_SEC
+    from gazekey.typing.key_semantics import PAGE_RIGHT_KEY_ID
+
+    runtime, adapter, _keys = _runtime()
+    switches: list[str] = []
+    accepts: list[str] = []
+    runtime._on_page_switch = lambda: switches.append("switch")
+    runtime._on_suggestion_accept = lambda key_id, source: accepts.append(key_id)
+    keys = [
+        _key("suggestion:0", "suggestion:0", QRect(0, 0, 80, 40)),
+        _key(PAGE_RIGHT_KEY_ID, PAGE_RIGHT_KEY_ID, QRect(200, 0, 80, 80)),
+    ]
+
+    mid = runtime.on_mapped_gaze(MappedGazePoint(40, 20, True), 0.5, keys)
+    assert mid.suggestion_accepted is False
+    assert accepts == []
+
+    runtime.on_mapped_gaze(
+        MappedGazePoint(240, 40, True), KEY_SWITCH_CONFIRM_SEC, keys
+    )
+    result = runtime.on_mapped_gaze(MappedGazePoint(240, 40, True), DWELL_SEC, keys)
+    assert result.suggestion_accepted is False
+    assert result.page_switch_requested is True
+    assert result.published is None
+    assert accepts == []
+    assert switches == ["switch"]
+    assert adapter.injected == []
+
+
+def test_mouse_page_switch_cancels_in_progress_letter_and_suggestion_dwell():
+    """T034: mouse arrow uses the same cancel path; no letter or suggestion fire."""
+    from gazekey.typing.key_semantics import PAGE_RIGHT_KEY_ID
+
+    runtime, adapter, _keys = _runtime()
+    switches: list[str] = []
+    accepts: list[str] = []
+    runtime._on_page_switch = lambda: switches.append("switch")
+    runtime._on_suggestion_accept = lambda key_id, source: accepts.append(key_id)
+    letter_keys = [
+        _key("key_q", "q", QRect(0, 0, 40, 40)),
+        _key(PAGE_RIGHT_KEY_ID, PAGE_RIGHT_KEY_ID, QRect(100, 0, 80, 80)),
+    ]
+    runtime.on_mapped_gaze(MappedGazePoint(20, 20, True), 0.5, letter_keys)
+    published = runtime.on_mouse_key(key_id=PAGE_RIGHT_KEY_ID, action=PAGE_RIGHT_KEY_ID)
+    assert published is None
+    assert switches == ["switch"]
+    assert adapter.injected == []
+    assert runtime.dwell.progress_01 == 0.0
+
+    suggestion_keys = [
+        _key("suggestion:0", "suggestion:0", QRect(0, 0, 80, 40)),
+        _key(PAGE_RIGHT_KEY_ID, PAGE_RIGHT_KEY_ID, QRect(200, 0, 80, 80)),
+    ]
+    runtime.on_mapped_gaze(MappedGazePoint(40, 20, True), 0.5, suggestion_keys)
+    published = runtime.on_mouse_key(key_id=PAGE_RIGHT_KEY_ID, action=PAGE_RIGHT_KEY_ID)
+    assert published is None
+    assert accepts == []
+    assert switches == ["switch", "switch"]
+    assert adapter.injected == []

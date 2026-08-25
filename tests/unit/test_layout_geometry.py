@@ -202,11 +202,19 @@ def test_typing_region_rect_includes_suggestion_row_and_gaze_targets(qapp):
     for k in suggestion_keys:
         assert region.contains(k.rect.center()), f"{k.key_id} center outside typing region"
 
-    # Letter key, Space, and Recalibrate also inside.
+    # Letter key, Shift, Backspace, Space, Enter, Recalibrate, and page arrow.
     letter = next(k for k in keys if len(str(k.key_action)) == 1 and str(k.key_action).isalpha())
+    shift = next(k for k in keys if k.key_action == "SHIFT")
+    backspace = next(k for k in keys if k.key_action == "BACKSPACE")
     space = next(k for k in keys if k.key_action == " ")
+    enter = next(k for k in keys if k.key_action == "ENTER")
     calib = next(k for k in keys if k.key_id == "system:calibrate")
-    for k in (letter, space, calib):
+    arrow = next(
+        k
+        for k in keys
+        if k.key_id in ("system:page_right", "system:page_left")
+    )
+    for k in (letter, shift, backspace, space, enter, calib, arrow):
         assert region.contains(k.rect.center()), f"{k.key_id} outside typing region"
 
     # Export helper with layout_keys matches union helper.
@@ -301,3 +309,30 @@ def test_page_arrow_height_spans_first_two_letter_rows(qapp):
     assert abs(int(arrow.rect.bottom()) - two_bottom) <= slack
     assert int(arrow.rect.bottom()) <= row3_top + int(slack * 0.25)
     assert int(arrow.rect.bottom()) < int(row3[0].center[1])
+
+
+def test_typing_region_includes_page_arrow_on_both_pages(qapp):
+    """T032: typing_region_rect unions the visible system:page_* arrow (006)."""
+    from gazekey.typing.gaze_ui_mapper import typing_region_from_layout_keys, typing_region_rect
+
+    vk = _show_product_keyboard(qapp)
+    for page, arrow_id in (("left", "system:page_right"), ("right", "system:page_left")):
+        if vk.letter_page != page:
+            vk.switch_letter_page(page)
+        keys = inspect_keyboard_layout(vk.main_content_widget)
+        region = typing_region_from_layout_keys(keys)
+        by_id = {k.key_id: k for k in keys}
+        assert arrow_id in by_id
+        assert region.contains(by_id[arrow_id].rect.center())
+        via_api = typing_region_rect(
+            vk.keyboard_widget,
+            vk.calibrate_btn,
+            suggestion_bar_widget=vk._suggestion_bar_widget,
+            layout_keys=keys,
+        )
+        assert via_api == region
+        for action in ("SHIFT", "BACKSPACE", " ", "ENTER"):
+            key = next(k for k in keys if k.key_action == action)
+            assert region.contains(key.rect.center()), f"{page} {action} outside region"
+        assert any(k.key_id == "system:calibrate" for k in keys)
+        assert region.contains(by_id["system:calibrate"].rect.center())

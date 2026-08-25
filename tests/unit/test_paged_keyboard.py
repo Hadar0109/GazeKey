@@ -58,7 +58,7 @@ def test_left_page_export_omits_right_page_letters(qapp):
 
 
 def test_switch_letter_page_immediately_isolates_previous_page_letters(qapp):
-    """T013: previous-page letters gone from export/hit-test without deleteLater wait."""
+    """T013 checkpoint / T031 regression: previous-page letters gone without deleteLater wait."""
     vk = _show_product_keyboard(qapp)
     before = inspect_keyboard_layout(vk.main_content_widget)
     left_ids = [
@@ -199,6 +199,26 @@ def test_shift_backspace_and_suggestions_on_both_pages(qapp):
     actions = {str(k.key_action) for k in right_keys}
     assert "SHIFT" in actions
     assert "BACKSPACE" in actions
+
+
+def test_left_page_letters_form_three_distinct_rows(qapp):
+    """T033: QWERT / ASDFG / ZXCV stay three inspect rows despite the two-row arrow."""
+    vk = _show_product_keyboard(qapp)
+    assert vk.letter_page == "left"
+    keys = inspect_keyboard_layout(vk.main_content_widget)
+    by_action = {
+        str(k.key_action).lower(): k
+        for k in keys
+        if len(str(k.key_action)) == 1 and str(k.key_action).isalpha()
+    }
+    row1 = [by_action[ch].row_index for ch in "qwert"]
+    row2 = [by_action[ch].row_index for ch in "asdfg"]
+    row3 = [by_action[ch].row_index for ch in "zxcv"]
+    assert len(set(row1)) == 1, row1
+    assert len(set(row2)) == 1, row2
+    assert len(set(row3)) == 1, row3
+    assert len({row1[0], row2[0], row3[0]}) == 3, (row1[0], row2[0], row3[0])
+    assert row1[0] < row2[0] < row3[0]
 
 
 def test_calibrate_exported_on_both_pages(qapp):

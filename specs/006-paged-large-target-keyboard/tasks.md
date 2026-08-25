@@ -311,7 +311,9 @@ GazeFollower recalibration.
   §C (mixed-page `hello` into Notepad — SC-003 end-to-end typing, not the
   SC-006 comparison; suggestions unused; Backspace/Space; Shift survives
   switch) and §D (prefix ≥ 2, possibly mixed-page, accept a suggestion →
-  suffix + Space)
+  suffix + Space).
+  **DEFERRED** by explicit user decision 2026-08-25 (not PASS; see
+  `baseline/USER_GATES_deferred.md`)
 
 **Checkpoint**: Feature 002/003 typing product still works on the paged
 surface.
@@ -332,19 +334,19 @@ type or accept a suggestion.
 
 ### Tests for User Story 4
 
-- [ ] T031 [US4] Regression only: the **T013** immediate isolation test in
+- [X] T031 [US4] Regression only: the **T013** immediate isolation test in
   `tests/unit/test_paged_keyboard.py` still passes after US2/US3 wiring.
   Do not weaken it or move first-proof of hidden-letter isolation into this
   phase — that checkpoint already belongs to T013 / US1
-- [ ] T032 [P] [US4] Extend `tests/unit/test_layout_geometry.py` so
+- [X] T032 [P] [US4] Extend `tests/unit/test_layout_geometry.py` so
   `typing_region_rect` / `typing_region_from_layout_keys` includes the
   visible `system:page_*` arrow as well as letters, suggestions, Shift,
   Backspace, and Calibrate/Space/Enter
-- [ ] T033 [US4] Assert in `tests/unit/test_paged_keyboard.py` that
+- [X] T033 [US4] Assert in `tests/unit/test_paged_keyboard.py` that
   left-page letters still form **three distinct rows** in
   `inspect_keyboard_layout` despite the two-row-tall arrow (research R6
   median-height clustering risk)
-- [ ] T034 [US4] Add tests in `tests/unit/test_gaze_typing_runtime.py` (and
+- [X] T034 [US4] Add tests in `tests/unit/test_gaze_typing_runtime.py` (and
   `tests/unit/test_paged_keyboard.py` if a live widget tree is required):
   (1) an in-progress **letter** dwell is cancelled on page switch and the
   completed arrow does not publish that letter (spec US4 scenario 4);
@@ -355,11 +357,12 @@ type or accept a suggestion.
 
 ### Implementation for User Story 4
 
-- [ ] T035 [US4] If isolation fails, fix only the rebuild/export order in
+- [X] T035 [US4] If isolation fails, fix only the rebuild/export order in
   `gazekey/ui/keyboard_layout.py` / `gazekey/ui/virtual_keyboard.py`
   (unparent → drop refs → rebuild → `export_keyboard_layout` before return).
   Do **not** filter stale ids inside `hit_test_layout_keys`. Do **not**
-  modify `gazekey/typing/key_hit_tester.py` math
+  modify `gazekey/typing/key_hit_tester.py` math.
+  Isolation still holds after US2/US3 wiring; no rebuild-order change required
 
 **Checkpoint**: Hidden letters cannot be selected; live QRects match the
 visible page when the switch function returns.
@@ -382,13 +385,16 @@ comparison; it remains the T030 mixed-page typing USER GATE (SC-003).
   `specs/006-paged-large-target-keyboard/baseline/paged-intended-key.md`
   with the same fields as T004 (per trial: intended key, focused key,
   correct/incorrect; plus total wrong-focus count) per `quickstart.md` §C2.
-  Do **not** substitute `hello` for this comparison
+  Do **not** substitute `hello` for this comparison.
+  **DEFERRED** by explicit user decision 2026-08-25 (not PASS; no
+  `paged-intended-key.md` invented; see `baseline/USER_GATES_deferred.md`)
 - [ ] T037 Compare total wrong-focus count among those 12 visible-letter
   trials to `baseline/full-qwerty-intended-key.md` (SC-006). Record
   improved / unchanged / regressed in the paged file. If not improved,
   **stop and report** — do **not** retune GazeFollower, add smoothing, or
-  remap
-- [ ] T038 Confirm Feature 004 specs, runs, tags, and mapping-percentage
+  remap.
+  **DEFERRED** with T036 (not PASS; no comparison invented)
+- [X] T038 Confirm Feature 004 specs, runs, tags, and mapping-percentage
   gates were not used as acceptance; do not run mapping experiments for
   this feature
 
@@ -402,11 +408,11 @@ Mapping foundation is unchanged.
 **Purpose**: Unambiguous active path (Principle IX). No unrelated deletions.
 This feature must not resume Feature 004 or reopen sealed backend code.
 
-- [ ] T039 Verify `git diff -- gazekey/backend/ gazekey/typing/dwell_engine.py
+- [X] T039 Verify `git diff -- gazekey/backend/ gazekey/typing/dwell_engine.py
   gazekey/prediction/` is empty (plan prefers no `startup.py` callback; the
   only allowed exception is an agreed one-line keyboard hook at the existing
   recalibrate handoff)
-- [ ] T040 Confirm Feature 003 chrome stays removed
+- [X] T040 Confirm Feature 003 chrome stays removed
   (`tests/unit/test_focus_and_layout_us2.py`); skip broad archival; do not
   delete, renumber, or rewrite Feature 004
 
@@ -419,15 +425,18 @@ system-control branch only.
 
 **Purpose**: Quiet logging, full pytest, remaining quickstart checks.
 
-- [ ] T041 [P] Add optional verbose `mvp_log` on page switch (from/to page,
+- [X] T041 [P] Add optional verbose `mvp_log` on page switch (from/to page,
   no per-frame spam) in `gazekey/ui/virtual_keyboard.py` (Principle X)
-- [ ] T042 Run full `python -m pytest -q` on Python 3.11 `.venv` and fix
+- [X] T042 Run full `python -m pytest -q` on Python 3.11 `.venv` and fix
   regressions caused by paging (do not weaken isolation or geometry tests)
-- [ ] T043 Walk remaining
+- [X] T043 Walk remaining
   `specs/006-paged-large-target-keyboard/quickstart.md` checks not already
   gated (isolation reminder §F / §G). §A0/T004, §C/T030, and §C2/T036
-  must already be complete
-- [ ] T044 Confirm `full_keyboard_size` / `position_at_top` in
+  must already be complete.
+  Isolation §F/§G walked (backend/dwell/prediction diff empty; Feature 004
+  unused as a gate). Live §C/T030 and §C2/T036 remain **deferred** by
+  explicit user decision (not PASS; `baseline/USER_GATES_deferred.md`)
+- [X] T044 Confirm `full_keyboard_size` / `position_at_top` in
   `gazekey/ui/keyboard_layout.py` and
   `tests/unit/test_focus_and_layout_us2.py` still pin the keyboard to the
   top ~70% of available screen, with the lower ~30% free for the external
