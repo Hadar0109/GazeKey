@@ -29,7 +29,9 @@ and SC-006 comparison.
 - Do **not** modify `gazekey/typing/dwell_engine.py` timing (0.9 s / 0.20 s
   cooldown / 5-frame leave / 0.25 s switch).
 - Do **not** modify `gazekey/prediction/` ranking, trie, or TypingContext rules.
-- Do **not** change keyboard window size/placement (top-of-screen ~62% height).
+- Do **not** make the keyboard full-screen or move it off the top. Height
+  ratio is ~70% of available screen so the external app remains visible
+  below. Do **not** use pixel sizes.
 - Do **not** restore Feature 003-removed chrome (Pause, Preview, language,
   symbols, Ctrl/Alt, typed-text bar, gaze-status text).
 - Do **not** treat Feature 004 mapping runs or T060 as this feature’s gate.
@@ -60,16 +62,16 @@ and SC-006 comparison.
 `specs/006-paged-large-target-keyboard/baseline/` exists; stretch constants
 are named in `keyboard_layout.py`; product keyboard still shows full QWERTY.
 
-- [ ] T001 Confirm branch `006-paged-large-target-keyboard`, feature dir
+- [X] T001 Confirm branch `006-paged-large-target-keyboard`, feature dir
   `specs/006-paged-large-target-keyboard/`, and product interpreter is the
   project `.venv` on Python 3.11 (do not run on 3.14)
-- [ ] T002 [P] Create `specs/006-paged-large-target-keyboard/baseline/` with a
+- [X] T002 [P] Create `specs/006-paged-large-target-keyboard/baseline/` with a
   short README stating that `full-qwerty-intended-key.md` is recorded at the
   T004 USER GATE **before** layout change and `paged-intended-key.md` is
   recorded after paging, both using the same SC-006 sequence
   `Q T A G Z V / Y P H L B M` (research R10); do not invent baseline
   metrics; `hello` is not this comparison
-- [ ] T003 [P] Add named stretch constants `LETTER_PANE_STRETCH = 4` and
+- [X] T003 [P] Add named stretch constants `LETTER_PANE_STRETCH = 5` and
   `ARROW_PANE_STRETCH = 1` in `gazekey/ui/keyboard_layout.py` without changing
   `create_letters_layout` yet (research R2; no pixel sizes)
 
@@ -93,7 +95,7 @@ fixed SC-006 sequence `Q T A G Z V / Y P H L B M`;
 `builds_os_key_action` returns None for that id; `gazekey/backend/` and
 `dwell_engine.py` are untouched.
 
-- [ ] T004 **USER GATE (plan Phase 0 / R10)**: On the **current** Feature 003
+- [X] T004 **USER GATE (plan Phase 0 / R10)**: On the **current** Feature 003
   full-QWERTY product keyboard, chin/head support on, suggestions unused,
   official GazeFollower calibration unchanged, run intended-key/focus for
   the fixed representative sequence `Q T A G Z V / Y P H L B M` (both
@@ -106,12 +108,12 @@ fixed SC-006 sequence `Q T A G Z V / Y P H L B M`;
   retune GazeFollower. Do **not** use `hello` here (`hello` is the separate
   SC-003 mixed-page typing USER GATE). Do **not** change production layout
   until this file exists
-- [ ] T005 [P] Add `KeyRole.SYSTEM_PAGE_SWITCH`, `PAGE_RIGHT_KEY_ID =
+- [X] T005 [P] Add `KeyRole.SYSTEM_PAGE_SWITCH`, `PAGE_RIGHT_KEY_ID =
   "system:page_right"`, `PAGE_LEFT_KEY_ID = "system:page_left"`, and
   `is_page_switch_action` in `gazekey/typing/key_semantics.py`; map those ids
   in `role_for_action`; keep `builds_os_key_action` returning None (research
   R5 / `contracts/page-switch.md`)
-- [ ] T006 [P] Confirm `gazekey/layout/layout_inspector.py` already treats
+- [X] T006 [P] Confirm `gazekey/layout/layout_inspector.py` already treats
   `system:` actions as special (stable `gazeKeyId`); add `system:page_*` to
   the comment near the special-key check if needed; do **not** change
   `gazekey/typing/key_hit_tester.py` hit-test math
@@ -126,7 +128,7 @@ Foundation ready — US1 layout work may begin.
 **Goal**: After calibration the product keyboard shows the **left** letter
 page with substantially larger visible letters (QWERT / ASDFG / ZXCV plus
 Shift and Backspace). Right-page contents exist via the page-rebuild API.
-Window size is unchanged. Mapping is unchanged.
+Window stays top-of-screen at ~70% available height. Mapping is unchanged.
 
 **Independent Test**: Launch `python main.py` after calibration; left page
 is shown; letters are clearly larger than full-QWERTY; dwell **2–3** visible
@@ -135,38 +137,39 @@ left-page letters into Notepad; pytest (including T013 immediate isolation):
 
 ### Tests for User Story 1 (write first; must FAIL before layout rebuild)
 
-- [ ] T007 [P] [US1] Add failing page-content tests in
+- [X] T007 [P] [US1] Add failing page-content tests in
   `tests/unit/test_paged_keyboard.py`: default `letter_page` is `"left"`;
   visible letters are Q W E R T / A S D F G / Z X C V; Shift and Backspace
   on the third row; Y U I O P, H J K L, B N M absent from export
-- [ ] T008 [P] [US1] Add failing relative-geometry tests in
-  `tests/unit/test_layout_geometry.py`: arrow width 15–25% of letter-area
+- [X] T008 [P] [US1] Add failing relative-geometry tests in
+  `tests/unit/test_layout_geometry.py`: arrow width 12–22% of letter-area
   width; mean visible letter-key width **exceeds** letter-area width / 10;
-  arrow height spans three letter rows (research R2 / SC-001). **Width is
-  the SC-001 area proxy only because letter-row height is unchanged**
-  (FR-015 / R9); do not treat width as a separate stretch factor. Assert
-  relative fractions only — no pixel constants, no screen-size assumptions
+  arrow height spans the **first two** letter rows (research R2 / SC-001)
+  and does **not** cover the third row. Assert relative fractions only —
+  no pixel constants, no screen-size assumptions
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] Add `letter_page` (`"left"` | `"right"`, default `"left"`)
+- [X] T009 [US1] Add `letter_page` (`"left"` | `"right"`, default `"left"`)
   on `VirtualKeyboard` in `gazekey/ui/virtual_keyboard.py` per
   `specs/006-paged-large-target-keyboard/data-model.md` LetterPageState
-- [ ] T010 [US1] Rebuild the letter region in
+- [X] T010 [US1] Rebuild the letter region in
   `gazekey/ui/keyboard_layout.py` `create_letters_layout` as a horizontal
-  two-pane layout (research R1 / `contracts/keyboard-layout-006.md`): left
-  page `[letters column] | [tall →]`; letters column is three rows with
-  Shift | Z X C V | Backspace on row three; bottom row Calibrate | Space |
-  Enter stays **full keyboard width**; suggestion bar and chrome unchanged
-- [ ] T011 [US1] Add `_create_page_switch_arrow` in
+  two-pane layout on the **first two** letter rows (research R1 /
+  `contracts/keyboard-layout-006.md`): left page `[letters rows 1–2] | [tall
+  →]`; third row Shift | Z X C V | Backspace is **full letter-area width**;
+  bottom row Calibrate | Space | Enter stays **full keyboard width**;
+  suggestion bar and chrome unchanged
+- [X] T011 [US1] Add `_create_page_switch_arrow` in
   `gazekey/ui/keyboard_layout.py`: one `objectName="gazeTarget"` widget
   (not `keyboardKey`), `gazeKeyId`/`gazeKeyAction` `system:page_right` on
   the left page with label `→`, visually distinct from letter keys (FR-007);
   stretch pane uses `ARROW_PANE_STRETCH`
-- [ ] T012 [US1] Implement right-page letter widgets in
-  `gazekey/ui/keyboard_layout.py`: `[tall ←] | [letters column]` with
-  Y U I O P / H J K L / Shift B N M Backspace and `system:page_left` (`←`)
-- [ ] T013 [US1] Implement `switch_letter_page` in
+- [X] T012 [US1] Implement right-page letter widgets in
+  `gazekey/ui/keyboard_layout.py`: `[tall ←] | [YUIOP / HJKL]` on the first
+  two rows; third row Shift | B N M | Backspace full letter-area width;
+  `system:page_left` (`←`)
+- [X] T013 [US1] Implement `switch_letter_page` in
   `gazekey/ui/virtual_keyboard.py` and a synchronous letter-area rebuild
   helper in `gazekey/ui/keyboard_layout.py` (research R3): `takeAt` /
   unparent previous letter-area widgets so `findChildren` under the export
@@ -181,21 +184,24 @@ left-page letters into Notepad; pytest (including T013 immediate isolation):
   letter ids are absent from `inspect_keyboard_layout` and produce zero
   `hit_test_layout_keys` hits (`contracts/keyboard-layout-006.md` invariant
   3). T013 is not done until this test passes
-- [ ] T014 [US1] Extend `update_responsive_sizes` in
+- [X] T014 [US1] Extend `update_responsive_sizes` in
   `gazekey/ui/keyboard_layout.py` so the arrow height equals the stacked
-  three letter rows including gaps; letter keys keep per-row height;
-  Calibrate/Space/Enter row unchanged; do **not** change
-  `full_keyboard_size` (0.62) or `position_at_top` (FR-015 / research R9)
-- [ ] T015 [US1] Keep existing product tests green after the left-default
+  **first two** letter rows including the gap; letter keys keep per-row
+  height (taller with the ~70% window); Calibrate/Space/Enter row unchanged
+  in role; `full_keyboard_size` uses **0.70** available height and
+  `position_at_top` stays (FR-015 / research R9)
+- [X] T015 [US1] Keep existing product tests green after the left-default
   paged layout: `tests/unit/test_layout_geometry.py`,
   `tests/unit/test_focus_and_layout_us2.py` (top-half geometry, no-focus,
   Feature 003 chrome still absent)
-- [ ] T016 [US1] **USER GATE**: Visual layout per
+- [X] T016 [US1] **USER GATE**: Visual layout per
   `specs/006-paged-large-target-keyboard/quickstart.md` §A (left page,
-  larger letters, one right-side `→` strip, suggestions/Calibrate/chrome
-  unchanged). Dwell **2–3 left-page letters** (for example Q, A, Z) into
-  focused Notepad through the existing typing path — small live dwell-to-OS
-  gate, not the SC-003 `hello` word and not the SC-006 12-letter comparison.
+  larger letters, one right-side `→` strip on the **first two** rows,
+  third row full width, suggestions/Calibrate/chrome unchanged, keyboard
+  ~70% height with the external app still visible below). Dwell **2–3
+  left-page letters** (for example Q, A, Z) into focused Notepad through
+  the existing typing path — small live dwell-to-OS gate, not the SC-003
+  `hello` word and not the SC-006 12-letter comparison.
   Run `python -m pytest tests/unit/test_layout_geometry.py
   tests/unit/test_paged_keyboard.py -q` (must include the T013 immediate
   isolation test)
@@ -219,37 +225,37 @@ right page and restore still right. Recalibrate then return shows left.
 
 ### Tests for User Story 2 (write first; must FAIL before runtime wiring)
 
-- [ ] T017 [P] [US2] Add failing contract tests in
+- [X] T017 [P] [US2] Add failing contract tests in
   `tests/contract/test_page_switch_path.py` (mirror
   `tests/contract/test_calibrate_dwell_path.py`): dwell and mouse on
   `system:page_right` / `system:page_left` invoke the page-switch callback;
   `published` is None; `FakeOsInputAdapter` receives no events
-- [ ] T018 [P] [US2] Add failing unit tests in
+- [X] T018 [P] [US2] Add failing unit tests in
   `tests/unit/test_paged_keyboard.py`: activating the visible arrow switches
   `letter_page`; the new arrow has the opposite id/side/direction; left-page
   letters are gone from export after the switch returns
 
 ### Implementation for User Story 2
 
-- [ ] T019 [US2] Handle `SYSTEM_PAGE_SWITCH` in
+- [X] T019 [US2] Handle `SYSTEM_PAGE_SWITCH` in
   `gazekey/typing/gaze_typing_runtime.py` `_handle_activation` like
   Calibrate: optional `on_page_switch` callback, return no `KeyAction`,
   apply existing activation cooldown, `dwell.cancel_progress()`. Do **not**
   edit `gazekey/typing/dwell_engine.py`. Do **not** notify `TypingContext`
-- [ ] T020 [US2] Wire `VirtualKeyboard` in `gazekey/ui/virtual_keyboard.py`
+- [X] T020 [US2] Wire `VirtualKeyboard` in `gazekey/ui/virtual_keyboard.py`
   to pass `on_page_switch` into `GazeTypingRuntime` and to call
   `switch_letter_page`; connect the arrow’s `clicked` signal to the same
   callback (mouse parity, FR-020)
-- [ ] T021 [US2] Preserve `TypingSession.shift_oneshot_armed` and
+- [X] T021 [US2] Preserve `TypingSession.shift_oneshot_armed` and
   `TypingContext` prefix/epoch across the rebuild in
   `gazekey/ui/virtual_keyboard.py`; after widgets exist, copy Shift
   checked-state and letter case from the session (FR-019)
-- [ ] T022 [US2] Keep `letter_page` unchanged across
+- [X] T022 [US2] Keep `letter_page` unchanged across
   `on_minimize_clicked` / `on_restore_clicked` in
   `gazekey/ui/virtual_keyboard.py` (main_content_widget already stays in
   memory — add an explicit regression test in
   `tests/unit/test_paged_keyboard.py`)
-- [ ] T023 [US2] Reset `letter_page` to `"left"` only on the explicit
+- [X] T023 [US2] Reset `letter_page` to `"left"` only on the explicit
   **return-from-official-recalibrate** path in GazeKey keyboard code
   (`VirtualKeyboard` after `run_official_recalibrate` returns — a dedicated
   post-recalibrate hook / flag). Do **not** implement a blanket reset in
@@ -259,7 +265,7 @@ right page and restore still right. Recalibrate then return shows left.
   (research R4 / R7 prefer to avoid that). Add a unit test in
   `tests/unit/test_paged_keyboard.py` that recalibrate-return resets to
   left and that a plain show / restore does **not**
-- [ ] T024 [US2] **USER GATE**: `specs/006-paged-large-target-keyboard/quickstart.md`
+- [X] T024 [US2] **USER GATE**: `specs/006-paged-large-target-keyboard/quickstart.md`
   §B (dwell `→`, Notepad unchanged, optional click `←`, no double-flip from
   one hold) and §E (minimize/restore keeps page; recalibrate returns left
   via official GazeFollower UI)
@@ -282,23 +288,23 @@ GazeFollower recalibration.
 
 ### Tests for User Story 3
 
-- [ ] T025 [P] [US3] Extend `tests/unit/test_paged_keyboard.py` so Shift and
+- [X] T025 [P] [US3] Extend `tests/unit/test_paged_keyboard.py` so Shift and
   Backspace are exported and hit-testable on **both** pages; suggestion
   slots `suggestion:0..2` remain exported when blank/disabled
-- [ ] T026 [P] [US3] Add tests in `tests/unit/test_gaze_typing_runtime.py`:
+- [X] T026 [P] [US3] Add tests in `tests/unit/test_gaze_typing_runtime.py`:
   arm one-shot Shift, switch page, complete a letter → that letter is
   shifted and Shift does not stay armed
-- [ ] T027 [P] [US3] Confirm existing OS dispatch still holds in
+- [X] T027 [P] [US3] Confirm existing OS dispatch still holds in
   `tests/contract/test_typing_dispatch_path.py` for letters, Space,
   Backspace, and Enter; do **not** change `gazekey/input/` or
   `gazekey/typing/action_dispatcher.py`
-- [ ] T028 [P] [US3] Confirm suggestion accept still sends remaining suffix
+- [X] T028 [P] [US3] Confirm suggestion accept still sends remaining suffix
   + Space in `tests/contract/test_suggestion_typing_path.py` after a
   mixed-page prefix; do **not** modify `gazekey/prediction/`
 
 ### Implementation / preservation for User Story 3
 
-- [ ] T029 [US3] Keep Calibrate as `system:calibrate` on both pages in
+- [X] T029 [US3] Keep Calibrate as `system:calibrate` on both pages in
   `gazekey/ui/keyboard_layout.py`; `tests/contract/test_calibrate_dwell_path.py`
   and `tests/contract/test_recalibrate_official_flow.py` still pass
 - [ ] T030 [US3] **USER GATE**: `specs/006-paged-large-target-keyboard/quickstart.md`
@@ -336,7 +342,7 @@ type or accept a suggestion.
   Backspace, and Calibrate/Space/Enter
 - [ ] T033 [US4] Assert in `tests/unit/test_paged_keyboard.py` that
   left-page letters still form **three distinct rows** in
-  `inspect_keyboard_layout` despite the three-row-tall arrow (research R6
+  `inspect_keyboard_layout` despite the two-row-tall arrow (research R6
   median-height clustering risk)
 - [ ] T034 [US4] Add tests in `tests/unit/test_gaze_typing_runtime.py` (and
   `tests/unit/test_paged_keyboard.py` if a live widget tree is required):
@@ -424,7 +430,8 @@ system-control branch only.
 - [ ] T044 Confirm `full_keyboard_size` / `position_at_top` in
   `gazekey/ui/keyboard_layout.py` and
   `tests/unit/test_focus_and_layout_us2.py` still pin the keyboard to the
-  top ~62% of available screen
+  top ~70% of available screen, with the lower ~30% free for the external
+  app
 
 **Checkpoint**: Feature 006 is testable from `tasks.md` + `quickstart.md`
 without mapping retune.
@@ -544,7 +551,7 @@ API exists. Immediate isolation is part of T013, not a later-only US4 proof.
 - [P] tasks = different files, no incomplete dependencies
 - [Story] label maps task to US1–US4 in spec.md
 - Do not encode pixel sizes or a stretch factor in spec/tests beyond the
-  15–25% arrow band and mean-letter > letter-area/10
+  12–22% arrow band and mean-letter > letter-area/10
 - Commit after each task or logical group
 - Stop at any checkpoint to validate independently
 - Avoid: GazeFollower retune, dwell redesign, prediction edits, Feature 004

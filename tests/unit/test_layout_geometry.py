@@ -222,3 +222,82 @@ def test_typing_region_rect_includes_suggestion_row_and_gaze_targets(qapp):
     kb = letter_keys_region_rect(vk.keyboard_widget)
     assert region.top() <= kb.top()
     assert region.height() >= kb.height()
+
+
+def _show_product_keyboard(qapp):
+    from gazekey.ui.virtual_keyboard import VirtualKeyboard
+
+    vk = VirtualKeyboard()
+    vk.show()
+    qapp.processEvents()
+    vk._keyboard_layout_builder.update_responsive_sizes()
+    vk._keyboard_layout_builder.export_keyboard_layout()
+    qapp.processEvents()
+    return vk
+
+
+def _letter_keys(keys):
+    return [
+        k
+        for k in keys
+        if len(str(k.key_action)) == 1 and str(k.key_action).isalpha()
+    ]
+
+
+def test_page_arrow_width_is_12_to_22_percent_of_letter_area(qapp):
+    """006 SC-001: arrow pane ~17% of letter-area width (research R2 5:1 band)."""
+    vk = _show_product_keyboard(qapp)
+    area = getattr(vk, "_letter_area_widget", None)
+    assert area is not None, "expected letter-area pane for paged layout"
+    area_w = float(area.width())
+    assert area_w > 0
+
+    keys = inspect_keyboard_layout(vk.main_content_widget)
+    by_id = {k.key_id: k for k in keys}
+    assert "system:page_right" in by_id
+    arrow_w = float(by_id["system:page_right"].rect.width())
+    fraction = arrow_w / area_w
+    assert 0.12 <= fraction <= 0.22, f"arrow/letter-area width fraction {fraction:.3f}"
+
+
+def test_mean_visible_letter_width_exceeds_letter_area_over_ten(qapp):
+    """006 SC-001: mean letter width > letter-area/10 (relative, not pixels)."""
+    vk = _show_product_keyboard(qapp)
+    area = getattr(vk, "_letter_area_widget", None)
+    assert area is not None, "expected letter-area pane for paged layout"
+    area_w = float(area.width())
+    assert area_w > 0
+
+    keys = inspect_keyboard_layout(vk.main_content_widget)
+    letters = _letter_keys(keys)
+    assert letters, "expected visible letter keys"
+    mean_w = sum(float(k.rect.width()) for k in letters) / float(len(letters))
+    assert mean_w > area_w / 10.0, (
+        f"mean letter width {mean_w:.1f} should exceed letter-area/10 {area_w / 10.0:.1f}"
+    )
+
+
+def test_page_arrow_height_spans_first_two_letter_rows(qapp):
+    """006: one tall arrow beside rows 1–2 only; third row is full width (R1/R2)."""
+    vk = _show_product_keyboard(qapp)
+    keys = inspect_keyboard_layout(vk.main_content_widget)
+    by_id = {k.key_id: k for k in keys}
+    assert "system:page_right" in by_id
+    arrow = by_id["system:page_right"]
+    letters = _letter_keys(keys)
+    assert letters
+    row1 = [k for k in letters if str(k.key_action).lower() in "qwert"]
+    row2 = [k for k in letters if str(k.key_action).lower() in "asdfg"]
+    row3 = [k for k in letters if str(k.key_action).lower() in "zxcv"]
+    assert row1 and row2 and row3
+    two_top = min(int(k.rect.top()) for k in row1)
+    two_bottom = max(int(k.rect.bottom()) for k in row2)
+    row3_top = min(int(k.rect.top()) for k in row3)
+    mean_letter_h = sum(float(k.rect.height()) for k in letters) / float(len(letters))
+    assert float(arrow.rect.height()) > mean_letter_h * 1.4
+    assert float(arrow.rect.height()) < mean_letter_h * 2.6
+    slack = max(8.0, mean_letter_h * 0.35)
+    assert abs(int(arrow.rect.top()) - two_top) <= slack
+    assert abs(int(arrow.rect.bottom()) - two_bottom) <= slack
+    assert int(arrow.rect.bottom()) <= row3_top + int(slack * 0.25)
+    assert int(arrow.rect.bottom()) < int(row3[0].center[1])

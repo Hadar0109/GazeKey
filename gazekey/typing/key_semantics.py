@@ -20,6 +20,7 @@ class KeyRole(str, Enum):
     SHIFT_ONESHOT = "shift_oneshot"
     SYSTEM_PAUSE_RESUME = "pause_resume"
     SYSTEM_CALIBRATE = "calibrate"
+    SYSTEM_PAGE_SWITCH = "page_switch"
     SUGGESTION = "suggestion"
     NON_OS = "non_os"
 
@@ -27,6 +28,9 @@ class KeyRole(str, Enum):
 PAUSE_RESUME_ACTION = "PAUSE_RESUME"
 CALIBRATE_ACTION = "CALIBRATE"
 CALIBRATE_KEY_ID = "system:calibrate"
+PAGE_RIGHT_KEY_ID = "system:page_right"
+PAGE_LEFT_KEY_ID = "system:page_left"
+_PAGE_SWITCH_KEY_IDS = frozenset({PAGE_RIGHT_KEY_ID, PAGE_LEFT_KEY_ID})
 SUGGESTION_KEY_ID_PREFIX = "suggestion:"
 _PAUSE_RESUME_LABELS = frozenset(
     {
@@ -76,6 +80,11 @@ def is_calibrate_action(action_or_key_id: str) -> bool:
     return text in {CALIBRATE_ACTION, CALIBRATE_KEY_ID}
 
 
+def is_page_switch_action(action_or_key_id: str) -> bool:
+    """True for letter-page arrow system control (no OS KeyAction)."""
+    return str(action_or_key_id) in _PAGE_SWITCH_KEY_IDS
+
+
 def suggestion_slot_index(action_or_key_id: str) -> Optional[int]:
     text = str(action_or_key_id)
     if not text.startswith(SUGGESTION_KEY_ID_PREFIX):
@@ -92,6 +101,8 @@ def role_for_action(action: str) -> KeyRole:
         return KeyRole.SYSTEM_PAUSE_RESUME
     if is_calibrate_action(action):
         return KeyRole.SYSTEM_CALIBRATE
+    if is_page_switch_action(action):
+        return KeyRole.SYSTEM_PAGE_SWITCH
     if is_suggestion_action(action):
         return KeyRole.SUGGESTION
     if action == "SHIFT":

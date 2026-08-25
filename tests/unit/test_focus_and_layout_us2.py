@@ -17,11 +17,14 @@ def test_top_half_keyboard_geometry_preserved(qapp):
 
     screen = qapp.primaryScreen().availableGeometry()
     geo = vk.geometry()
-    expected_h = int(screen.height() * 0.62)
+    expected_h = int(screen.height() * 0.70)
     assert geo.x() == screen.x()
     assert geo.y() == screen.y()
     assert geo.width() == screen.width()
     assert abs(geo.height() - min(expected_h, screen.height())) <= 1
+    # External app remains visible below the overlay on the same screen.
+    assert geo.height() < screen.height()
+    assert (screen.height() - geo.height()) >= int(screen.height() * 0.25)
 
 
 def test_keyboard_window_does_not_accept_focus(qapp):

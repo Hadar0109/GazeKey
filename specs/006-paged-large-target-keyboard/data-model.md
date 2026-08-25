@@ -107,8 +107,9 @@ LetterPageState.current
 1. Exactly one letter page visible.
 2. Arrow side/direction match the current page (left page → right-side `→`).
 3. Mean visible letter-key **width** exceeds letter-area width / 10
-   (research R2). This is the SC-001 **area** proxy **only because
-   letter-row height is unchanged**; it is not a second stretch factor.
-4. After a page switch returns, previous-page letters are already absent
+   (research R2). This is a relative SC-001 check, not a second stretch
+   factor. Letter-row height MAY increase with the planned window ratio.
+4. The page-switch arrow spans the **first two** letter rows only.
+5. After a page switch returns, previous-page letters are already absent
    from export/hit-test (synchronous unparent; not `deleteLater`-only).
-5. GazeFollower sample fields and dwell timing are not part of this model.
+6. GazeFollower sample fields and dwell timing are not part of this model.

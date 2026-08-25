@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 
 from gazekey.layout import inspect_keyboard_layout
 from gazekey.typing.gaze_ui_mapper import typing_region_rect
+from gazekey.typing.key_semantics import PAGE_LEFT_KEY_ID, PAGE_RIGHT_KEY_ID
 
 if TYPE_CHECKING:
     from gazekey.ui.virtual_keyboard import VirtualKeyboard
@@ -24,6 +25,13 @@ if TYPE_CHECKING:
 # Stable layout key_ids for suggestion slots (contracts/keyboard-layout-003.md).
 SUGGESTION_SLOT_COUNT = 3
 SUGGESTION_KEY_ID_PREFIX = "suggestion:"
+
+# Letter-area pane stretch (research R2). Named weights only — do not encode
+# pixel sizes. Applied to the first two letter rows beside the arrow.
+LETTER_PANE_STRETCH = 5
+ARROW_PANE_STRETCH = 1
+# Top-of-screen overlay height as a fraction of available screen (research R9).
+KEYBOARD_HEIGHT_RATIO = 0.70
 
 
 class KeyboardLayoutBuilder:
@@ -111,6 +119,7 @@ class KeyboardLayoutBuilder:
             "close_btn",
             "restore_btn",
             "shift_btn",
+            "page_switch_btn",
         ):
             widget = getattr(h, attr, None)
             if widget is not None:
@@ -357,43 +366,197 @@ class KeyboardLayoutBuilder:
             row.addWidget(widget, stretch)
         parent_layout.addLayout(row, 1)
 
-    def create_letters_layout(self) -> QVBoxLayout:
-        """R7 + FR-008d: QWERTY + bottom row Calibrate | Space | Enter."""
+    def _make_letter_key(self, char: str) -> QPushButton:
+        btn = self.create_key(char)
+        self._h.letter_keys[char] = btn
+        return btn
+
+    def _page_switch_arrow_stylesheet(self) -> str:
+        return """
+            QPushButton#gazeTarget {
+                background-color: #163A4A;
+                color: #E8F4F8;
+                border: 2px solid #3D8CA3;
+                border-radius: 6px;
+                padding: 4px;
+                font-weight: bold;
+            }
+            QPushButton#gazeTarget:hover {
+                background-color: #1E4E62;
+                border: 2px solid #5EB1C7;
+            }
+            QPushButton#gazeTarget:pressed {
+                background-color: #0F2C38;
+            }
+            QPushButton#gazeTarget[gazeFocused="true"] {
+                border: 2px solid #FBBF24;
+            }
+            QPushButton#gazeTarget[gazeDwelling="true"] {
+                border: 2px solid #10B981;
+            }
+        """
+
+    def _create_page_switch_arrow(self, page: str) -> QPushButton:
+        """One tall gazeTarget spanning the first two letter rows (not a keyboardKey)."""
+        if page == "right":
+            key_id = PAGE_LEFT_KEY_ID
+            label = "←"
+        else:
+            key_id = PAGE_RIGHT_KEY_ID
+            label = "→"
+        btn = QPushButton(label)
+        btn.setObjectName("gazeTarget")
+        btn.setProperty("gazeKeyId", key_id)
+        btn.setProperty("gazeKeyAction", key_id)
+        btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        btn.setMinimumWidth(24)
+        btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        btn.setFont(QFont("Segoe UI", 28, QFont.Weight.Bold))
+        btn.setStyleSheet(self._page_switch_arrow_stylesheet())
+        btn.setToolTip("Switch letter page")
+        btn.clicked.connect(self._h.on_page_switch_activated)
+        return btn
+
+    def _create_upper_letters_column(self, page: str) -> QWidget:
+        """First two letter rows only (arrow sits beside this pane)."""
         h = self._h
-        h.letter_keys.clear()
-        layout = QVBoxLayout()
-        layout.setSpacing(int(getattr(h, "_key_gap_px", 3)))
-        layout.setContentsMargins(0, 0, 0, 0)
+        column = QWidget()
+        column.setObjectName("lettersColumn")
+        column.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        column.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        col_layout = QVBoxLayout(column)
+        col_layout.setSpacing(int(getattr(h, "_key_gap_px", 3)))
+        col_layout.setContentsMargins(0, 0, 0, 0)
 
-        row1_keys = []
-        for char in "qwertyuiop":
-            btn = self.create_key(char)
-            h.letter_keys[char] = btn
-            row1_keys.append((btn, 1))
-        self._add_key_row(layout, row1_keys)
+        if page == "right":
+            row1, row2 = "yuiop", "hjkl"
+        else:
+            row1, row2 = "qwert", "asdfg"
+        self._add_key_row(col_layout, [(self._make_letter_key(ch), 1) for ch in row1])
+        self._add_key_row(col_layout, [(self._make_letter_key(ch), 1) for ch in row2])
+        return column
 
-        row2 = self._keyboard_row_layout()
-        row2.addStretch(1)
-        for char in "asdfghjkl":
-            btn = self.create_key(char)
-            h.letter_keys[char] = btn
-            row2.addWidget(btn, 1)
-        row2.addStretch(1)
-        layout.addLayout(row2, 1)
-
-        row3_keys = []
+    def _create_third_letter_row(self, page: str) -> QWidget:
+        """Shift + page letters + Backspace at full letter-area width (no arrow)."""
+        h = self._h
+        row3 = "bnm" if page == "right" else "zxcv"
+        widget = QWidget()
+        widget.setObjectName("letterRow3")
+        widget.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        row = self._keyboard_row_layout()
+        widget.setLayout(row)
         h.shift_btn = self.create_key("Shift")
         h.shift_btn.setCheckable(True)
         h.shift_btn.clicked.connect(h.on_shift_clicked)
-        row3_keys.append((h.shift_btn, 2))
-        for char in "zxcvbnm":
-            btn = self.create_key(char)
-            h.letter_keys[char] = btn
-            row3_keys.append((btn, 1))
+        row.addWidget(h.shift_btn, 2)
+        for ch in row3:
+            row.addWidget(self._make_letter_key(ch), 1)
         backspace_btn = self.create_key("⌫")
         backspace_btn.clicked.connect(lambda: h.on_key_pressed("BACKSPACE"))
-        row3_keys.append((backspace_btn, 2))
-        self._add_key_row(layout, row3_keys)
+        h.backspace_btn = backspace_btn
+        row.addWidget(backspace_btn, 2)
+        return widget
+
+    def _populate_letter_area(self, page: str) -> None:
+        h = self._h
+        h.letter_keys.clear()
+        gap = int(getattr(h, "_key_gap_px", 3))
+        upper = self._create_upper_letters_column(page)
+        arrow = self._create_page_switch_arrow(page)
+        top = QWidget()
+        top.setObjectName("letterTopPane")
+        top.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        top.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        top_layout = QHBoxLayout(top)
+        top_layout.setContentsMargins(0, 0, 0, 0)
+        top_layout.setSpacing(gap)
+        if page == "right":
+            top_layout.addWidget(arrow, ARROW_PANE_STRETCH)
+            top_layout.addWidget(upper, LETTER_PANE_STRETCH)
+        else:
+            top_layout.addWidget(upper, LETTER_PANE_STRETCH)
+            top_layout.addWidget(arrow, ARROW_PANE_STRETCH)
+        row3 = self._create_third_letter_row(page)
+        h._letters_column_widget = upper
+        h._letter_top_pane_widget = top
+        h._letter_row3_widget = row3
+        h.page_switch_btn = arrow
+        layout = h._letter_area_layout
+        layout.addWidget(top, 2)
+        layout.addWidget(row3, 1)
+        # Created without a parent (hidden) then reparented; show now that the
+        # letter area is already on-screen (rebuild path). Initial show() of
+        # the keyboard window still reveals the first page.
+        top.show()
+        row3.show()
+        upper.show()
+        arrow.show()
+
+    def _unparent_letter_area_contents(self) -> None:
+        """Synchronously remove letter-area widgets from the inspected tree."""
+        h = self._h
+        layout = getattr(h, "_letter_area_layout", None)
+        if layout is None:
+            return
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.hide()
+                widget.setParent(None)
+                widget.deleteLater()
+
+    def rebuild_letter_area(self, page: str) -> None:
+        """Destroy/recreate the visible letter page; export before return (R3)."""
+        h = self._h
+        self._unparent_letter_area_contents()
+        h.letter_keys.clear()
+        h.page_switch_btn = None
+        h._letters_column_widget = None
+        h._letter_top_pane_widget = None
+        h._letter_row3_widget = None
+        h._layout_keys = []
+        h._keys_by_id = {}
+
+        self._populate_letter_area(page)
+        restore = getattr(h, "_restore_shift_visual_from_session", None)
+        if callable(restore):
+            restore()
+        self.apply_no_focus_policies()
+        self.update_responsive_sizes()
+        area_layout = getattr(h, "_letter_area_layout", None)
+        if area_layout is not None:
+            area_layout.activate()
+        kb_layout = getattr(h, "_keyboard_layout", None)
+        if kb_layout is not None:
+            kb_layout.activate()
+        area = getattr(h, "_letter_area_widget", None)
+        if area is not None:
+            area.updateGeometry()
+        self.export_keyboard_layout()
+
+    def create_letters_layout(self) -> QVBoxLayout:
+        """Paged letter area (research R1) + full-width Calibrate | Space | Enter."""
+        h = self._h
+        gap = int(getattr(h, "_key_gap_px", 3))
+        layout = QVBoxLayout()
+        layout.setSpacing(gap)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        h._letter_area_widget = QWidget()
+        h._letter_area_widget.setObjectName("letterArea")
+        h._letter_area_widget.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        h._letter_area_widget.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
+        h._letter_area_layout = QVBoxLayout(h._letter_area_widget)
+        h._letter_area_layout.setContentsMargins(0, 0, 0, 0)
+        h._letter_area_layout.setSpacing(gap)
+
+        page = getattr(h, "letter_page", "left")
+        self._populate_letter_area(page)
+        layout.addWidget(h._letter_area_widget, 3)
 
         # Bottom row: large Calibrate | reduced Space | slightly smaller Enter.
         calibrate_btn = self._create_calibrate_button()
@@ -415,17 +578,9 @@ class KeyboardLayoutBuilder:
         if layout_type != "letters":
             h._log_verbose(f"switch_layout({layout_type!r}) ignored — letters-only product keyboard")
             return
-        keyboard_layout = h.keyboard_widget.layout()
-        while keyboard_layout.count():
-            item = keyboard_layout.takeAt(0)
-            if item.layout():
-                self.clear_layout(item.layout())
-            elif item.widget():
-                item.widget().deleteLater()
-        keyboard_layout.addLayout(self.create_letters_layout())
+        page = getattr(h, "letter_page", "left")
+        self.rebuild_letter_area(page)
         h.current_layout = "letters"
-        self.apply_no_focus_policies()
-        h._schedule_layout_export()
 
     def create_key(self, text: str) -> QPushButton:
         h = self._h
@@ -465,11 +620,10 @@ class KeyboardLayoutBuilder:
         return QApplication.primaryScreen().availableGeometry()
 
     def full_keyboard_size(self) -> tuple[int, int]:
-        """Top-half product keyboard height = 62% of available screen (T051 — preserved)."""
+        """Top-of-screen product keyboard height = 70% of available screen (R9)."""
         screen = self.primary_screen_available_geometry()
         width = screen.width()
-        height_ratio = 0.62
-        height = int(screen.height() * height_ratio)
+        height = int(screen.height() * KEYBOARD_HEIGHT_RATIO)
         return width, height
 
     def position_at_bottom(self) -> None:
@@ -529,6 +683,23 @@ class KeyboardLayoutBuilder:
             h._control_bar_layout.setSpacing(gap)
         if hasattr(h, "_suggestion_bar_layout"):
             h._suggestion_bar_layout.setSpacing(gap)
+        letter_area_layout = getattr(h, "_letter_area_layout", None)
+        if letter_area_layout is not None:
+            letter_area_layout.setSpacing(gap)
+        top_pane = getattr(h, "_letter_top_pane_widget", None)
+        if top_pane is not None and top_pane.layout() is not None:
+            top_pane.layout().setSpacing(gap)
+        letters_column = getattr(h, "_letters_column_widget", None)
+        if letters_column is not None and letters_column.layout() is not None:
+            col_layout = letters_column.layout()
+            col_layout.setSpacing(gap)
+            for i in range(col_layout.count()):
+                nested = col_layout.itemAt(i).layout()
+                if nested is not None:
+                    nested.setSpacing(gap)
+        row3 = getattr(h, "_letter_row3_widget", None)
+        if row3 is not None and row3.layout() is not None:
+            row3.layout().setSpacing(gap)
 
         # FR-008d: slim top chrome (no Calibrate) → reclaim height into letter rows.
         chrome_h = int(max(28.0, min(42.0, window_h * 0.07)))
@@ -592,10 +763,10 @@ class KeyboardLayoutBuilder:
         bottom_share = 0.28
         letter_usable = usable * letter_share
         bottom_usable = usable * bottom_share
-        key_h = int(max(28.0, min(96.0, letter_usable / 3.0)))
-        bottom_h = int(max(key_h + 8, min(110.0, bottom_usable)))
-        font_pt = int(max(12.0, min(26.0, key_h * 0.42)))
-        calib_pt = int(max(13.0, min(22.0, bottom_h * 0.28)))
+        key_h = int(max(28.0, min(160.0, letter_usable / 3.0)))
+        bottom_h = int(max(key_h + 8, min(140.0, bottom_usable)))
+        font_pt = int(max(12.0, min(36.0, key_h * 0.42)))
+        calib_pt = int(max(13.0, min(24.0, bottom_h * 0.28)))
 
         for btn in h.keyboard_widget.findChildren(QPushButton, "keyboardKey"):
             # Space/Enter sit on the taller bottom row with Calibrate.
@@ -617,6 +788,30 @@ class KeyboardLayoutBuilder:
             if f.pointSize() != calib_pt:
                 f.setPointSize(calib_pt)
                 h.calibrate_btn.setFont(f)
+
+        stacked_two_row_h = int(2 * key_h + gap)
+        stacked_letter_h = int(3 * key_h + 2 * gap)
+        letter_area = getattr(h, "_letter_area_widget", None)
+        if letter_area is not None:
+            letter_area.setMinimumHeight(stacked_letter_h)
+            letter_area.setMaximumHeight(stacked_letter_h)
+        top_pane = getattr(h, "_letter_top_pane_widget", None)
+        if top_pane is not None:
+            top_pane.setMinimumHeight(stacked_two_row_h)
+            top_pane.setMaximumHeight(stacked_two_row_h)
+        row3 = getattr(h, "_letter_row3_widget", None)
+        if row3 is not None:
+            row3.setMinimumHeight(key_h)
+            row3.setMaximumHeight(key_h)
+        arrow = getattr(h, "page_switch_btn", None)
+        if arrow is not None:
+            arrow.setMinimumHeight(stacked_two_row_h)
+            arrow.setMaximumHeight(stacked_two_row_h)
+            arrow_pt = int(max(18.0, min(48.0, stacked_two_row_h * 0.32)))
+            f = arrow.font()
+            if f.pointSize() != arrow_pt:
+                f.setPointSize(arrow_pt)
+                arrow.setFont(f)
 
     def schedule_layout_export(self) -> None:
         h = self._h

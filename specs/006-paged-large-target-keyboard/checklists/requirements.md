@@ -41,6 +41,10 @@
 - Arrow width and key-size ratios are deferred to planning from the live
   letter area. The spec forbids hard-coded pixel sizes and fixed stretch
   ratios (FR-004, FR-006, SC-001).
+- T016 visual revision (same day): arrow spans the **first two** letter rows
+  only; third row full width; planning stretch **5:1**; top-of-screen height
+  **~70%** of available screen with the external app still visible below
+  (FR-015).
 - Named existing product boundaries (GazeFollower, dwell, OS typing, live
   hit-testing) remain scope constraints from the feature request.
 - Quality checklist passes. Next phase: `/speckit-plan` (or `/speckit-clarify`

@@ -26,9 +26,11 @@ timing, and prediction logic stay sealed.
    fixed inputs ([research R10](./research.md)). Later SC-006 comparison
    uses that file, not memory. Not a mapping benchmark; do not retune
    GazeFollower.
-2. **Letter-area rebuild (gate)** — Two-pane layout per [research R1](./research.md);
-   stretch **4:1** letters:arrow (R2); destroy/recreate on page change with
-   **synchronous** removal from target discovery before export (R3).
+2. **Letter-area rebuild (gate)** — Two-pane **upper** letter area per
+   [research R1](./research.md); stretch **5:1** letters:arrow on the first
+   two rows; third row full width; window height **~70%** available (R2, R9);
+   destroy/recreate on page change with **synchronous** removal from target
+   discovery before export (R3).
 3. **Page state** — `letter_page` left|right on `VirtualKeyboard` (R4); default
    left; persist across minimize/restore; reset left after official
    recalibrate hide/show. Restore Shift visual from `TypingSession` after
@@ -77,12 +79,15 @@ before the switch function returns (export in the same switch; not
 **Constraints**:
 
 - Spec 006 clarifications + [research.md](./research.md)
-- Stretch weights 4:1; tests use relative fractions, not pixels
+- Stretch weights 5:1 on the first two letter rows; tests use relative
+  fractions, not pixels
+- Arrow spans the first two letter rows only (third row full width)
 - Dwell parameters unchanged (0.9 s / 0.20 s cooldown / 5-frame leave /
   0.25 s switch)
 - Prediction, GazeFollower, origin/DPR, filtering, mapping benchmarks
   unmodified
-- Top-of-screen keyboard size/placement unchanged
+- Top-of-screen overlay; height ~70% of available screen; external app
+  remains visible below (not full-screen)
 - Feature 004 historical; not a live gate
 - Manual USER GATE for live webcam / external-app checks, including the
   **pre-implementation full-QWERTY baseline** (R10) before layout change
@@ -182,7 +187,10 @@ layout exporter.
 
 ### Phase A — Paged layout & geometry gate
 
-- Two-pane letter area; 4:1 stretch; spanning arrow (R1–R2)
+- Two-pane **upper** letter area; **5:1** stretch; arrow spans **first two**
+  rows only (R1–R2); third letter row full width
+- Top-of-screen window height **~70%** of available screen (R9); lower
+  screen remains for the external app
 - Left default page; Shift/Backspace on both third rows
 - Bottom row / suggestions / chrome unchanged
 - Destroy/recreate on page API with **synchronous** unparent/removal before

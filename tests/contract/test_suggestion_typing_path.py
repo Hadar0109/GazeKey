@@ -138,3 +138,54 @@ def test_disabled_suggestion_slot_not_dwellable():
     assert result.suggestion_accepted is False
     assert accepts == []
     assert adapter.injected == []
+
+
+def test_suggestion_after_mixed_page_prefix_still_sends_suffix_and_space():
+    """T028: prefix he (H right page, E left page) still completes hello as suffix+Space."""
+    from gazekey.typing.key_action import KeyAction
+    from gazekey.typing.key_semantics import PAGE_LEFT_KEY_ID
+
+    adapter = FakeOsInputAdapter()
+    session = TypingSession()
+    session.activate()
+    dispatcher = ActionDispatcher(adapter)
+    ctx = TypingContext()
+    switches: list[str] = []
+
+    def _deliver(ch: str) -> None:
+        ctx.on_action_delivered(
+            KeyAction(
+                kind=KeyActionKind.CHAR,
+                text=ch,
+                source=KeyActionSource.MOUSE,
+                key_id="k",
+                timestamp=1.0,
+            ),
+            ok=True,
+        )
+
+    _deliver("h")
+    runtime = GazeTypingRuntime(
+        session,
+        DwellEngine(),
+        dispatcher,
+        on_page_switch=lambda: switches.append("switch"),
+        on_suggestion_accept=lambda key_id, source: dispatch_suggestion_completion(
+            word="hello",
+            prefix=ctx.get_prefix(),
+            accept_epoch=ctx.get_epoch(),
+            current_epoch=ctx.get_epoch(),
+            dispatcher=dispatcher,
+            session=session,
+            source=source,
+            key_id=key_id,
+            clock=lambda: 1.0,
+        ),
+    )
+    assert runtime.on_mouse_key(key_id=PAGE_LEFT_KEY_ID, action=PAGE_LEFT_KEY_ID) is None
+    _deliver("e")
+    assert ctx.get_prefix() == "he"
+    assert switches == ["switch"]
+
+    runtime.on_mouse_key(key_id="suggestion:0", action="suggestion:0")
+    assert [a.text for a in adapter.injected] == ["l", "l", "o", " "]

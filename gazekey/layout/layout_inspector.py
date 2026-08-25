@@ -116,7 +116,8 @@ def inspect_keyboard_layout(
         center = (float(rect.center().x()), float(rect.center().y()))
 
         label = btn.text()
-        # Optional stable overrides (suggestion:N, system:calibrate).
+        # Optional stable overrides (suggestion:N, system:calibrate,
+        # system:page_right / system:page_left). `system:` actions are special.
         override_id = btn.property("gazeKeyId")
         override_action = btn.property("gazeKeyAction")
         if override_action:

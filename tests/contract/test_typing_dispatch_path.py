@@ -77,3 +77,23 @@ def test_delivery_failure_still_emits_delivered_with_ok_false():
     assert len(delivered) == 1
     assert delivered[0][1] == OsInjectResult(ok=False, error="no_target")
     assert adapter.injected[0].text == "x"
+
+
+def test_space_backspace_enter_still_dispatch():
+    """T027: OS path unchanged for Space, Backspace, and Enter."""
+    runtime, adapter = _runtime()
+    space = runtime.on_mouse_key(key_id="key_space", action=" ")
+    assert space is not None
+    assert space.kind is KeyActionKind.CHAR
+    assert space.text == " "
+    backspace = runtime.on_mouse_key(key_id="key_bs", action="BACKSPACE")
+    assert backspace is not None
+    assert backspace.kind is KeyActionKind.BACKSPACE
+    enter = runtime.on_mouse_key(key_id="key_enter", action="ENTER")
+    assert enter is not None
+    assert enter.kind is KeyActionKind.ENTER
+    assert [a.kind for a in adapter.injected] == [
+        KeyActionKind.CHAR,
+        KeyActionKind.BACKSPACE,
+        KeyActionKind.ENTER,
+    ]

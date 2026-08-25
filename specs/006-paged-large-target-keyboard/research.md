@@ -17,14 +17,15 @@ touching GazeFollower.
 
 The letters column is a vertical stack of three rows (FR-002 / FR-003) with
 Shift and Backspace on the third row (FR-008). The arrow is **one** gaze
-target spanning the full height of those three rows. The bottom row
-(Calibrate | Space | Enter) stays **full keyboard width** below the two-pane
-letter area. Suggestion bar and chrome are unchanged.
+target spanning the **first two** letter rows only. The third letter row is
+**full letter-area width** (no arrow beside Shift / ZXCV or BNM / Backspace).
+The bottom row (Calibrate | Space | Enter) stays **full keyboard width**
+below the letter area. Suggestion bar and chrome are unchanged.
 
-**Rationale**: A spanning arrow is the large vertical target the spec requires.
-Keeping the bottom row full-width preserves Feature 003 recovery/editing
-geometry. Nested panes let letters expand into leftover width instead of
-staying trapped in a native QWERTY half (FR-007).
+**Rationale**: A two-row spanning arrow is still a large vertical gaze
+target (FR-004, T016 visual revision) without stealing width from the
+Shift/Backspace row. Nested panes let letters expand into leftover width
+instead of staying trapped in a native QWERTY half (FR-007).
 
 **Alternatives considered**:
 
@@ -37,47 +38,49 @@ staying trapped in a native QWERTY half (FR-007).
 
 ## R2 — Arrow vs letter relative sizing (no pixels in spec)
 
-**Decision**: Size the two panes with **stretch weights**, not pixels:
+**Decision**: Size the two-row letter+arrow panes with **stretch weights**,
+not pixels:
 
-- Letter pane stretch **4**
+- Letter pane stretch **5**
 - Arrow pane stretch **1**
 
-That is **20%** of the letter-area width for the arrow and **80%** for
-letters. On the left page, five first-row letters share that 80%, so each is
-about **16%** of letter-area width versus about **10%** today (ten equal
-keys). Mean letter-key **area** therefore rises at the same row height
-(~1.6× width → ~1.6× area), which satisfies SC-001 without a spec-level
-stretch factor.
+That is about **17%** of the two-row pane width for the arrow and **83%**
+for letters (letter-area width for the first two rows). On the left page,
+five first-row letters share that 83%, so each is about **17%** of
+letter-area width versus about **10%** today (ten equal keys). The third
+row is full letter-area width. A moderate window-height increase (R9)
+makes keys taller as well. Together these satisfy SC-001 without a
+spec-level stretch factor.
 
 Implementation may keep these as named layout weights (e.g.
-`LETTER_PANE_STRETCH = 4`, `ARROW_PANE_STRETCH = 1`). Tests MUST assert
+`LETTER_PANE_STRETCH = 5`, `ARROW_PANE_STRETCH = 1`). Tests MUST assert
 **relative** geometry on the live widget:
 
-- Arrow width is between **15%** and **25%** of the letter-area width
+- Arrow width is between **12%** and **22%** of the letter-area width
+  (5:1 ≈ 16.7%; band allows Qt rounding)
 - Mean visible letter-key width **exceeds** letter-area width / 10 (beats
   the current full-QWERTY first-row share)
-- Arrow height spans the three letter rows (taller than one letter key)
+- Arrow height spans the **first two** letter rows (taller than one letter
+  key; does **not** cover the third row)
 
-**Width is the SC-001 area proxy only because letter-row height is
-unchanged** (FR-015 / R9). Same row height ⇒ larger width ⇒ larger area.
-Do **not** treat the width check as a second stretch factor, and do **not**
-assert a numeric area multiplier in tests.
+Width remains a relative SC-001 check. Letter-row **height** may increase
+with the planned window ratio (FR-015 / R9); do **not** treat the width
+check as a second stretch factor, and do **not** assert a numeric area
+multiplier in tests.
 
 Do **not** encode absolute pixel sizes in the spec, plan constants for
 production layout, or tests that assume a particular screen resolution.
 
 **Rationale**: Spec FR-004 / FR-006 require planning to choose ratios from
-the current letter area. 4:1 makes the arrow at least as wide as one
-enlarged letter and three rows tall (easy gaze target) while still leaving
-enough width for a clear letter-size gain. The 15–25% test band allows Qt
-rounding without locking pixels.
+the live letter area. After T016 visual review, **5:1** leaves more width
+for letters than 4:1 while keeping the arrow as a strip (not a tiny icon).
+The 12–22% test band allows Qt rounding without locking pixels.
 
 **Alternatives considered**:
 
-- 3:1 (arrow 25%) — larger arrow, smaller letters; still valid but weaker
-  SC-001 margin.
-- 5:1 (arrow ~17%) — more letter width; arrow closer to “one column” than
-  “large strip”.
+- 4:1 (arrow 20%, three-row span) — first paged layout; rejected at T016
+  visual review (arrow too wide and too tall; letters not large enough).
+- 3:1 (arrow 25%) — larger arrow, smaller letters; weaker SC-001 margin.
 - Match arrow width to one letter key exactly — too narrow for a page-switch
   control that must be easier to hit than a letter.
 
@@ -190,12 +193,13 @@ allowed sync updates are:
 Do **not** change `hit_test_layout_keys` math, snap margins, origin/DPR
 conversion, GazeFollower filtering, or mapping benchmarks.
 
-**Risk**: A three-row-tall arrow has a different height than letter keys.
+**Risk**: A two-row-tall arrow has a different height than letter keys.
 `inspect_keyboard_layout` clusters rows by y-center with a tolerance based
 on **median** height. Many letter/suggestion keys should keep the median at
 letter height so rows do not merge. Mitigation: stable `gazeKeyId` on the
 arrow; geometry tests that left-page letters still form three distinct
-rows and that hidden-page letters are absent from export and hit-test.
+rows, that the arrow covers only the first two rows, and that hidden-page
+letters are absent from export and hit-test.
 
 **Rationale**: Gaze loop already hit-tests exported layout keys each frame.
 That export is valid only if previous-page letters were synchronously
@@ -241,12 +245,16 @@ targets, not a mapping metric.
 ## R9 — Responsive sizing
 
 **Decision**: Extend `update_responsive_sizes` so the arrow height equals the
-stacked three letter rows (including gaps), letter keys keep the current
-per-row height policy, and the bottom Calibrate/Space/Enter row is unchanged.
-Window height ratio (top-of-screen ~62% available height) stays as today
-(FR-015).
+stacked **first two** letter rows (including the gap between them). Letter
+keys keep a per-row height policy (taller when the window is taller). The
+third letter row and the bottom Calibrate/Space/Enter row stay full width.
+Window height ratio is **~70%** of available screen height (`KEYBOARD_HEIGHT_RATIO
+= 0.70`), still pinned to the **top** (FR-015). About **30%** of available
+height remains for the focused external application on the same screen.
 
-**Rationale**: Enlargement must come from fewer letters, not a bigger window.
+**Rationale**: T016 visual review: keys need more width (5:1, two-row arrow)
+and more height (moderate window growth). Full-screen or moving the overlay
+off the top remains out of scope.
 
 ## R10 — Pre-implementation full-QWERTY practical baseline
 

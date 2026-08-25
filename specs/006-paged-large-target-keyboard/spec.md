@@ -52,6 +52,20 @@ checks defined here.
   and after recalibration; **keep the current page** across
   minimize/restore.
 
+### Session 2026-08-25 (T016 visual revision)
+
+Live review of the first paged layout. Product decisions (still no pixels
+in this spec; planning names the ratios):
+
+- Q4: How tall is the page-switch arrow? → A: **First two letter rows
+  only.** The arrow is one tall strip beside QWERT/ASDFG (or YUIOP/HJKL).
+  The **third** letter row (Shift + that page’s letters + Backspace) is
+  **full letter-area width** with no arrow beside it.
+- Q5: May the keyboard grow so keys are taller? → A: **Yes, moderately**,
+  still a **top-of-screen** overlay. The focused external application MUST
+  remain visible on the **same screen below** the keyboard. Not full-screen
+  and not moved off the top. Planning names the height ratio.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Type On Larger Letter Targets (Priority: P1)
@@ -113,12 +127,12 @@ letter.
 
 1. **Given** the left letter page is visible, **When** the user inspects the
    letter area, **Then** a tall vertical right-pointing arrow occupies the
-   right side of that area, and the left-page letters occupy the remaining
-   letter space to its left.
+   right side of the **first two letter rows**, and the left-page letters
+   occupy the remaining letter space (third row full width, no arrow).
 2. **Given** the right letter page is visible, **When** the user inspects the
    letter area, **Then** a tall vertical left-pointing arrow occupies the
-   left side of that area, and the right-page letters occupy the remaining
-   letter space to its right.
+   left side of the **first two letter rows**, and the right-page letters
+   occupy the remaining letter space (third row full width, no arrow).
 3. **Given** the left page is visible, **When** the user completes gaze dwell
    on the page-switch arrow, **Then** the right page becomes visible and the
    left-page letters are no longer shown or selectable.
@@ -247,26 +261,28 @@ with the on-screen keys after the switch.
 - **FR-003**: The **right** page MUST show letter keys **Y U I O P** / **H J
   K L** / **B N M** and MUST NOT show Q W E R T, A S D F G, or Z X C V.
 - **FR-004**: Each page MUST include a **large vertical arrow** gaze target
-  that switches to the other page. The arrow MUST span the letter-key rows
-  vertically rather than appearing as a small chrome icon. On the
-  **left-letter page**, the arrow MUST sit on the **right** side of the
-  letter area and point **right**. On the **right-letter page**, the arrow
-  MUST sit on the **left** side of the letter area and point **left**. The
+  that switches to the other page. The arrow MUST span the **first two**
+  letter-key rows as **one** strip (not a small chrome icon and not three
+  stacked buttons). It MUST NOT cover the **third** letter row. On the
+  **left-letter page**, the arrow MUST sit on the **right** of those first
+  two rows and point **right**. On the **right-letter page**, the arrow MUST
+  sit on the **left** of those first two rows and point **left**. The
   specification does not fix the arrow’s width in pixels; planning MUST
-  choose a width from the live letter area so the arrow is a large,
-  easy-to-hit gaze target while still leaving enough width for
-  significantly larger letters.
+  choose a width from the live letter area so the arrow is easy to hit by
+  gaze while leaving most of the width for larger letters.
 - **FR-005**: Completing a page-switch (dwell or optional click) MUST change
   only which letter page is shown. It MUST NOT deliver OS input and MUST NOT
   alter prediction context by itself.
 - **FR-006**: Visible letter keys MUST become **significantly larger** than
-  the current full-QWERTY letter keys because fewer letters are shown.
-  Enlargement MUST come from redistributing the existing letter-area space
-  among the visible letters and the large arrow, **not** from enlarging the
-  keyboard window, moving it, or changing screen coverage. Exact key-size
-  and arrow-width **ratios** MUST be chosen during planning from the current
-  available letter area. This specification MUST NOT hard-code pixel
-  dimensions or fixed stretch ratios.
+  the current full-QWERTY letter keys. Enlargement MUST come from fewer
+  visible letters, a relatively **narrow** arrow strip beside the first two
+  rows, and a **moderate** increase in top-of-screen keyboard height chosen
+  in planning — **not** from a full-screen keyboard or from moving the
+  overlay. The lower portion of the same screen MUST remain available for
+  the focused external application. Exact key-size, arrow-width, and window
+  height **ratios** MUST be chosen during planning from the live layout.
+  This specification MUST NOT hard-code pixel dimensions or fixed stretch
+  ratios.
 - **FR-007**: Visible letters MUST expand to fill most of the letter area
   beside the arrow. They MUST NOT be confined to a native QWERTY half that
   leaves the unused half empty. The arrow remains a distinct tall strip
@@ -303,9 +319,11 @@ with the on-screen keys after the switch.
   selection completes the remaining suffix plus Space, and internal typing
   context continues to follow dispatched keystrokes only. Prediction ranking
   and word-list logic MUST NOT be modified.
-- **FR-015**: Keyboard window placement and overall size policy MUST remain
-  the current top-of-screen product keyboard (not a new full-screen keyboard
-  and not a moved/resized overlay to “make keys bigger”).
+- **FR-015**: The keyboard MUST remain a **top-of-screen** overlay on the
+  same monitor (not full-screen and not moved off the top). Planning MAY
+  increase overall height **moderately** so letter keys become taller,
+  provided the focused external application remains visible **below** the
+  keyboard on that screen.
 - **FR-016**: This feature MUST NOT modify GazeFollower, calibration,
   gaze-estimation, gaze mapping, filtering, origin/DPR conversion, or any
   post-backend mapping correction. Practical accuracy gains MUST come from
@@ -330,8 +348,8 @@ with the on-screen keys after the switch.
   (left: QWERT / ASDFG / ZXCV; right: YUIOP / HJKL / BNM).
 - **Page-switch target**: The large vertical arrow on the current page that
   reveals the other letter page and never types into the external app.
-  Left page: right-side, right-pointing. Right page: left-side,
-  left-pointing.
+  It spans the first two letter rows only. Left page: right-side,
+  right-pointing. Right page: left-side, left-pointing.
 - **Visible target set**: The on-screen, enabled controls that live
   hit-testing may select after the latest page switch (visible letters,
   arrow, and persistent non-letter controls).
@@ -346,11 +364,11 @@ with the on-screen keys after the switch.
 ### Measurable Outcomes
 
 - **SC-001**: On each page, visible letter keys are **clearly larger** than
-  the current full-QWERTY letter keys when compared on the same display and
-  the same keyboard window. Mean letter-key on-screen area MUST exceed the
-  current full-QWERTY mean. Planning sets the arrow-width and key-size
-  ratios from the live letter area so the gain is usable for gaze; this spec
-  does not prescribe pixels or a numeric stretch factor.
+  the current full-QWERTY letter keys when compared on the same display.
+  Mean letter-key on-screen area MUST exceed the current full-QWERTY mean.
+  Planning sets the arrow-width, key-size, and window-height ratios from
+  the live layout so the gain is usable for gaze; this spec does not
+  prescribe pixels or a numeric stretch factor.
 - **SC-002**: A user can switch from one letter page to the other with a
   **single** completed gaze selection on the arrow, without any character
   appearing in the external application.
@@ -387,10 +405,12 @@ with the on-screen keys after the switch.
 
 - Split product-keyboard letter keys into the two specified pages
 - Large vertical page-switch arrow on each page
-- Enlarge visible letter keys using space freed by hiding the other page
+- Enlarge visible letter keys using space freed by hiding the other page,
+  a two-row-tall narrow arrow, and a moderate top-of-screen height increase
 - Keep live visible-bounds ↔ hitbox synchronization after page changes
 - Preserve existing dwell typing, OS delivery, suggestions, Shift/editing,
-  Calibrate, and top-of-screen keyboard placement
+  Calibrate, and top-of-screen placement with the external app still visible
+  below on the same screen
 - Practical typing checks on the new surface under chin/head support
 
 **Out of scope**:
@@ -402,7 +422,8 @@ with the on-screen keys after the switch.
 - Dwell duration, lockout, cooldown, or switch-confirmation redesign
 - Prediction method, ranking, dictionary, or TypingContext rules
 - Replacing or bypassing the existing OS typing path
-- Changing keyboard window size, screen half, or multi-monitor layout
+- Full-screen keyboard, moving the overlay off the top of the screen, or
+  multi-monitor layout (a moderate top-of-screen height increase is in scope)
 - Restoring Feature 003-removed chrome (Pause, Preview, language, symbols,
   Ctrl/Alt, typed-text bar, gaze-status text)
 - Hebrew / language switching
@@ -418,8 +439,9 @@ with the on-screen keys after the switch.
 - The current product keyboard (Feature 003 R7 + bottom-row Calibrate) is
   the baseline: full QWERTY letters, three suggestion slots, Shift /
   Backspace on the third row, Calibrate | Space | Enter on the bottom row,
-  slim minimize/close chrome, top-of-screen window at the existing height
-  policy.
+  slim minimize/close chrome, top-of-screen window. Planning may raise the
+  height ratio so keys are taller while the lower screen stays for the
+  external app.
 - “Left side” / “Right side” names both the **letter contents** of each
   page (QWERTY split at T/Y, G/H, V/B) and the **arrow placement**: left
   page has letters with a right-side right-pointing arrow; right page has

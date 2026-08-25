@@ -40,6 +40,7 @@ class VirtualKeyboard(QWidget):
         self.letter_keys = {}  # Store references to letter buttons for shift toggle
         self.is_expanded = True  # Track zoom state
         self.current_layout = 'letters'  # Product is letters-only (symbols path removed in 003)
+        self.letter_page = "left"
         self._gaze_loop = GazeLoopController(self)
         self._typing_session = TypingSession()
         self._dwell_engine = DwellEngine()
@@ -52,6 +53,7 @@ class VirtualKeyboard(QWidget):
             on_session_ui_sync=self._sync_typing_session_ui,
             on_suggestion_accept=self._on_suggestion_accept,
             on_calibrate=self.on_calibrate_clicked,
+            on_page_switch=self.on_page_switch_activated,
         )
         self._action_dispatcher.on_action_delivered(self._on_os_action_delivered)
         # Composition root: construct default WordProvider once via factory.
@@ -297,6 +299,7 @@ class VirtualKeyboard(QWidget):
         from gazekey.backend.startup import run_official_recalibrate
 
         run_official_recalibrate(lifecycle, self)
+        self._on_return_from_official_recalibrate()
 
     def _reset_calibrate_button_style(self) -> None:
         self.calibrate_btn.setText("👁 CALIBRATE")
@@ -515,6 +518,43 @@ class VirtualKeyboard(QWidget):
             else:
                 btn.setText(char.lower())
         self._log_verbose(f"Shift {'ON' if self.shift_active else 'OFF'}")
+
+    def switch_letter_page(self, page: str) -> None:
+        """Rebuild the visible letter page and export layout in the same call.
+
+        Must not reset TypingSession (including shift_oneshot_armed) or
+        TypingContext prefix/epoch (FR-019).
+        """
+        if page not in ("left", "right"):
+            raise ValueError(f"invalid letter_page: {page!r}")
+        self.letter_page = page
+        self._keyboard_layout_builder.rebuild_letter_area(page)
+
+    def on_page_switch_activated(self, checked: bool = False) -> None:
+        """Dwell/mouse page-switch control: toggle letter page, never OS-type."""
+        del checked
+        dest = "right" if self.letter_page == "left" else "left"
+        self.switch_letter_page(dest)
+
+    def _on_return_from_official_recalibrate(self) -> None:
+        """FR-009: reset to left only after official recalibrate returns."""
+        if self.letter_page != "left":
+            self.switch_letter_page("left")
+        else:
+            self.letter_page = "left"
+
+    def _restore_shift_visual_from_session(self) -> None:
+        """Copy Shift checked-state and letter case from TypingSession after rebuild."""
+        runtime = getattr(self, "_typing_runtime", None)
+        armed = bool(runtime is not None and runtime.session.shift_oneshot_armed)
+        self.shift_active = armed
+        shift_btn = getattr(self, "shift_btn", None)
+        if shift_btn is not None:
+            shift_btn.blockSignals(True)
+            shift_btn.setChecked(armed)
+            shift_btn.blockSignals(False)
+        for char, btn in self.letter_keys.items():
+            btn.setText(char.upper() if armed else char.lower())
 
     def on_minimize_clicked(self):
         """Handle minimize button click - shrink to keyboard icon"""

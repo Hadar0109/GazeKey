@@ -1,6 +1,6 @@
 # Contract: Page switch
 
-**Version**: 1.1.0  
+**Version**: 1.2.0  
 **Feature**: `006-paged-large-target-keyboard`
 
 ## Purpose
@@ -16,7 +16,7 @@ FR-005, FR-012, FR-019, FR-020).
 | right | `system:page_left` | `←` | left of letter area | show left page |
 
 - `objectName`: `gazeTarget`
-- Exactly **one** arrow widget, spanning the three letter rows
+- Exactly **one** arrow widget, spanning the **first two** letter rows
 - Not a letter `keyboardKey`
 
 ## Selection flow

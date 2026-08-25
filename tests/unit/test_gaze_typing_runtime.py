@@ -115,3 +115,28 @@ def test_ctrl_alt_no_os_action():
     assert runtime.on_mouse_key(key_id="ctrl", action="CTRL") is None
     assert runtime.on_mouse_key(key_id="alt", action="ALT") is None
     assert adapter.injected == []
+
+
+def test_shift_survives_page_switch_then_letter_consumes():
+    """T026: armed one-shot Shift still applies after page switch; then clears."""
+    from gazekey.typing.key_semantics import PAGE_RIGHT_KEY_ID
+
+    runtime, adapter, _keys = _runtime()
+    switches: list[str] = []
+    runtime._on_page_switch = lambda: switches.append("switch")
+
+    runtime.on_mouse_key(key_id="key_shift", action="SHIFT")
+    assert runtime.session.shift_oneshot_armed is True
+    assert adapter.injected == []
+
+    published = runtime.on_mouse_key(key_id=PAGE_RIGHT_KEY_ID, action=PAGE_RIGHT_KEY_ID)
+    assert published is None
+    assert switches == ["switch"]
+    assert runtime.session.shift_oneshot_armed is True
+    assert adapter.injected == []
+
+    published = runtime.on_mouse_key(key_id="key_h", action="h")
+    assert published is not None
+    assert published.text == "H"
+    assert runtime.session.shift_oneshot_armed is False
+    assert adapter.injected[-1].text == "H"

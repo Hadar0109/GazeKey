@@ -18,6 +18,7 @@ from gazekey.typing.key_semantics import (
     builds_os_key_action,
     is_calibrate_action,
     is_os_bound_action,
+    is_page_switch_action,
     is_pause_resume_action,
     is_shift_action,
     is_suggestion_action,
@@ -61,6 +62,7 @@ class GazeTypingFrameResult:
     system_toggled: bool = False
     suggestion_accepted: bool = False
     calibrate_requested: bool = False
+    page_switch_requested: bool = False
 
 
 class GazeTypingRuntime:
@@ -81,6 +83,7 @@ class GazeTypingRuntime:
         on_session_ui_sync: Optional[Callable[[], None]] = None,
         on_suggestion_accept: Optional[Callable[[str, KeyActionSource], None]] = None,
         on_calibrate: Optional[Callable[[], None]] = None,
+        on_page_switch: Optional[Callable[[], None]] = None,
     ) -> None:
         self.session = session
         self.dwell = dwell
@@ -89,6 +92,7 @@ class GazeTypingRuntime:
         self._on_session_ui_sync = on_session_ui_sync
         self._on_suggestion_accept = on_suggestion_accept
         self._on_calibrate = on_calibrate
+        self._on_page_switch = on_page_switch
         self._last_dwell: Optional[DwellFrameResult] = None
         # Hard gate: False during calibration fixation (T045).
         self.os_inject_enabled = True
@@ -144,6 +148,7 @@ class GazeTypingRuntime:
         system_toggled = False
         suggestion_accepted = False
         calibrate_requested = False
+        page_switch_requested = False
         if (
             self.os_inject_enabled
             and dwell_result.fired
@@ -153,7 +158,7 @@ class GazeTypingRuntime:
             if action_str is None and layout_keys:
                 action_str = self._action_for_key_id(layout_keys, dwell_result.fired_key_id)
             if action_str is not None:
-                published, system_toggled, suggestion_accepted, calibrate_requested = (
+                published, system_toggled, suggestion_accepted, calibrate_requested, page_switch_requested = (
                     self._handle_activation(
                         key_id=dwell_result.fired_key_id,
                         action=action_str,
@@ -169,6 +174,7 @@ class GazeTypingRuntime:
             system_toggled=system_toggled,
             suggestion_accepted=suggestion_accepted,
             calibrate_requested=calibrate_requested,
+            page_switch_requested=page_switch_requested,
         )
 
     def on_mouse_key(
@@ -180,7 +186,7 @@ class GazeTypingRuntime:
         """Optional mouse path — same KeyAction / system-control handling as dwell."""
         if not self.os_inject_enabled:
             return None
-        published, _system, _suggestion, _calibrate = self._handle_activation(
+        published, _system, _suggestion, _calibrate, _page = self._handle_activation(
             key_id=key_id,
             action=action,
             source=KeyActionSource.MOUSE,
@@ -211,13 +217,21 @@ class GazeTypingRuntime:
         action: str,
         source: KeyActionSource,
         apply_mouse_cooldown: bool,
-    ) -> tuple[Optional[KeyAction], bool, bool, bool]:
+    ) -> tuple[Optional[KeyAction], bool, bool, bool, bool]:
         if is_calibrate_action(action) or is_calibrate_action(key_id):
             if self._on_calibrate is not None:
                 self._on_calibrate()
             if apply_mouse_cooldown:
                 self.dwell.begin_cooldown()
-            return None, False, False, True
+            return None, False, False, True, False
+
+        if is_page_switch_action(action) or is_page_switch_action(key_id):
+            if self._on_page_switch is not None:
+                self._on_page_switch()
+            self.dwell.cancel_progress()
+            if apply_mouse_cooldown:
+                self.dwell.begin_cooldown()
+            return None, False, False, False, True
 
         if is_pause_resume_action(action):
             toggled = self._toggle_pause_resume()
@@ -225,16 +239,16 @@ class GazeTypingRuntime:
                 self.dwell.begin_cooldown()
             if toggled:
                 self._sync_ui()
-            return None, toggled, False, False
+            return None, toggled, False, False, False
 
         if is_suggestion_action(action) or is_suggestion_action(key_id):
             if not self.session.is_active:
-                return None, False, False, False
+                return None, False, False, False, False
             if self._on_suggestion_accept is not None:
                 self._on_suggestion_accept(key_id if is_suggestion_action(key_id) else action, source)
             if apply_mouse_cooldown:
                 self.dwell.begin_cooldown()
-            return None, False, True, False
+            return None, False, True, False, False
 
         if is_shift_action(action):
             if self.session.is_active:
@@ -242,13 +256,13 @@ class GazeTypingRuntime:
                 if apply_mouse_cooldown:
                     self.dwell.begin_cooldown()
                 self._sync_ui()
-            return None, False, False, False
+            return None, False, False, False, False
 
         if not is_os_bound_action(action):
-            return None, False, False, False
+            return None, False, False, False, False
 
         if not self.session.is_active:
-            return None, False, False, False
+            return None, False, False, False, False
 
         shift_armed = self.session.shift_oneshot_armed
         key_action = builds_os_key_action(
@@ -259,7 +273,7 @@ class GazeTypingRuntime:
             shift_armed=shift_armed,
         )
         if key_action is None:
-            return None, False, False, False
+            return None, False, False, False, False
 
         if role_for_action(action) is KeyRole.LETTER:
             self.session.consume_shift_for_letter()
@@ -269,7 +283,7 @@ class GazeTypingRuntime:
             self.dwell.begin_cooldown()
 
         self.dispatcher.publish(key_action)
-        return key_action, False, False, False
+        return key_action, False, False, False, False
 
     def _toggle_pause_resume(self) -> bool:
         if self.session.is_active:

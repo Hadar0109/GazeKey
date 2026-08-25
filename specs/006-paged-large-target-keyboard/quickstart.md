@@ -67,11 +67,13 @@ sequence, and the same conditions — not memory of the old layout.
 1. Launch `python main.py`; complete official GazeFollower calibration
 2. Confirm the keyboard opens on the **left** letter page:
    - Letters: QWERT / ASDFG / ZXCV with Shift and Backspace on the third row
-   - Tall **→** on the **right** of the letter area (one strip, not three)
+   - Tall **→** on the **right** of the **first two** letter rows (one strip,
+     not three buttons; third row full width)
    - No YUIOP / HJKL / BNM visible
    - Suggestion bar, Calibrate | Space | Enter, minimize/close unchanged
 3. Confirm visible letters are clearly **larger** than the old full-QWERTY
-   letters (same window size)
+   letters (narrower two-row arrow + moderate ~70% window height; external
+   app still visible below)
 4. Run (must include T013 immediate stale-target isolation):
 
 ```bash
