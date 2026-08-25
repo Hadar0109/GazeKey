@@ -106,8 +106,9 @@ LetterPageState.current
 
 1. Exactly one letter page visible.
 2. Arrow side/direction match the current page (left page → right-side `→`).
-3. Mean visible letter-key area exceeds the full-QWERTY baseline share
-   (letter-area width / 10), measured relatively (research R2).
+3. Mean visible letter-key **width** exceeds letter-area width / 10
+   (research R2). This is the SC-001 **area** proxy **only because
+   letter-row height is unchanged**; it is not a second stretch factor.
 4. After a page switch returns, previous-page letters are already absent
    from export/hit-test (synchronous unparent; not `deleteLater`-only).
 5. GazeFollower sample fields and dwell timing are not part of this model.

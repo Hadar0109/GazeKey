@@ -54,8 +54,11 @@ dwellable control id, not a new dwell mode.
 - Suggestion prefix/epoch is preserved
 - Rapid re-activation of the new page’s arrow is gated by existing lockout +
   cooldown (no double-flip from one hold)
+- In-progress letter **or suggestion** dwell is cancelled; a completed
+  arrow MUST NOT publish the previous letter and MUST NOT dispatch a
+  suggestion
 - Automated test MUST switch page and **immediately** verify previous-page
-  letters are absent from export/hit-test
+  letters are absent from export/hit-test (tasks T013 checkpoint)
 
 ## Isolation
 

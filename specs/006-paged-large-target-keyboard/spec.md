@@ -366,9 +366,13 @@ with the on-screen keys after the switch.
 - **SC-006**: In chin/head-support sessions with suggestions unused and
   GazeFollower left unchanged, practical **intended-key / focus** errors
   among **visible** letter keys are lower than on the current full-QWERTY
-  layout under the same calibration condition. The improvement is attributed
-  to larger targets, not to mapping retune. Independent mapping benchmarks
-  remain unchanged and are not the acceptance gate for this feature.
+  layout under the same calibration condition. The before/after comparison
+  MUST use one fixed representative letter-target sequence that covers
+  **both pages and all three QWERTY rows** (planning names the sequence;
+  currently `Q T A G Z V / Y P H L B M`). This is **not** the SC-003
+  `hello` typing check. The improvement is attributed to larger targets,
+  not to mapping retune. Independent mapping benchmarks remain unchanged
+  and are not the acceptance gate for this feature.
 - **SC-007**: Existing dwell timing feel is unchanged: users still complete
   a key selection in the same dwell interaction as today; this feature adds
   page switches, not a new selection method.

@@ -40,8 +40,9 @@ timing, and prediction logic stay sealed.
    export root, `export_keyboard_layout` in the same switch so `_layout_keys`
    matches on-screen QRects (R6). Do not rely solely on `deleteLater()`.
 6. **Tests + USER GATE** — Immediate hidden-letter isolation test; relative
-   size/page-content tests; chin/head-support mixed-page typing vs the
-   **recorded** baseline. No mapping retune (R8, R10).
+   size/page-content tests; chin/head-support mixed-page `hello` typing
+   (SC-003); SC-006 intended-key/focus vs the **recorded** 12-letter
+   baseline (R10). No mapping retune (R8, R10).
 
 ## Technical Context
 
@@ -58,8 +59,10 @@ baseline notes live under `specs/006-paged-large-target-keyboard/baseline/`
 arrow geometry, **immediate** hit-test isolation after switch (previous-page
 letters absent without waiting on `deleteLater`), page-switch does not
 OS-inject, Shift armed survives switch; full-project `pytest -q`. Live
-USER GATE: pre-change full-QWERTY intended-key/focus baseline, then
-paged mixed-page typing under chin/head support against that record.
+USER GATE: pre-change full-QWERTY intended-key/focus baseline on the R10
+12-letter sequence, then the same sequence after paging (SC-006); separate
+mixed-page `hello` typing check (SC-003). Chin/head support. Not a mapping
+benchmark.
 
 **Target Platform**: Windows desktop (primary)
 
@@ -166,11 +169,16 @@ layout exporter.
 
 - On the **current** Feature 003 full-QWERTY keyboard, chin/head support,
   suggestions unused, official GazeFollower calibration unchanged
-- Run the fixed intended-key/focus protocol (`h e l l o`) from research R10
+- Run the fixed intended-key/focus protocol from research R10:
+  `Q T A G Z V / Y P H L B M` (both pages’ letters, all three QWERTY rows)
 - Record `specs/006-paged-large-target-keyboard/baseline/full-qwerty-intended-key.md`
-- **USER GATE**: baseline file exists with per-letter intended vs focus
+  (per trial: intended key, focused key, correct/incorrect; plus total
+  wrong-focus count)
+- **USER GATE**: baseline file exists with those 12 trials
 - **Do not** change production layout until this record exists
 - **Do not** retune GazeFollower or treat this as a mapping benchmark
+- `hello` is **not** this protocol; it remains the Phase D mixed-page
+  typing USER GATE (SC-003)
 
 ### Phase A — Paged layout & geometry gate
 
@@ -180,28 +188,34 @@ layout exporter.
 - Destroy/recreate on page API with **synchronous** unparent/removal before
   export (R3)
 - Automated relative-geometry + page-content tests
-- Automated test: switch page and **immediately** assert previous-page
-  letters are absent from export/hit-test
-- **USER GATE**: visual layout (arrow side/direction, larger letters)
+- Automated **immediate** hidden-letter isolation test is a **Phase A
+  rebuild checkpoint** (tasks T013), not deferred to later US4-only proof
+- **USER GATE**: visual layout (arrow side/direction, larger letters) plus
+  dwell **2–3 left-page letters** into Notepad (not `hello`, not SC-006)
 
 ### Phase B — Page-switch interaction
 
 - `system:page_*` gazeTarget + runtime callback (R5)
 - Export in the same switch after sync removal; dwell cancel (R3, R6)
 - Mouse click parity; no OS injection; Shift survives switch
-- Unit/contract: hidden letters not hit-tested; arrow does not type
+- Completed arrow must not accept an in-progress suggestion dwell
+- Unit/contract: hidden letters not hit-tested (already T013); arrow does
+  not type
 
 ### Phase C — Persistence
 
 - Minimize/restore keeps page (R4)
-- Recalibrate hide/show resets to left without backend edits
+- Reset to left only on the explicit **return-from-official-recalibrate**
+  path; do **not** blanket-reset on every `showEvent`
 - Launch after calibration shows left page
 
 ### Phase D — Integration & quickstart
 
-- Mixed-page word (`hello`) USER GATE under chin/head support
-- Record `baseline/paged-intended-key.md` with the **same** fixed inputs;
-  compare wrong-focus to the Phase 0 file (SC-006)
+- Mixed-page word (`hello`) USER GATE under chin/head support (SC-003
+  end-to-end typing; not the SC-006 comparison)
+- Record `baseline/paged-intended-key.md` with the **same** R10 sequence
+  `Q T A G Z V / Y P H L B M` and the same per-trial fields; compare
+  total wrong-focus to the Phase 0 file (SC-006)
 - Suggestions still complete suffix + Space after a page switch
 - Full `pytest -q`
 - Confirm no GazeFollower / dwell-engine / prediction diffs

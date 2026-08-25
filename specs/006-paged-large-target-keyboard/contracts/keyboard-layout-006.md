@@ -49,7 +49,9 @@ Relative sizing (not pixels):
 
 - Letter pane : arrow pane stretch **4:1** (~20% of letter-area width for the
   arrow; test band 15–25%)
-- Mean visible letter-key width **>** letter-area width / 10
+- Mean visible letter-key width **>** letter-area width / 10 (SC-001 area
+  proxy **only because letter-row height is unchanged**; not a second
+  stretch factor)
 - Arrow taller than a single letter key (spans three letter rows)
 - Keyboard window placement/size policy unchanged (top of available screen)
 
@@ -74,8 +76,9 @@ Relative sizing (not pixels):
 - `tests/unit/test_layout_geometry.py` (extend)
 - `tests/unit/test_paged_keyboard.py` (new): both pages’ letter sets, arrow
   id/side/direction, relative size band, Shift present on both pages,
-  **immediate** hidden-letter isolation (switch then assert previous-page
-  letters absent from export/hit-test without waiting on `deleteLater`)
+  **immediate** hidden-letter isolation as a **rebuild checkpoint** (tasks
+  T013 — switch then assert previous-page letters absent from export/hit-test
+  without waiting on `deleteLater`)
 - Suggestion slots still exported when blank/disabled
 
 ## Non-product paths

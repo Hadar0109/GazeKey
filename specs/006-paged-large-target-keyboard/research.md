@@ -58,6 +58,11 @@ Implementation may keep these as named layout weights (e.g.
   the current full-QWERTY first-row share)
 - Arrow height spans the three letter rows (taller than one letter key)
 
+**Width is the SC-001 area proxy only because letter-row height is
+unchanged** (FR-015 / R9). Same row height ⇒ larger width ⇒ larger area.
+Do **not** treat the width check as a second stretch factor, and do **not**
+assert a numeric area multiplier in tests.
+
 Do **not** encode absolute pixel sizes in the spec, plan constants for
 production layout, or tests that assume a particular screen resolution.
 
@@ -93,16 +98,18 @@ complete **before** `export_keyboard_layout` runs:
 4. Restore Shift visual state; `apply_no_focus_policies`;
    `update_responsive_sizes`.
 5. Call `export_keyboard_layout` (refresh `_layout_keys` / hitboxes) **in
-   the same switch**, after step 1–2. Cancel in-progress dwell.
+   the same switch**, after step 1–2. Cancel in-progress letter **or
+   suggestion** dwell (completed arrow MUST NOT dispatch a suggestion).
 
 Do **not** rely solely on deferred Qt `deleteLater()` to prevent stale
 targets. `deleteLater()` may leave widgets parented and discoverable until
 the event loop runs. A page-switch function that returns, then exports, must
 already have previous-page letters absent from export and `hit_test_layout_keys`.
 
-**Required test**: switch page, and **immediately** (no extra wait for
-`deleteLater`) assert previous-page letters are absent from
-`inspect_keyboard_layout` and produce zero hits.
+**Required test** (Phase A / tasks **T013** checkpoint, not US4-only):
+switch page, and **immediately** (no extra wait for `deleteLater`) assert
+previous-page letters are absent from `inspect_keyboard_layout` and produce
+zero hits.
 
 **Rationale**: Live hit-testing consumes `_layout_keys` from layout export.
 A same-stack export after `deleteLater()` would still see old letters and
@@ -126,14 +133,18 @@ Default and launch value: `"left"`.
 | Minimize / restore | **unchanged** (window stays shown; only chrome swaps) |
 | Official recalibrate hide → show | reset to `left` |
 
-Reset after recalibrate in **GazeKey keyboard code** (`VirtualKeyboard`
-after `run_official_recalibrate` returns, and/or `showEvent` following
-`hide()`). Do **not** change GazeFollower Preview/Calibration, sampling, or
+Reset after recalibrate in **GazeKey keyboard code** on the explicit
+**return-from-official-recalibrate** path only (`VirtualKeyboard` after
+`run_official_recalibrate` returns — a dedicated post-recalibrate hook or
+flag). Do **not** reset `letter_page` in a blanket `showEvent` (that would
+also fire on ordinary show / restore and violate FR-009 minimize/restore).
+Do **not** change GazeFollower Preview/Calibration, sampling, or
 `gazekey/backend/` geometry/filter/origin logic.
 
 **Rationale**: Matches FR-009. Minimize already keeps `main_content_widget`
-in memory, so page widgets persist without extra work. Recalibrate calls
-`keyboard.hide()` then shows again — that is the reset hook.
+in memory and does **not** go through official recalibrate, so page widgets
+persist without a showEvent reset. Recalibrate returns through
+`run_official_recalibrate`; that return is the reset hook.
 
 **Alternatives considered**: Persist across recalibrate — rejected by specify
 Q3. Reset on minimize/restore — also rejected (Q3).
@@ -258,21 +269,34 @@ This is a **practical interaction baseline**, not a mapping benchmark:
 - Official GazeFollower calibration accepted; no backend changes between
   baseline and paged comparison
 - Chin/head support on; suggestions unused
-- Scripted intended letters: `h e l l o` (the mixed-page word from SC-003),
-  recording for each dwell whether **focus** matched the intended letter
-  (wrong-focus counts even if dwell never fires — Feature 005 focus rule)
+- Scripted intended letters (12 trials covering **both pages** and **all
+  three QWERTY rows**; first and last letter of each page-row):
+
+  `Q T A G Z V / Y P H L B M`
+
+  Left-page letters: Q, T, A, G, Z, V. Right-page letters: Y, P, H, L, B, M.
+  After paging, the user switches pages as needed; the intended sequence
+  does not change.
+- For **each** trial record: intended key, focused key, correct/incorrect.
+  Wrong-focus counts even if dwell never fires (Feature 005 focus rule).
+  Also record the session **total wrong-focus count**.
+- `hello` is **not** this comparison. It remains the separate SC-003
+  mixed-page typing USER GATE (type the word into the external app).
 - Optionally note Space/Backspace only if needed to recover the trial; they
   are not the comparison metric
 
 **Record** at
 `specs/006-paged-large-target-keyboard/baseline/full-qwerty-intended-key.md`
-(create at gate time): date, chin/head support, calibration accepted,
-per-letter intended vs focused key, wrong-focus count. After the paged
-layout exists, a matching note under `baseline/paged-intended-key.md` uses
-the same inputs.
+(create at gate time): date, chin/head support, calibration accepted, the
+12-trial table (intended / focused / correct-incorrect), total wrong-focus
+count. After the paged layout exists, a matching note under
+`baseline/paged-intended-key.md` uses the **same sequence and conditions**.
 
 **Rationale**: SC-006 requires fewer visible-letter focus errors than the
-current layout. Without a pre-change record, the comparison is anecdotal.
+current layout. A 12-letter sequence spanning both pages and all three
+rows is a fairer target-size comparison than `hello` (five dwells, mostly
+one right-page key). Without a pre-change record, the comparison is
+anecdotal. `hello` still validates mixed-page typing (SC-003).
 
 **Alternatives considered**: Compare from memory after the old layout is
 gone — rejected. Reuse Feature 004 mapping runs as `eval_before` — those
