@@ -39,9 +39,9 @@ class FakeConfig:
 
 
 class FakeGazeFollower:
-    def __init__(self, config=None) -> None:
+    def __init__(self, config=None, camera=None, **kwargs) -> None:
         self.config = config
-        self.camera = FakeCamera()
+        self.camera = camera if camera is not None else FakeCamera()
         self.screen_size = [1920, 1080]
         self.subscribers = []
         self.preview_calls = 0
@@ -94,6 +94,11 @@ def _patch_official(monkeypatch) -> None:
         "_load_official",
         staticmethod(lambda: (SimpleNamespace(__version__="1.0.2"), FakeGazeFollower, FakeConfig)),
     )
+    monkeypatch.setattr(
+        GazeFollowerLifecycle,
+        "_make_web_cam_camera",
+        staticmethod(lambda: FakeCamera()),
+    )
 
 
 def test_lifecycle_preview_calibrate_sampling_require_closing(monkeypatch):
@@ -102,6 +107,7 @@ def test_lifecycle_preview_calibrate_sampling_require_closing(monkeypatch):
     gf = life.construct()
     assert gf.config.cali_mode == 13
     assert gf.config.screen_physical_size is None
+    assert isinstance(gf.camera, FakeCamera)
 
     monkeypatch.setattr(life, "_ensure_pygame_window", lambda: "win")
     life.preview()
@@ -112,6 +118,19 @@ def test_lifecycle_preview_calibrate_sampling_require_closing(monkeypatch):
     assert gf.calibrate_calls == 1
     assert gf.sampling_calls == 1
     assert life._on_camera_sample in gf.subscribers
+
+
+def test_construct_passes_provenance_camera(monkeypatch):
+    _patch_official(monkeypatch)
+    cam = FakeCamera()
+    monkeypatch.setattr(
+        GazeFollowerLifecycle,
+        "_make_web_cam_camera",
+        staticmethod(lambda: cam),
+    )
+    life = GazeFollowerLifecycle(gf_factory=FakeGazeFollower)
+    gf = life.construct()
+    assert gf.camera is cam
 
 
 def test_start_preview_while_sampling_fails_closed(monkeypatch):
@@ -126,7 +145,7 @@ def test_start_preview_while_sampling_fails_closed(monkeypatch):
 def test_construct_failure_does_not_start_legacy_estimator(monkeypatch):
     _patch_official(monkeypatch)
 
-    def boom(config=None):
+    def boom(config=None, **kwargs):
         raise RuntimeError("model init failed")
 
     life = GazeFollowerLifecycle(gf_factory=boom)
@@ -193,8 +212,8 @@ def test_unaccepted_calibration_fails_closed(monkeypatch):
     from gazekey.backend.startup import run_official_startup
 
     class Rejecting(FakeGazeFollower):
-        def __init__(self, config=None) -> None:
-            super().__init__(config)
+        def __init__(self, config=None, **kwargs) -> None:
+            super().__init__(config, **kwargs)
             self._calibration_controller.cali_available = False
 
     _patch_official(monkeypatch)

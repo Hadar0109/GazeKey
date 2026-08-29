@@ -22,7 +22,8 @@ LICENSE_NOTES = (
     "inconsistency only — do not reinterpret as CC BY 4.0."
 )
 CALI_MODE = 13
-CAMERA = {"webcam_id": 0, "width": 640, "height": 480, "fps": 30}
+# OpenCV index: 0 = laptop Integrated Camera, 1 = USB Full HD webcam.
+CAMERA = {"webcam_id": 1, "width": 640, "height": 480, "fps": 30}
 FILTER = "HeuristicFilter(look_ahead=3)"
 PHYSICAL_SCREEN_SIZE = None
 EXPECTED_PYTHON = (3, 11)

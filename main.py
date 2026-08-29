@@ -7,7 +7,29 @@ then sampling, then the existing Qt keyboard. GazeKey camera capture is unused.
 
 from __future__ import annotations
 
+import os
+import subprocess
 import sys
+from pathlib import Path
+
+
+def _reexec_project_venv() -> None:
+    """Use the project .venv so `python main.py` does not need the venv path."""
+    root = Path(__file__).resolve().parent
+    venv_python = root / ".venv" / ("Scripts" if os.name == "nt" else "bin") / (
+        "python.exe" if os.name == "nt" else "python"
+    )
+    if not venv_python.is_file():
+        return
+    try:
+        if Path(sys.executable).resolve() == venv_python.resolve():
+            return
+    except OSError:
+        pass
+    raise SystemExit(subprocess.call([str(venv_python), *sys.argv]))
+
+
+_reexec_project_venv()
 
 from gazekey.app_config import apply_config, parse_product_args
 from gazekey.backend.lifecycle import (

@@ -218,8 +218,8 @@ def test_rejected_new_calibration_fails_closed_without_prior_model(qapp, monkeyp
 
 def test_no_usable_old_or_new_model_fails_closed(qapp, monkeypatch):
     class NoModel(FakeGazeFollower):
-        def __init__(self, config=None) -> None:
-            super().__init__(config)
+        def __init__(self, config=None, **kwargs) -> None:
+            super().__init__(config, **kwargs)
             self.calibration.has_calibrated = False
             self._calibration_controller.cali_available = False
 

@@ -16,6 +16,7 @@ from gazekey.backend.gaze_sample import GazeSample
 from gazekey.backend.geometry import GeometryConfig, apply_geometry
 from gazekey.backend.provenance import (
     CALI_MODE,
+    CAMERA,
     PHYSICAL_SCREEN_SIZE,
     ProvenanceError,
     require_python_311,
@@ -71,6 +72,17 @@ class GazeFollowerLifecycle:
             raise ProvenanceError(f"expected gazefollower 1.0.2, got {reported}")
         return gazefollower, GazeFollower, DefaultConfig
 
+    @staticmethod
+    def _make_web_cam_camera() -> Any:
+        from gazefollower.camera import WebCamCamera
+
+        return WebCamCamera(
+            webcam_id=int(CAMERA["webcam_id"]),
+            img_width=int(CAMERA["width"]),
+            img_height=int(CAMERA["height"]),
+            cam_fps=int(CAMERA["fps"]),
+        )
+
     def construct(self) -> Any:
         """Import/construct official GazeFollower. Fail closed on model/import errors."""
         require_python_311()
@@ -91,7 +103,7 @@ class GazeFollowerLifecycle:
             config.cali_mode = CALI_MODE
             config.screen_physical_size = PHYSICAL_SCREEN_SIZE
             factory = self._gf_factory if self._gf_factory is not None else GazeFollower
-            self._gf = factory(config=config)
+            self._gf = factory(config=config, camera=self._make_web_cam_camera())
         except GazeFollowerLifecycleError:
             raise
         except Exception as exc:

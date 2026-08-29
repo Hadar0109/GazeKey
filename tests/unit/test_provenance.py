@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 
 from gazekey.backend.provenance import (
+    CAMERA,
     EXPECTED_BASE_MNN_SHA256,
     EXPECTED_PYTHON,
     LICENSE_OF_RECORD,
@@ -36,3 +37,8 @@ def test_python_is_311():
 def test_packaged_base_mnn_sha256():
     digest = verify_base_mnn()
     assert digest == EXPECTED_BASE_MNN_SHA256
+
+
+def test_camera_pin_is_usb_webcam():
+    assert CAMERA["webcam_id"] == 1
+    assert provenance_record()["camera"]["webcam_id"] == 1
