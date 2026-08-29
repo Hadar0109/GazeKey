@@ -151,13 +151,7 @@ class VirtualKeyboard(QWidget):
         runtime = getattr(self, "_typing_runtime", None)
         if runtime is None:
             return
-        if hasattr(self, "shift_btn") and self.shift_btn is not None:
-            armed = runtime.session.shift_oneshot_armed
-            if self.shift_btn.isChecked() != armed:
-                self.shift_btn.blockSignals(True)
-                self.shift_btn.setChecked(armed)
-                self.shift_btn.blockSignals(False)
-            self.shift_active = bool(armed)
+        self._restore_shift_visual_from_session()
         ctx = getattr(self, "_typing_context", None)
         if ctx is not None:
             ctx.set_shift_armed(bool(runtime.session.shift_oneshot_armed))

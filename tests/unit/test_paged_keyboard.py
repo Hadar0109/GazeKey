@@ -241,3 +241,71 @@ def test_calibrate_exported_on_both_pages(qapp):
     )
     assert idx is not None
     assert right[idx].key_id == "system:calibrate"
+
+
+def _attach_fake_os(vk: VirtualKeyboard):
+    from gazekey.input.os_input_adapter import FakeOsInputAdapter
+    from gazekey.typing.action_dispatcher import ActionDispatcher
+
+    fake = FakeOsInputAdapter()
+    vk._action_dispatcher = ActionDispatcher(fake)
+    vk._typing_runtime.dispatcher = vk._action_dispatcher
+    vk._action_dispatcher.on_action_delivered(vk._on_os_action_delivered)
+    vk._typing_runtime.session.activate()
+    vk._typing_runtime.set_os_inject_enabled(True)
+    return fake
+
+
+def _assert_letters_case(vk: VirtualKeyboard, *, upper: bool) -> None:
+    assert vk.letter_keys
+    for char, btn in vk.letter_keys.items():
+        expected = char.upper() if upper else char.lower()
+        assert btn.text() == expected, f"{char!r} shown as {btn.text()!r}"
+
+
+def test_shift_oneshot_returns_letters_to_lowercase_on_left_page(qapp):
+    vk = _show_product_keyboard(qapp)
+    fake = _attach_fake_os(vk)
+    _assert_letters_case(vk, upper=False)
+
+    vk.on_shift_clicked(True)
+    assert vk._typing_runtime.session.shift_oneshot_armed is True
+    assert vk.shift_btn.isChecked()
+    _assert_letters_case(vk, upper=True)
+
+    vk.on_key_pressed("q")
+    assert fake.injected[-1].text == "Q"
+    assert vk._typing_runtime.session.shift_oneshot_armed is False
+    assert not vk.shift_btn.isChecked()
+    _assert_letters_case(vk, upper=False)
+
+
+def test_shift_oneshot_returns_letters_to_lowercase_on_right_page(qapp):
+    vk = _show_product_keyboard(qapp)
+    fake = _attach_fake_os(vk)
+    vk.on_shift_clicked(True)
+    _assert_letters_case(vk, upper=True)
+
+    vk.switch_letter_page("right")
+    assert vk._typing_runtime.session.shift_oneshot_armed is True
+    _assert_letters_case(vk, upper=True)
+    assert "h" in vk.letter_keys
+
+    vk.on_key_pressed("h")
+    assert fake.injected[-1].text == "H"
+    assert vk._typing_runtime.session.shift_oneshot_armed is False
+    assert not vk.shift_btn.isChecked()
+    _assert_letters_case(vk, upper=False)
+
+
+def test_shift_stays_uppercase_until_a_letter_is_typed(qapp):
+    vk = _show_product_keyboard(qapp)
+    _attach_fake_os(vk)
+    vk.on_shift_clicked(True)
+    vk.switch_letter_page("right")
+    vk.switch_letter_page("left")
+    assert vk._typing_runtime.session.shift_oneshot_armed is True
+    _assert_letters_case(vk, upper=True)
+    vk._sync_typing_session_ui()
+    assert vk._typing_runtime.session.shift_oneshot_armed is True
+    _assert_letters_case(vk, upper=True)
