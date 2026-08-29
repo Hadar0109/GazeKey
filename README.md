@@ -41,7 +41,7 @@ Use the project `.venv` on Python 3.11. Do not run the product on Python 3.14.
 python main.py
 ```
 
-1. Official GazeFollower Preview, then 13-point Calibration (Space=accept, R=retry).
+1. Official GazeFollower Preview, then 13-point Calibration (both auto-continue; no key required).
 2. The Qt keyboard appears. GREEN ring is filtered gaze (`origin+dpr`).
 3. Focus an external editor; dwell or click keys to type there.
 4. After 2+ letters of a word, dwell a **suggestion** to complete it + Space.

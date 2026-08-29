@@ -183,7 +183,7 @@
       64
     ]
   },
-  "recorded_at": "2026-08-29T10:49:57.324579+00:00",
+  "recorded_at": "2026-08-29T11:32:55.950177+00:00",
   "notes": "Allowed transform is identity | origin | origin+dpr only. T012 STOP if a later live audit cannot align with these. T029 USER GATE still confirms official filtered gaze vs these QRects.",
   "interpreter": "C:\\Users\\Lenovo\\Desktop\\Virtual Keyboard\\.venv\\Scripts\\python.exe",
   "provenance": {

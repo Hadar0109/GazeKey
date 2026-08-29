@@ -14,6 +14,7 @@ from typing import Any, Callable
 from gazekey.backend.adapter import gaze_info_to_sample
 from gazekey.backend.gaze_sample import GazeSample
 from gazekey.backend.geometry import GeometryConfig, apply_geometry
+from gazekey.backend.hands_free_ui import CALI_INSTRUCTION, install_hands_free_ui
 from gazekey.backend.provenance import (
     CALI_MODE,
     CAMERA,
@@ -102,6 +103,7 @@ class GazeFollowerLifecycle:
             config = DefaultConfig()
             config.cali_mode = CALI_MODE
             config.screen_physical_size = PHYSICAL_SCREEN_SIZE
+            config.cali_instruction = CALI_INSTRUCTION
             factory = self._gf_factory if self._gf_factory is not None else GazeFollower
             self._gf = factory(config=config, camera=self._make_web_cam_camera())
         except GazeFollowerLifecycleError:
@@ -140,6 +142,7 @@ class GazeFollowerLifecycle:
     def preview(self, *, cleanup_on_failure: bool = True) -> None:
         self._require_closing("preview()")
         try:
+            install_hands_free_ui()
             win = self._ensure_pygame_window()
             self._gf.preview(win=win)
         except GazeFollowerLifecycleError:
@@ -152,9 +155,10 @@ class GazeFollowerLifecycle:
             self._fail_closed("preview()", exc)
 
     def calibrate(self, *, cleanup_on_failure: bool = True) -> None:
-        """Official 13-point Calibration + result UI (Space accept / R retry)."""
+        """Official 13-point Calibration + result UI (hands-free auto-continue)."""
         self._require_closing("calibrate()")
         try:
+            install_hands_free_ui()
             win = self._ensure_pygame_window()
             self._gf.calibrate(win=win)
         except GazeFollowerLifecycleError:
@@ -167,7 +171,7 @@ class GazeFollowerLifecycle:
             self._fail_closed("calibrate()", exc)
 
     def calibration_accepted(self) -> bool:
-        """True when official ``cali_available`` is set after Space accept.
+        """True when official ``cali_available`` is set after accepted calibration.
 
         First-run startup still uses this flag. Recalibrate uses
         ``calibration_model_usable()`` (``has_calibrated``) and does not
